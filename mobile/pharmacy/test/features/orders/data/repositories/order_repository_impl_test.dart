@@ -3,31 +3,19 @@ import 'package:mocktail/mocktail.dart';
 import 'package:drpharma_pharmacy/features/orders/data/repositories/order_repository_impl.dart';
 import 'package:drpharma_pharmacy/features/orders/data/datasources/order_remote_datasource.dart';
 import 'package:drpharma_pharmacy/features/orders/data/models/order_model.dart';
-import 'package:drpharma_pharmacy/features/auth/data/datasources/auth_local_datasource.dart';
-import 'package:drpharma_pharmacy/core/network/network_info.dart';
 import 'package:drpharma_pharmacy/core/errors/exceptions.dart';
 import 'package:drpharma_pharmacy/core/errors/failure.dart';
 
 class MockOrderRemoteDataSource extends Mock implements OrderRemoteDataSource {}
 
-class MockAuthLocalDataSource extends Mock implements AuthLocalDataSource {}
-
-class MockNetworkInfo extends Mock implements NetworkInfo {}
-
 void main() {
   late MockOrderRemoteDataSource mockRemoteDataSource;
-  late MockAuthLocalDataSource mockAuthLocalDataSource;
-  late MockNetworkInfo mockNetworkInfo;
   late OrderRepositoryImpl repository;
 
   setUp(() {
     mockRemoteDataSource = MockOrderRemoteDataSource();
-    mockAuthLocalDataSource = MockAuthLocalDataSource();
-    mockNetworkInfo = MockNetworkInfo();
     repository = OrderRepositoryImpl(
       remoteDataSource: mockRemoteDataSource,
-      authLocalDataSource: mockAuthLocalDataSource,
-      networkInfo: mockNetworkInfo,
     );
   });
 
@@ -53,10 +41,7 @@ void main() {
       ),
     ];
 
-    test('should return list of orders when connected and has token', () async {
-      when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
-      when(() => mockAuthLocalDataSource.getToken())
-          .thenAnswer((_) async => 'token');
+    test('should return list of orders when remote datasource succeeds', () async {
       when(() => mockRemoteDataSource.getOrders(status: any(named: 'status')))
           .thenAnswer((_) async => orderModels);
 
@@ -74,9 +59,6 @@ void main() {
     });
 
     test('should return list of orders with status filter', () async {
-      when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
-      when(() => mockAuthLocalDataSource.getToken())
-          .thenAnswer((_) async => 'token');
       when(() => mockRemoteDataSource.getOrders(status: 'pending'))
           .thenAnswer((_) async => [orderModels[0]]);
 
@@ -93,8 +75,9 @@ void main() {
       verify(() => mockRemoteDataSource.getOrders(status: 'pending')).called(1);
     });
 
-    test('should return NetworkFailure when not connected', () async {
-      when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => false);
+    test('should return NetworkFailure on NetworkException', () async {
+      when(() => mockRemoteDataSource.getOrders(status: any(named: 'status')))
+          .thenThrow(NetworkException(message: 'No internet'));
 
       final result = await repository.getOrders();
 
@@ -106,9 +89,6 @@ void main() {
     });
 
     test('should return ServerFailure on ServerException', () async {
-      when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
-      when(() => mockAuthLocalDataSource.getToken())
-          .thenAnswer((_) async => 'token');
       when(() => mockRemoteDataSource.getOrders(status: any(named: 'status')))
           .thenThrow(ServerException(message: 'Server error', statusCode: 500));
 
@@ -123,16 +103,6 @@ void main() {
         (orders) => fail('Should not return orders'),
       );
     });
-
-    test('should return failure when no token', () async {
-      when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
-      when(() => mockAuthLocalDataSource.getToken())
-          .thenAnswer((_) async => null);
-
-      final result = await repository.getOrders();
-
-      expect(result.isLeft(), isTrue);
-    });
   });
 
   group('getOrderDetails', () {
@@ -146,8 +116,7 @@ void main() {
       createdAt: '2024-01-15T10:00:00.000Z',
     );
 
-    test('should return order details when connected', () async {
-      when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
+    test('should return order details on success', () async {
       when(() => mockRemoteDataSource.getOrderDetails(1))
           .thenAnswer((_) async => orderModel);
 
@@ -163,8 +132,9 @@ void main() {
       );
     });
 
-    test('should return NetworkFailure when not connected', () async {
-      when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => false);
+    test('should return NetworkFailure on NetworkException', () async {
+      when(() => mockRemoteDataSource.getOrderDetails(1))
+          .thenThrow(NetworkException(message: 'No internet'));
 
       final result = await repository.getOrderDetails(1);
 
@@ -175,8 +145,7 @@ void main() {
       );
     });
 
-    test('should return ServerFailure on exception', () async {
-      when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
+    test('should return ServerFailure on ServerException', () async {
       when(() => mockRemoteDataSource.getOrderDetails(1)).thenThrow(
           ServerException(message: 'Order not found', statusCode: 404));
 
@@ -192,7 +161,6 @@ void main() {
 
   group('confirmOrder', () {
     test('should return Right(null) on success', () async {
-      when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
       when(() => mockRemoteDataSource.confirmOrder(1))
           .thenAnswer((_) async => {});
 
@@ -202,8 +170,9 @@ void main() {
       verify(() => mockRemoteDataSource.confirmOrder(1)).called(1);
     });
 
-    test('should return NetworkFailure when not connected', () async {
-      when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => false);
+    test('should return NetworkFailure on NetworkException', () async {
+      when(() => mockRemoteDataSource.confirmOrder(1))
+          .thenThrow(NetworkException(message: 'No internet'));
 
       final result = await repository.confirmOrder(1);
 
@@ -215,7 +184,6 @@ void main() {
     });
 
     test('should return ServerFailure on exception', () async {
-      when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
       when(() => mockRemoteDataSource.confirmOrder(1))
           .thenThrow(Exception('Failed to confirm'));
 
@@ -231,7 +199,6 @@ void main() {
 
   group('markOrderReady', () {
     test('should return Right(null) on success', () async {
-      when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
       when(() => mockRemoteDataSource.markOrderReady(1))
           .thenAnswer((_) async => {});
 
@@ -241,8 +208,9 @@ void main() {
       verify(() => mockRemoteDataSource.markOrderReady(1)).called(1);
     });
 
-    test('should return NetworkFailure when not connected', () async {
-      when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => false);
+    test('should return NetworkFailure on NetworkException', () async {
+      when(() => mockRemoteDataSource.markOrderReady(1))
+          .thenThrow(NetworkException(message: 'No internet'));
 
       final result = await repository.markOrderReady(1);
 
@@ -256,7 +224,6 @@ void main() {
 
   group('addNotes', () {
     test('should return Right(null) on success', () async {
-      when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
       when(() => mockRemoteDataSource.addNotes(1, 'Test notes'))
           .thenAnswer((_) async => {});
 
@@ -266,8 +233,9 @@ void main() {
       verify(() => mockRemoteDataSource.addNotes(1, 'Test notes')).called(1);
     });
 
-    test('should return NetworkFailure when not connected', () async {
-      when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => false);
+    test('should return NetworkFailure on NetworkException', () async {
+      when(() => mockRemoteDataSource.addNotes(1, 'Test notes'))
+          .thenThrow(NetworkException(message: 'No internet'));
 
       final result = await repository.addNotes(1, 'Test notes');
 

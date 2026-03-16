@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../constants/app_constants.dart';
 import '../errors/exceptions.dart';
 import '../utils/error_mapper.dart';
+import 'auth_interceptor.dart';
 
 /// Interceptor that retries failed requests on transient network errors.
 class RetryInterceptor extends Interceptor {
@@ -59,11 +60,10 @@ class RetryInterceptor extends Interceptor {
 
 class ApiClient {
   late final Dio _dio;
-  String? _accessToken;
 
   Dio get dio => _dio;
 
-  ApiClient() {
+  ApiClient({AuthInterceptor? authInterceptor}) {
     if (kDebugMode) debugPrint('🔧 [ApiClient] Initialisation - baseUrl: ${AppConstants.apiBaseUrl}');
     
     _dio = Dio(
@@ -71,6 +71,7 @@ class ApiClient {
         baseUrl: AppConstants.apiBaseUrl,
         connectTimeout: AppConstants.apiTimeout,
         receiveTimeout: AppConstants.apiTimeout,
+        sendTimeout: AppConstants.apiTimeout,
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -78,18 +79,21 @@ class ApiClient {
       ),
     );
 
+    // 1. Auth interceptor (token injection + 401 handling) — first in chain
+    if (authInterceptor != null) {
+      _dio.interceptors.add(authInterceptor);
+    }
+
+    // 2. Retry interceptor for transient failures
     _dio.interceptors.add(
       RetryInterceptor(dio: _dio),
     );
 
+    // 3. Logging interceptor (debug only)
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
           if (kDebugMode) debugPrint('➡️ [ApiClient] REQUEST: ${options.method} ${options.uri}');
-          // Add auth token if available
-          if (_accessToken != null) {
-            options.headers['Authorization'] = 'Bearer $_accessToken';
-          }
           return handler.next(options);
         },
         onResponse: (response, handler) {
@@ -98,24 +102,23 @@ class ApiClient {
         },
         onError: (error, handler) {
           if (kDebugMode) debugPrint('❌ [ApiClient] ERROR: ${error.type} - ${error.message}');
-          if (kDebugMode) debugPrint('❌ [ApiClient] Response: ${error.response?.data}');
           return handler.next(error);
         },
       ),
     );
   }
 
-  void setToken(String token) {
-    _accessToken = token;
-  }
-
-  void clearToken() {
-    _accessToken = null;
-  }
-
   Options authorizedOptions(String token) {
     return Options(headers: {'Authorization': 'Bearer $token'});
   }
+
+  /// @deprecated Token is now managed by AuthInterceptor via secure storage.
+  /// Kept for backward compatibility — will be removed.
+  void setToken(String token) {}
+
+  /// @deprecated Token is now managed by AuthInterceptor via secure storage.
+  /// Kept for backward compatibility — will be removed.
+  void clearToken() {}
 
   Future<Response> get(
     String path, {

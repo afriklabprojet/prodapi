@@ -1,22 +1,34 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../network/api_client.dart';
+import '../network/auth_interceptor.dart';
 import '../network/network_info.dart';
 import '../services/notification_service.dart';
 import '../services/cache_service.dart';
 import '../services/security_service.dart';
 import '../services/offline_storage_service.dart';
 import '../services/sync_service.dart';
-
-// Re-export session manager pour accès facile
-export '../services/session_manager.dart';
+import '../../features/auth/data/datasources/auth_local_datasource.dart';
 
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError('SharedPreferences not initialized');
 });
 
+// ==================== SESSION EXPIRED ====================
+/// Provider qui signale quand une session a expiré (401 global).
+/// Mis à `true` par l'AuthInterceptor quand un 401 est reçu sur une route protégée.
+final sessionExpiredProvider = StateProvider<bool>((ref) => false);
+
 final apiClientProvider = Provider<ApiClient>((ref) {
-  return ApiClient();
+  final authLocalDataSource = AuthLocalDataSourceImpl();
+  final authInterceptor = AuthInterceptor(
+    localDataSource: authLocalDataSource,
+    onUnauthorized: () {
+      // Signal session expiry — listened in main.dart
+      ref.read(sessionExpiredProvider.notifier).state = true;
+    },
+  );
+  return ApiClient(authInterceptor: authInterceptor);
 });
 
 final networkInfoProvider = Provider<NetworkInfo>((ref) {
@@ -57,11 +69,6 @@ final syncServiceProvider = Provider<SyncService>((ref) {
   ref.onDispose(() => service.dispose());
   return service;
 });
-
-// ==================== SESSION EXPIRED ====================
-/// Provider qui signale quand une session a expiré (401 global).
-/// Mis à `true` par l'ApiClient quand un 401 est reçu.
-final sessionExpiredProvider = StateProvider<bool>((ref) => false);
 
 // ==================== CONNECTIVITY STATE ====================
 final connectivityProvider = StateNotifierProvider<ConnectivityNotifier, ConnectivityState>((ref) {

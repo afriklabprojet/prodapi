@@ -1,50 +1,60 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/network/api_client.dart';
+import '../../data/repositories/profile_repository.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../core/providers/core_providers.dart';
 
-/// État du profil pharmacie
-class ProfileState {
-  final bool isLoading;
-  final bool hasError;
-  final String? error;
+/// Notifier pour la gestion du profil pharmacie.
+///
+/// Utilise [ProfileRepository] pour les opérations réseau
+/// et rafraîchit l'état d'auth après chaque mise à jour.
+class ProfileNotifier extends StateNotifier<AsyncValue<void>> {
+  final ProfileRepository _repository;
+  final Ref _ref;
 
-  const ProfileState({
-    this.isLoading = false,
-    this.hasError = false,
-    this.error,
-  });
+  ProfileNotifier(this._repository, this._ref)
+      : super(const AsyncData<void>(null));
 
-  ProfileState copyWith({bool? isLoading, bool? hasError, String? error}) {
-    return ProfileState(
-      isLoading: isLoading ?? this.isLoading,
-      hasError: hasError ?? false,
-      error: error,
+  /// Met à jour les informations d'une pharmacie.
+  Future<void> updatePharmacy(int pharmacyId, Map<String, dynamic> data) async {
+    state = const AsyncLoading();
+
+    final result = await _repository.updatePharmacy(pharmacyId, data);
+
+    result.fold(
+      (failure) {
+        state = AsyncError(failure.message, StackTrace.current);
+      },
+      (_) {
+        state = const AsyncData<void>(null);
+        // Refresh auth state to pick up new pharmacy data
+        _ref.read(authProvider.notifier).checkAuthStatus();
+      },
+    );
+  }
+
+  /// Met à jour les informations du profil utilisateur.
+  Future<void> updateProfile(Map<String, dynamic> data) async {
+    state = const AsyncLoading();
+
+    final result = await _repository.updateProfile(data);
+
+    result.fold(
+      (failure) {
+        state = AsyncError(failure.message, StackTrace.current);
+        throw Exception(failure.message);
+      },
+      (_) {
+        state = const AsyncData<void>(null);
+        // Refresh auth state to pick up new profile data
+        _ref.read(authProvider.notifier).checkAuthStatus();
+      },
     );
   }
 }
 
-/// Notifier pour la gestion du profil pharmacie
-class ProfileNotifier extends StateNotifier<ProfileState> {
-  final ApiClient _apiClient;
-
-  ProfileNotifier(this._apiClient) : super(const ProfileState());
-
-  Future<void> updatePharmacy(int pharmacyId, dynamic data) async {
-    state = state.copyWith(isLoading: true, hasError: false, error: null);
-    try {
-      await _apiClient.post('/pharmacy/profile/$pharmacyId', data: data);
-      state = state.copyWith(isLoading: false);
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        hasError: true,
-        error: e.toString().replaceAll('Exception: ', ''),
-      );
-    }
-  }
-}
-
-final profileProvider = StateNotifierProvider<ProfileNotifier, ProfileState>((ref) {
+final profileProvider =
+    StateNotifierProvider<ProfileNotifier, AsyncValue<void>>((ref) {
   final apiClient = ref.watch(apiClientProvider);
-  return ProfileNotifier(apiClient);
+  final repository = ProfileRepositoryImpl(apiClient: apiClient);
+  return ProfileNotifier(repository, ref);
 });

@@ -10,7 +10,7 @@ abstract class Failure {
   const Failure(this.message, {this.originalError});
 
   @override
-  String toString() => '$runtimeType: $message';
+  String toString() => message;
 }
 
 class ServerFailure extends Failure {
@@ -29,7 +29,7 @@ class ValidationFailure extends Failure {
 
   static String _buildMessage(Map<String, List<String>> errors) {
     final messages = errors.values.expand((v) => v).toList();
-    return messages.isNotEmpty ? messages.first : 'Erreur de validation';
+    return messages.join(', ');
   }
 }
 

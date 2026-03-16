@@ -41,6 +41,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
       try {
         await remoteDataSource.updateStock(productId, newQuantity);
         return const Right(null);
+      } on ServerException catch (e) {
+        return Left(ServerFailure(e.message));
       } catch (e) {
         return Left(ServerFailure(e.toString()));
       }
@@ -57,6 +59,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
       try {
         await remoteDataSource.updatePrice(productId, newPrice);
         return const Right(null);
+      } on ServerException catch (e) {
+        return Left(ServerFailure(e.message));
       } catch (e) {
         return Left(ServerFailure(e.toString()));
       }
@@ -70,6 +74,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
       try {
         await remoteDataSource.toggleAvailability(productId);
         return const Right(null);
+      } on ServerException catch (e) {
+        return Left(ServerFailure(e.message));
       } catch (e) {
         return Left(ServerFailure(e.toString()));
       }
@@ -132,6 +138,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
       try {
         final models = await remoteDataSource.getCategories();
         return Right(models.map((m) => m.toEntity()).toList());
+      } on ServerException catch (e) {
+        return Left(ServerFailure(e.message));
       } catch (e) {
         return Left(ServerFailure(e.toString()));
       }
@@ -201,6 +209,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
       try {
         final productModel = await remoteDataSource.updateProduct(id, data, image: image);
         return Right(productModel.toEntity());
+      } on ServerException catch (e) {
+        return Left(ServerFailure(e.message));
       } catch (e) {
         return Left(ServerFailure(e.toString()));
       }
@@ -214,6 +224,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
       try {
         await remoteDataSource.deleteProduct(id);
         return const Right(null);
+      } on ServerException catch (e) {
+        return Left(ServerFailure(e.message));
       } catch (e) {
         return Left(ServerFailure(e.toString()));
       }
@@ -231,6 +243,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
       try {
         await remoteDataSource.applyPromotion(productId, discountPercentage, endDate: endDate);
         return const Right(null);
+      } on ServerException catch (e) {
+        return Left(ServerFailure(e.message));
       } catch (e) {
         return Left(ServerFailure(e.toString()));
       }
@@ -244,6 +258,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
       try {
         await remoteDataSource.removePromotion(productId);
         return const Right(null);
+      } on ServerException catch (e) {
+        return Left(ServerFailure(e.message));
       } catch (e) {
         return Left(ServerFailure(e.toString()));
       }
@@ -261,6 +277,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
       try {
         await remoteDataSource.markAsLoss(productId, quantity, reason);
         return const Right(null);
+      } on ServerException catch (e) {
+        return Left(ServerFailure(e.message));
       } catch (e) {
         return Left(ServerFailure(e.toString()));
       }

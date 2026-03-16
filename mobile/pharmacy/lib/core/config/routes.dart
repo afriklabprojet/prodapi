@@ -61,9 +61,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isLoggingIn = currentPath == '/login';
       final isRegistering = currentPath == '/register';
       final isRecoveringPassword = currentPath == '/forgot-password';
+      final isPublicLegal = currentPath == '/terms' || currentPath == '/privacy';
 
-      // Splash et onboarding : pas de redirection
-      if (isSplash || isOnboarding) return null;
+      // Splash, onboarding, and public legal pages: no redirect
+      if (isSplash || isOnboarding || isPublicLegal) return null;
 
       // Sur une page d'auth (login, register, forgot-password) :
       // Ne jamais rediriger pendant loading, error ou registered

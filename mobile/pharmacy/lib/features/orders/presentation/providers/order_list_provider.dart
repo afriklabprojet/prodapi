@@ -6,7 +6,7 @@ import 'state/order_list_state.dart';
 class OrderListNotifier extends StateNotifier<OrderListState> {
   final OrderRepository _repository;
 
-  OrderListNotifier(this._repository) : super(const OrderListState()) {
+  OrderListNotifier(this._repository) : super(const OrderListState(activeFilter: 'pending')) {
     fetchOrders();
   }
 

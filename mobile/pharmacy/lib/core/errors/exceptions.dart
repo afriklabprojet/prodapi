@@ -10,7 +10,7 @@ class ServerException implements Exception {
   const ServerException({required this.message, this.statusCode});
 
   @override
-  String toString() => 'ServerException($statusCode): $message';
+  String toString() => 'ServerException: $message (Status: $statusCode)';
 }
 
 class NetworkException implements Exception {
@@ -39,7 +39,7 @@ class ValidationException implements Exception {
 class UnauthorizedException implements Exception {
   final String message;
 
-  const UnauthorizedException({required this.message});
+  const UnauthorizedException({this.message = 'Unauthorized access'});
 
   @override
   String toString() => 'UnauthorizedException: $message';

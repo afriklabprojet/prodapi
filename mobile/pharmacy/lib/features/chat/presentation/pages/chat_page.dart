@@ -184,7 +184,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         ),
                         decoration: BoxDecoration(
                           color: isMe 
-                              ? const Color(0xFF4CAF50) 
+                              ? AppColors.success 
                               : (isDark ? AppColors.darkCard : Colors.white),
                           borderRadius: BorderRadius.only(
                             topLeft: const Radius.circular(16),
@@ -303,7 +303,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 const SizedBox(width: 12),
                 FloatingActionButton.small(
                   onPressed: isSending ? null : _sendMessage,
-                  backgroundColor: isSending ? Colors.grey : const Color(0xFF4CAF50),
+                  backgroundColor: isSending ? Colors.grey : AppColors.success,
                   elevation: isDark ? 0 : 2,
                   child: isSending
                       ? const SizedBox(

@@ -1,8 +1,6 @@
 import "package:flutter/foundation.dart";
 import 'dart:async' show unawaited;
-import 'dart:io' show SocketException;
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart' show SchedulerPhase;
 import 'package:flutter/services.dart';
@@ -12,129 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../providers/auth_provider.dart';
 import '../providers/state/auth_state.dart';
-
-// ══════════════════════════════════════════════════════════════════════════════
-// SNACKBAR HELPER - Centralized message display
-// ══════════════════════════════════════════════════════════════════════════════
-
-/// Helper class for displaying consistent SnackBars throughout the app
-class SnackBarHelper {
-  static void showError(BuildContext context, String message) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error_outline, color: Colors.white, size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  message,
-                  style: const TextStyle(fontSize: 14),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.red.shade700,
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          duration: const Duration(seconds: 4),
-          action: SnackBarAction(
-            label: 'OK',
-            textColor: Colors.white,
-            onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
-          ),
-        ),
-      );
-  }
-
-  static void showSuccess(BuildContext context, String message) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
-              const SizedBox(width: 12),
-              Expanded(child: Text(message, style: const TextStyle(fontSize: 14))),
-            ],
-          ),
-          backgroundColor: const Color(0xFF1B8F6F),
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          duration: const Duration(seconds: 3),
-        ),
-      );
-  }
-
-  static void showWarning(BuildContext context, String message) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
-              const SizedBox(width: 12),
-              Expanded(child: Text(message, style: const TextStyle(fontSize: 14))),
-            ],
-          ),
-          backgroundColor: Colors.orange.shade700,
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          duration: const Duration(seconds: 4),
-        ),
-      );
-  }
-
-  /// Parses network errors into user-friendly messages
-  static String parseNetworkError(dynamic error) {
-    if (error is DioException) {
-      switch (error.type) {
-        case DioExceptionType.connectionTimeout:
-          return 'Connexion lente. Vérifiez votre connexion internet.';
-        case DioExceptionType.sendTimeout:
-        case DioExceptionType.receiveTimeout:
-          return 'Le serveur met trop de temps à répondre. Réessayez.';
-        case DioExceptionType.connectionError:
-          return 'Impossible de se connecter au serveur. Vérifiez votre connexion.';
-        case DioExceptionType.badResponse:
-          final statusCode = error.response?.statusCode;
-          if (statusCode == 401) return 'Email ou mot de passe incorrect.';
-          if (statusCode == 403) return 'Accès refusé. Compte peut-être désactivé.';
-          if (statusCode == 404) return 'Service non disponible.';
-          if (statusCode == 422) return 'Données invalides. Vérifiez vos informations.';
-          if (statusCode != null && statusCode >= 500) {
-            return 'Erreur serveur. Réessayez plus tard.';
-          }
-          return 'Erreur de communication avec le serveur.';
-        case DioExceptionType.cancel:
-          return 'Requête annulée.';
-        case DioExceptionType.unknown:
-          if (error.error is SocketException) {
-            return 'Pas de connexion internet.';
-          }
-          return 'Erreur réseau inattendue.';
-        default:
-          return 'Erreur de connexion.';
-      }
-    }
-    if (error is SocketException) {
-      return 'Pas de connexion internet.';
-    }
-    return error?.toString() ?? 'Une erreur est survenue.';
-  }
-}
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/helpers/snackbar_helper.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // PASSWORD STRENGTH ENUM
@@ -155,7 +32,7 @@ enum _PasswordStrength {
     _PasswordStrength.tooShort => Colors.red.shade400,
     _PasswordStrength.weak => Colors.orange.shade400,
     _PasswordStrength.medium => Colors.amber.shade600,
-    _PasswordStrength.strong => const Color(0xFF1B8F6F), // _primaryColor
+    _PasswordStrength.strong => AppColors.primary, // _primaryColor
   };
 
   /// Border color for password field (slightly lighter than main color)
@@ -164,7 +41,7 @@ enum _PasswordStrength {
     _PasswordStrength.tooShort => Colors.red.shade300,
     _PasswordStrength.weak => Colors.orange.shade300,
     _PasswordStrength.medium => Colors.amber.shade400,
-    _PasswordStrength.strong => const Color(0xFF1B8F6F),
+    _PasswordStrength.strong => AppColors.primary,
   };
 
   /// User-friendly label in French
@@ -213,8 +90,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
   // ══════════════════════════════════════════════════════════════════════════
   // CONSTANTS
   // ══════════════════════════════════════════════════════════════════════════
-  static const _primaryColor = Color(0xFF1B8F6F);
-  static const _primaryDark = Color(0xFF0D5C46);
+  static const _primaryColor = AppColors.primary;
+  static const _primaryDark = AppColors.primaryDark;
   
   // High contrast colors for accessibility (WCAG AA compliant)
   static const _rememberMeKey = 'pharmacy_remember_me';

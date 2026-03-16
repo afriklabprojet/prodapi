@@ -1,6 +1,4 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/api_client.dart';
-import '../../../../core/providers/core_providers.dart';
 import '../models/chat_message_model.dart';
 
 abstract class ChatRemoteDataSource {

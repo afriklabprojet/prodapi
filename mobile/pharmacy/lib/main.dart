@@ -115,6 +115,8 @@ class _PharmacyAppState extends ConsumerState<PharmacyApp> {
     ref.listen<bool>(sessionExpiredProvider, (previous, sessionExpired) {
       if (sessionExpired) {
         if (kDebugMode) debugPrint('🔐 [Main] Session expired - redirecting to login');
+        // Reset the flag immediately to avoid re-triggering
+        ref.read(sessionExpiredProvider.notifier).state = false;
         // Logout et redirection
         ref.read(authProvider.notifier).logout();
         router.go('/login');

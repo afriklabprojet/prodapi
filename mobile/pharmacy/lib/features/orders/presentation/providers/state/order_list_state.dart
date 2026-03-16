@@ -14,7 +14,7 @@ class OrderListState {
     this.status = OrderStatus.initial,
     this.orders = const [],
     this.errorMessage,
-    this.activeFilter = 'all',
+    this.activeFilter = 'pending',
   });
 
   OrderListState copyWith({

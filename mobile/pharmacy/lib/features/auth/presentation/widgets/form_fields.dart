@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../../core/theme/app_colors.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // CONSTANTS & THEMING
@@ -9,7 +10,7 @@ import 'package:flutter/services.dart';
 const double _kBorderRadius = 14.0;
 
 /// Default primary color (DR-PHARMA brand)
-const Color _kPrimaryColor = Color(0xFF1B8F6F);
+const Color _kPrimaryColor = AppColors.primary;
 
 // ══════════════════════════════════════════════════════════════════════════════
 // INPUT BORDER HELPER
