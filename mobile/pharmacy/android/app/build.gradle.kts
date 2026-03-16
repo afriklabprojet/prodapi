@@ -49,7 +49,7 @@ android {
 
     defaultConfig {
         applicationId = "com.drpharma.pharmacy"
-        minSdk = flutter.minSdkVersion
+        minSdk = maxOf(flutter.minSdkVersion, 23) // flutter_secure_storage v10+ requires API 23
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
