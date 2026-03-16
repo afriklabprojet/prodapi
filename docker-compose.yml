@@ -1,0 +1,153 @@
+version: '3.8'
+
+services:
+  # ── PHP-FPM Application ─────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: drpharma-app
+    restart: unless-stopped
+    volumes:
+      - ./api:/var/www/html
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=${DB_DATABASE:-drpharma}
+      - DB_USERNAME=${DB_USERNAME:-drpharma}
+      - DB_PASSWORD=${DB_PASSWORD:-secret}
+      - REDIS_HOST=redis
+      - CACHE_DRIVER=redis
+      - QUEUE_CONNECTION=redis
+      - SESSION_DRIVER=redis
+      - GOOGLE_VISION_ENABLED=${GOOGLE_VISION_ENABLED:-true}
+      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-storage/app/firebase-credentials.json}
+    networks:
+      - drpharma
+
+  # ── Nginx Web Server ────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: drpharma-nginx
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8000}:80"
+      - "${APP_SSL_PORT:-443}:443"
+    volumes:
+      - ./api:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./docker/nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - app
+    networks:
+      - drpharma
+
+  # ── MySQL Database ──────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: drpharma-mysql
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootsecret}
+      MYSQL_DATABASE: ${DB_DATABASE:-drpharma}
+      MYSQL_USER: ${DB_USERNAME:-drpharma}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - drpharma
+
+  # ── Redis Cache & Queue ─────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: drpharma-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - drpharma
+
+  # ── Queue Worker ────────────────────────────────────────────────
+  queue:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: drpharma-queue
+    restart: unless-stopped
+    command: php artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
+    volumes:
+      - ./api:/var/www/html
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=${DB_DATABASE:-drpharma}
+      - DB_USERNAME=${DB_USERNAME:-drpharma}
+      - DB_PASSWORD=${DB_PASSWORD:-secret}
+      - REDIS_HOST=redis
+      - QUEUE_CONNECTION=redis
+    networks:
+      - drpharma
+
+  # ── Scheduler (cron) ────────────────────────────────────────────
+  scheduler:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: drpharma-scheduler
+    restart: unless-stopped
+    command: >
+      sh -c "while true; do php artisan schedule:run --verbose --no-interaction; sleep 60; done"
+    volumes:
+      - ./api:/var/www/html
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=${DB_DATABASE:-drpharma}
+      - DB_USERNAME=${DB_USERNAME:-drpharma}
+      - DB_PASSWORD=${DB_PASSWORD:-secret}
+      - REDIS_HOST=redis
+    networks:
+      - drpharma
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  drpharma:
+    driver: bridge

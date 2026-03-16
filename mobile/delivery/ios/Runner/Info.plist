@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>DR-PHARMA Coursier</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>DR-PHARMA Coursier</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<!-- Location permissions for delivery tracking -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>DR-PHARMA Coursier utilise votre position pour afficher votre trajet de livraison et guider les clients.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>DR-PHARMA Coursier utilise votre position en arrière-plan pour suivre les livraisons en cours et mettre à jour les clients en temps réel.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>DR-PHARMA Coursier utilise votre position en arrière-plan pour le suivi des livraisons en temps réel.</string>
+	<!-- Camera for proof of delivery / profile photo -->
+	<key>NSCameraUsageDescription</key>
+	<string>DR-PHARMA Coursier utilise la caméra pour prendre des photos de preuve de livraison et mettre à jour votre photo de profil.</string>
+	<!-- Photo library for profile photo -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>DR-PHARMA Coursier accède à votre galerie pour sélectionner une photo de profil.</string>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<!-- Google Maps API Key (set via --dart-define or Secrets.xcconfig) -->
+	<key>GOOGLE_MAPS_API_KEY</key>
+	<string>$(GOOGLE_MAPS_API_KEY)</string>
+	<key>GMSApiKey</key>
+	<string>$(GOOGLE_MAPS_API_KEY)</string>
+	<!-- Deep Links for JEKO Payment Callbacks -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.drpharma.courier</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>drpharma-courier</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

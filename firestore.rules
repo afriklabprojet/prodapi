@@ -1,0 +1,33 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================
+    // COURIERS - Position en temps réel des livreurs
+    // ============================================
+    match /couriers/{courierId} {
+      // Tout utilisateur authentifié peut lire (clients suivent les livreurs)
+      allow read: if request.auth != null;
+      // Seuls les livreurs peuvent écrire
+      allow write: if request.auth != null 
+        && request.auth.token.role == 'courier';
+    }
+
+    // ============================================
+    // DELIVERIES - Tracking d'une livraison spécifique
+    // ============================================
+    match /deliveries/{deliveryId} {
+      // Tout utilisateur authentifié peut lire (client suit sa commande)
+      allow read: if request.auth != null;
+      // Les livreurs et le backend (admin SDK) peuvent écrire
+      allow write: if request.auth != null
+        && request.auth.token.role == 'courier';
+    }
+
+    // Bloquer tout le reste par défaut
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
