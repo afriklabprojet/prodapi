@@ -50,7 +50,7 @@ class NotificationsPage extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.darkBackground : const Color(0xFFF8F9FA),
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -182,7 +182,7 @@ class NotificationsPage extends ConsumerWidget {
                             Container(
                               padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
-                                color: isDark ? Colors.orange.withValues(alpha: 0.2) : const Color(0xFFFFF3E0),
+                                color: isDark ? Colors.orange.withValues(alpha: 0.2) : AppColors.warningBg,
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(

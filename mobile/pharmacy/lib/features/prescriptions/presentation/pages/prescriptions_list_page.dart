@@ -383,7 +383,7 @@ class _PrescriptionCard extends StatelessWidget {
                     Text(
                       DateFormat('dd MMM yyyy • HH:mm', 'fr').format(DateTime.tryParse(prescription.createdAt) ?? DateTime.now()),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: isDark ? Colors.grey[400] : const Color(0xFF757575),
+                        color: isDark ? Colors.grey[400] : AppColors.textSecondary,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -463,15 +463,15 @@ class _StatusBadge extends StatelessWidget {
 
     switch (status) {
       case 'pending':
-        color = const Color(0xFFFFA000); // Amber 700
+        color = AppColors.warning; // Amber 700
         label = 'En attente';
         break;
       case 'validated':
-        color = const Color(0xFF2E7D32); // Green 800
+        color = AppColors.primary; // Green 800
         label = 'Validée';
         break;
       case 'rejected':
-        color = const Color(0xFFC62828); // Red 800
+        color = AppColors.urgent; // Red 800
         label = 'Refusée';
         break;
       default:

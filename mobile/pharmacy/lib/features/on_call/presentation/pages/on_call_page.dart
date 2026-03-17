@@ -6,6 +6,7 @@ import '../../../../core/presentation/widgets/error_display.dart';
 import '../../../../core/utils/error_messages.dart';
 import '../../data/models/on_call_model.dart';
 import '../providers/on_call_provider.dart';
+import '../../../../core/theme/app_colors.dart';
 
 class OnCallPage extends ConsumerStatefulWidget {
   const OnCallPage({super.key});
@@ -137,10 +138,10 @@ class _OnCallPageState extends ConsumerState<OnCallPage> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isOn ? const Color(0xFFE8F5E9) : Colors.white,
+          color: isOn ? AppColors.primaryLight : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isOn ? const Color(0xFF1B8F6F) : Colors.grey.shade200,
+            color: isOn ? AppColors.primary : Colors.grey.shade200,
             width: isOn ? 1.5 : 1,
           ),
           boxShadow: [
@@ -156,7 +157,7 @@ class _OnCallPageState extends ConsumerState<OnCallPage> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: isOn ? const Color(0xFF1B8F6F) : Colors.grey.shade100,
+                color: isOn ? AppColors.primary : Colors.grey.shade100,
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -175,7 +176,7 @@ class _OnCallPageState extends ConsumerState<OnCallPage> {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
-                      color: isOn ? const Color(0xFF1B8F6F) : Colors.black87,
+                      color: isOn ? AppColors.primary : Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -195,7 +196,7 @@ class _OnCallPageState extends ConsumerState<OnCallPage> {
               scale: 0.8,
               child: Switch(
                 value: isOn,
-                activeTrackColor: const Color(0xFF1B8F6F),
+                activeTrackColor: AppColors.primary,
                 onChanged: (val) => _handleToggle(val, activeShift),
               ),
             ),
@@ -243,7 +244,7 @@ class _OnCallPageState extends ConsumerState<OnCallPage> {
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)
             ),
             icon: const Icon(Icons.calendar_today, size: 20),
-            backgroundColor: const Color(0xFF1B8F6F),
+            backgroundColor: AppColors.primary,
             elevation: 3,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
           ),
@@ -426,12 +427,12 @@ class _OnCallPageState extends ConsumerState<OnCallPage> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: onCall.isActive ? const Color(0xFFE8F5E9) : Colors.grey.shade100,
+                    color: onCall.isActive ? AppColors.primaryLight : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
                     _getIconForType(onCall.type),
-                    color: onCall.isActive ? const Color(0xFF1B8F6F) : Colors.grey,
+                    color: onCall.isActive ? AppColors.primary : Colors.grey,
                     size: 28,
                   ),
                 ),
@@ -450,7 +451,7 @@ class _OnCallPageState extends ConsumerState<OnCallPage> {
                       Text(
                         onCall.isActive ? 'Garde active' : 'Garde programmée',
                         style: TextStyle(
-                          color: onCall.isActive ? const Color(0xFF1B8F6F) : Colors.grey,
+                          color: onCall.isActive ? AppColors.primary : Colors.grey,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -536,12 +537,12 @@ class _OnCallPageState extends ConsumerState<OnCallPage> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isActive ? const Color(0xFFE8F5E9) : Colors.grey.shade50,
+            color: isActive ? AppColors.primaryLight : Colors.grey.shade50,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(
             _getIconForType(onCall.type),
-            color: isActive ? const Color(0xFF1B8F6F) : Colors.grey.shade400,
+            color: isActive ? AppColors.primary : Colors.grey.shade400,
             size: 24,
           ),
         ),
@@ -592,7 +593,7 @@ class _OnCallPageState extends ConsumerState<OnCallPage> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF3E0),
+                color: AppColors.warningBg,
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.wifi_off_rounded, size: 40, color: Color(0xFFF57C00)),
@@ -618,7 +619,7 @@ class _OnCallPageState extends ConsumerState<OnCallPage> {
               icon: const Icon(Icons.refresh),
               label: const Text('Réessayer'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1B8F6F),
+                backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
               ),
             ),
@@ -1126,7 +1127,7 @@ class _AddOnCallSheetState extends ConsumerState<AddOnCallSheet> {
       messenger.showSnackBar(
         SnackBar(
           content: const Text('Garde programmée avec succès !'),
-          backgroundColor: const Color(0xFF1B8F6F),
+          backgroundColor: AppColors.primary,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -1212,7 +1213,7 @@ class _QuickStartShiftDialogState extends State<_QuickStartShiftDialog> {
         ElevatedButton(
           onPressed: () => Navigator.pop(context, _selectedType),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF1B8F6F),
+            backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
           ),
           child: const Text('Activer'),

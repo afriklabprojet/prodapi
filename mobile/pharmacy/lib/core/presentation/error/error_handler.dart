@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_colors.dart';
 
 /// Types d'erreurs pour personnaliser l'affichage
 enum ErrorType {
@@ -325,7 +326,7 @@ class _ErrorDialog extends StatelessWidget {
           child: ElevatedButton(
             onPressed: onDismiss,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1B8F6F),
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

@@ -203,14 +203,14 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF1E3A5F), Color(0xFF2D5A87)],
+            colors: [AppColors.textPrimary, AppColors.primaryDark],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF1E3A5F).withValues(alpha: 0.4),
+              color: AppColors.textPrimary.withValues(alpha: 0.4),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -343,12 +343,12 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 18, color: filled ? const Color(0xFF1E3A5F) : Colors.white),
+              Icon(icon, size: 18, color: filled ? AppColors.textPrimary : Colors.white),
               const SizedBox(width: 8),
               Text(
                 label,
                 style: TextStyle(
-                  color: filled ? const Color(0xFF1E3A5F) : Colors.white,
+                  color: filled ? AppColors.textPrimary : Colors.white,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -368,7 +368,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
       children: [
         const Text(
           'Actions rapides',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F)),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
         ),
         const SizedBox(height: 16),
         Row(
@@ -378,7 +378,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 icon: Icons.download_rounded,
                 label: 'Exporter',
                 subtitle: 'Releve PDF',
-                color: const Color(0xFF6C63FF),
+                color: AppColors.secondary,
                 onTap: () => _showExportSheet(context),
               ),
             ),
@@ -388,7 +388,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 icon: Icons.analytics_outlined,
                 label: 'Statistiques',
                 subtitle: 'Analyses',
-                color: const Color(0xFF00BFA5),
+                color: AppColors.accent,
                 onTap: () => walletAsync.whenData((wallet) => _showStatisticsSheet(context, wallet)),
               ),
             ),
@@ -398,7 +398,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 icon: Icons.settings_outlined,
                 label: 'Parametres',
                 subtitle: 'Compte',
-                color: const Color(0xFFFF6B6B),
+                color: AppColors.error,
                 onTap: () => _showSettingsSheet(context),
               ),
             ),
@@ -441,7 +441,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
               const SizedBox(height: 12),
               Text(
                 label,
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? Colors.white : const Color(0xFF1E3A5F)),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? Colors.white : AppColors.textPrimary),
               ),
               const SizedBox(height: 2),
               Text(subtitle, style: TextStyle(fontSize: 11, color: isDark ? Colors.grey.shade400 : Colors.grey.shade500)),
@@ -463,7 +463,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
           children: [
             Text(
               'Apercu financier',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF1E3A5F)),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppColors.textPrimary),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -495,7 +495,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 title: 'Total gains',
                 value: wallet.totalEarnings,
                 icon: Icons.trending_up_rounded,
-                color: const Color(0xFF00BFA5),
+                color: AppColors.accent,
               ),
             ),
             const SizedBox(width: 12),
@@ -504,7 +504,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 title: 'Solde',
                 value: wallet.balance,
                 icon: Icons.account_balance_wallet_rounded,
-                color: const Color(0xFF6C63FF),
+                color: AppColors.secondary,
               ),
             ),
           ],
@@ -547,7 +547,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 const SizedBox(height: 4),
                 Text(
                   currencyFormat.format(value),
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF1E3A5F)),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppColors.textPrimary),
                 ),
               ],
             ),
@@ -565,7 +565,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
       children: [
         Text(
           'Transactions recentes',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF1E3A5F)),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppColors.textPrimary),
         ),
         TextButton.icon(
           onPressed: () => _showHistorySheet(context),
@@ -619,13 +619,13 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: isCredit 
-                  ? (isDark ? const Color(0xFF2E7D32).withValues(alpha: 0.2) : const Color(0xFFE8F5E9))
-                  : (isDark ? const Color(0xFFC62828).withValues(alpha: 0.2) : const Color(0xFFFFEBEE)),
+                  ? (isDark ? AppColors.primary.withValues(alpha: 0.2) : AppColors.successBg)
+                  : (isDark ? AppColors.urgent.withValues(alpha: 0.2) : AppColors.errorBg),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
               isCredit ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
-              color: isCredit ? const Color(0xFF2E7D32) : const Color(0xFFC62828),
+              color: isCredit ? AppColors.primary : AppColors.urgent,
               size: 22,
             ),
           ),
@@ -636,7 +636,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
               children: [
                 Text(
                   tx.description ?? 'Transaction',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isDark ? Colors.white : const Color(0xFF1E3A5F)),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isDark ? Colors.white : AppColors.textPrimary),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -650,7 +650,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
-              color: isCredit ? const Color(0xFF2E7D32) : const Color(0xFFC62828),
+              color: isCredit ? AppColors.primary : AppColors.urgent,
             ),
           ),
         ],
@@ -681,7 +681,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
           const SizedBox(height: 20),
           Text(
             'Aucune transaction',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF1E3A5F)),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppColors.textPrimary),
           ),
           const SizedBox(height: 8),
           Text('Vos transactions apparaitront ici', style: TextStyle(fontSize: 14, color: isDark ? Colors.grey.shade400 : Colors.grey.shade500)),
@@ -722,7 +722,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
             const SizedBox(height: 24),
             Text(
               'Une erreur est survenue',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF1E3A5F)),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppColors.textPrimary),
             ),
             const SizedBox(height: 8),
             Text(err.toString(), style: TextStyle(fontSize: 14, color: isDark ? Colors.grey.shade400 : Colors.grey.shade500), textAlign: TextAlign.center),
@@ -805,7 +805,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 const SizedBox(height: 24),
                 const Text(
                   'Demande de retrait',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F)),
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                 ),
                 const SizedBox(height: 8),
                 if (wallet != null)
@@ -852,7 +852,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 const SizedBox(height: 20),
                 
                 // Choix de l'opérateur
-                const Text('Choisir l\'opérateur', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF1E3A5F))),
+                const Text('Choisir l\'opérateur', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                 const SizedBox(height: 12),
                 
                 // Première ligne: Wave, MTN, Orange
@@ -862,7 +862,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                       child: _buildOperatorCard(
                         imagePath: 'assets/images/wave.png',
                         label: 'Wave',
-                        color: const Color(0xFF1BA8F0),
+                        color: AppColors.info,
                         isSelected: selectedMethod == 'wave',
                         onTap: () => setModalState(() => selectedMethod = 'wave'),
                       ),
@@ -872,7 +872,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                       child: _buildOperatorCard(
                         imagePath: 'assets/images/mtn.png',
                         label: 'MTN',
-                        color: const Color(0xFFFFCC00),
+                        color: AppColors.warning,
                         isSelected: selectedMethod == 'mtn',
                         onTap: () => setModalState(() => selectedMethod = 'mtn'),
                       ),
@@ -882,7 +882,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                       child: _buildOperatorCard(
                         imagePath: 'assets/images/orange.png',
                         label: 'Orange',
-                        color: const Color(0xFFFF6600),
+                        color: AppColors.warning,
                         isSelected: selectedMethod == 'orange',
                         onTap: () => setModalState(() => selectedMethod = 'orange'),
                       ),
@@ -1114,7 +1114,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                     const SizedBox(height: 16),
                     const Text(
                       'Historique complet',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F)),
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                     ),
                   ],
                 ),
@@ -1192,17 +1192,17 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF6C63FF).withValues(alpha: 0.1),
+                        color: AppColors.secondary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.download_rounded, color: Color(0xFF6C63FF), size: 24),
+                      child: const Icon(Icons.download_rounded, color: AppColors.secondary, size: 24),
                     ),
                     const SizedBox(width: 16),
                     const Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Exporter le releve', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+                          Text('Exporter le releve', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                           SizedBox(height: 4),
                           Text('Telecharger vos transactions', style: TextStyle(fontSize: 14, color: Colors.grey)),
                         ],
@@ -1211,7 +1211,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                   ],
                 ),
                 const SizedBox(height: 24),
-                const Text('Format', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1E3A5F))),
+                const Text('Format', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -1223,7 +1223,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                   ],
                 ),
                 const SizedBox(height: 24),
-                const Text('Periode', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1E3A5F))),
+                const Text('Periode', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
@@ -1260,7 +1260,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                     icon: const Icon(Icons.download_rounded),
                     label: Text('Exporter en $selectedFormat'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6C63FF),
+                      backgroundColor: AppColors.secondary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -1321,7 +1321,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 Text('Génération du $format en cours...'),
               ],
             ),
-            backgroundColor: const Color(0xFF6C63FF),
+            backgroundColor: AppColors.secondary,
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 2),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1437,13 +1437,13 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF00BFA5).withValues(alpha: 0.1),
+                        color: AppColors.accent.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.analytics_rounded, color: Color(0xFF00BFA5), size: 24),
+                      child: const Icon(Icons.analytics_rounded, color: AppColors.accent, size: 24),
                     ),
                     const SizedBox(width: 16),
-                    const Text('Statistiques detaillees', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+                    const Text('Statistiques detaillees', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                   ],
                 ),
                 const SizedBox(height: 32),
@@ -1495,7 +1495,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 const SizedBox(height: 32),
                 
                 // Graphique simple
-                const Text('Repartition', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+                const Text('Repartition', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(20),
@@ -1518,7 +1518,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [const Color(0xFF1E3A5F), const Color(0xFF2D5A87)],
+                      colors: [AppColors.textPrimary, AppColors.primaryDark],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -1637,13 +1637,13 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFF6B6B).withValues(alpha: 0.1),
+                        color: AppColors.error.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.settings_rounded, color: Color(0xFFFF6B6B), size: 24),
+                      child: const Icon(Icons.settings_rounded, color: AppColors.error, size: 24),
                     ),
                     const SizedBox(width: 16),
-                    const Text('Parametres du compte', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+                    const Text('Parametres du compte', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                   ],
                 ),
                 const SizedBox(height: 32),
@@ -1766,7 +1766,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Informations bancaires', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+                        Text('Informations bancaires', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                         Text('Pour recevoir vos paiements', style: TextStyle(fontSize: 13, color: Colors.grey)),
                       ],
                     ),
@@ -2030,7 +2030,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Mobile Money', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+                          Text('Mobile Money', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                           Text('Recevoir sur votre compte mobile', style: TextStyle(fontSize: 13, color: Colors.grey)),
                         ],
                       ),
@@ -2040,7 +2040,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 const SizedBox(height: 24),
                 
                 // Operateurs
-                const Text('Choisir l\'operateur', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF1E3A5F))),
+                const Text('Choisir l\'operateur', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                 const SizedBox(height: 12),
                 // Ligne 1: Wave, Orange, MTN
                 Row(
@@ -2198,7 +2198,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     Color color;
     switch (code) {
       case 'wave':
-        color = const Color(0xFF1BA8F0); // Bleu Wave
+        color = AppColors.info; // Bleu Wave
         break;
       case 'orange':
         color = Colors.orange;
@@ -2290,7 +2290,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Notifications', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+                          Text('Notifications', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                           Text('Gerer vos alertes financieres', style: TextStyle(fontSize: 13, color: Colors.grey)),
                         ],
                       ),
@@ -2300,7 +2300,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 const SizedBox(height: 24),
                 
                 // Section Transactions
-                const Text('Transactions', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+                const Text('Transactions', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                 const SizedBox(height: 12),
                 _buildNotificationToggle(
                   icon: Icons.arrow_downward_rounded,
@@ -2320,7 +2320,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 ),
                 
                 const SizedBox(height: 20),
-                const Text('Rapports', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+                const Text('Rapports', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                 const SizedBox(height: 12),
                 _buildNotificationToggle(
                   icon: Icons.calendar_view_week_rounded,
@@ -2340,7 +2340,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 ),
                 
                 const SizedBox(height: 20),
-                const Text('Alertes', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+                const Text('Alertes', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                 const SizedBox(height: 12),
                 _buildNotificationToggle(
                   icon: Icons.trending_up_rounded,
@@ -2480,7 +2480,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Securite', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+                          Text('Securite', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                           Text('Protegez votre compte', style: TextStyle(fontSize: 13, color: Colors.grey)),
                         ],
                       ),
@@ -2490,7 +2490,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 const SizedBox(height: 24),
                 
                 // Authentification
-                const Text('Authentification', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+                const Text('Authentification', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                 const SizedBox(height: 12),
                 _buildSecurityOption(
                   icon: Icons.pin_rounded,
@@ -2514,7 +2514,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 ),
                 
                 const SizedBox(height: 20),
-                const Text('Transactions', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+                const Text('Transactions', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                 const SizedBox(height: 12),
                 _buildSecurityOption(
                   icon: Icons.verified_user_rounded,
@@ -2528,7 +2528,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 const SizedBox(height: 20),
                 
                 // Actions de securite
-                const Text('Actions', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+                const Text('Actions', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                 const SizedBox(height: 12),
                 _buildSecurityAction(
                   icon: Icons.history_rounded,
@@ -2705,7 +2705,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
-            Icon(Icons.pin_rounded, color: Color(0xFF1E3A5F)),
+            Icon(Icons.pin_rounded, color: AppColors.textPrimary),
             SizedBox(width: 12),
             Text('Modifier le code PIN'),
           ],
@@ -2810,7 +2810,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                     decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
                   ),
                   const SizedBox(height: 20),
-                  const Text('Historique de connexion', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+                  const Text('Historique de connexion', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                 ],
               ),
             ),
@@ -3019,7 +3019,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Aide et support', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+                              Text('Aide et support', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                               Text('Questions frequentes', style: TextStyle(fontSize: 13, color: Colors.grey)),
                             ],
                           ),
@@ -3042,7 +3042,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                     const SizedBox(height: 16),
                     
                     // Contact
-                    const Text('Nous contacter', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+                    const Text('Nous contacter', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                     const SizedBox(height: 16),
                     
                     _buildContactOption(
@@ -3100,7 +3100,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   Widget _buildFaqItem(String question, String answer) {
     return ExpansionTile(
       tilePadding: EdgeInsets.zero,
-      title: Text(question, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF1E3A5F))),
+      title: Text(question, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.textPrimary)),
       children: [
         Padding(
           padding: const EdgeInsets.only(bottom: 16),
@@ -3181,7 +3181,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF1E3A5F))),
+                    Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                     const SizedBox(height: 2),
                     Text(subtitle, style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
                   ],
@@ -3398,7 +3398,7 @@ class _WithdrawalThresholdContentState extends ConsumerState<_WithdrawalThreshol
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Seuil de retrait', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+                      Text('Seuil de retrait', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                       Text('Montant minimum pour retrait automatique', style: TextStyle(fontSize: 13, color: Colors.grey)),
                     ],
                   ),
@@ -3419,7 +3419,7 @@ class _WithdrawalThresholdContentState extends ConsumerState<_WithdrawalThreshol
                   children: [
                     Text(
                       '${NumberFormat('#,###', 'fr_FR').format(_threshold)} FCFA',
-                      style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F)),
+                      style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                     ),
                     const SizedBox(height: 4),
                     Text('Montant minimum de retrait', style: TextStyle(color: Colors.grey.shade600)),
@@ -3727,7 +3727,7 @@ class _AutoReportSettingsContentState extends State<_AutoReportSettingsContent> 
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Relevés automatiques', 
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                     Text('Recevez vos relevés par email', 
                         style: TextStyle(fontSize: 13, color: Colors.grey)),
                   ],
@@ -3739,7 +3739,7 @@ class _AutoReportSettingsContentState extends State<_AutoReportSettingsContent> 
           
           // Fréquence
           const Text("Fréquence d'envoi", 
-              style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+              style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
@@ -3760,7 +3760,7 @@ class _AutoReportSettingsContentState extends State<_AutoReportSettingsContent> 
           
           // Format
           const Text('Format du document', 
-              style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+              style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,

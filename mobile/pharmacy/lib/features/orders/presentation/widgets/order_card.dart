@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../domain/entities/order_entity.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/theme/app_colors.dart';
 
 class OrderCard extends StatelessWidget {
   final OrderEntity order;
@@ -112,7 +113,7 @@ class OrderCard extends StatelessWidget {
                     Text(
                       DateFormat('dd MMM yyyy • HH:mm', 'fr').format(order.createdAt),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: const Color(0xFF757575),
+                        color: AppColors.textSecondary,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -176,15 +177,15 @@ class _StatusBadge extends StatelessWidget {
 
     switch (status) {
       case 'pending':
-        color = const Color(0xFFFFA000); // Amber 700
+        color = AppColors.warning; // Amber 700
         label = 'En attente';
         break;
       case 'confirmed':
-        color = const Color(0xFF1976D2); // Blue 700
+        color = AppColors.info; // Blue 700
         label = 'Confirmé';
         break;
       case 'ready':
-        color = const Color(0xFF7B1FA2); // Purple 700
+        color = AppColors.secondary; // Purple 700
         label = 'Prêt';
         break;
       case 'picked_up':
@@ -192,11 +193,11 @@ class _StatusBadge extends StatelessWidget {
         label = 'Récupéré';
         break;
       case 'delivered':
-        color = const Color(0xFF2E7D32); // Green 800
+        color = AppColors.primary; // Green 800
         label = 'Livré';
         break;
       case 'cancelled':
-        color = const Color(0xFFC62828); // Red 800
+        color = AppColors.urgent; // Red 800
         label = 'Annulé';
         break;
       default:

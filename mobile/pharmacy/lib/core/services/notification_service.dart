@@ -38,7 +38,7 @@ class NotificationChannels {
       importance: Importance.max,
       playSound: true,
       enableVibration: true,
-      ledColor: ui.Color(0xFF2E7D32),
+      ledColor: const ui.Color(0xFF2E7D32),
     ),
     stockChannel: AndroidNotificationChannel(
       stockChannel,

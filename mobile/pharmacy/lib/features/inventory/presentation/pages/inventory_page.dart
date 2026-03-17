@@ -414,7 +414,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                                 builder: (context) => const CategoriesManagementSheet(),
                               );
                             },
-                            icon: const Icon(Icons.category_outlined, size: 24, color: Color(0xFF1E88E5)), // Hardcoded color to avoid const error with dynamic theme color
+                            icon: const Icon(Icons.category_outlined, size: 24, color: AppColors.info), // Hardcoded color to avoid const error with dynamic theme color
                             tooltip: 'Gérer les catégories',
                           ),
                         ),
@@ -536,18 +536,18 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                       String statusLabel;
 
                       if (product.isOutOfStock) {
-                        statusColor = isDark ? const Color(0xFFEF5350) : const Color(0xFFC62828); // Red
-                        bgColor = isDark ? const Color(0xFF3D1B1B) : const Color(0xFFFFEBEE);
+                        statusColor = isDark ? const Color(0xFFEF5350) : AppColors.urgent; // Red
+                        bgColor = isDark ? const Color(0xFF3D1B1B) : AppColors.errorBg;
                         statusIcon = Icons.warning_rounded;
                         statusLabel = 'Rupture';
                       } else if (product.isLowStock) {
                         statusColor = isDark ? const Color(0xFFFFB74D) : const Color(0xFFE65100); // Orange
-                        bgColor = isDark ? const Color(0xFF3D2E1B) : const Color(0xFFFFF3E0);
+                        bgColor = isDark ? const Color(0xFF3D2E1B) : AppColors.warningBg;
                         statusIcon = Icons.warning_amber_rounded;
                         statusLabel = 'Faible';
                       } else {
-                        statusColor = isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32); // Green
-                        bgColor = isDark ? const Color(0xFF1B3D20) : const Color(0xFFE8F5E9);
+                        statusColor = isDark ? const Color(0xFF81C784) : AppColors.primary; // Green
+                        bgColor = isDark ? const Color(0xFF1B3D20) : AppColors.primaryLight;
                         statusIcon = Icons.check_circle_outline_rounded;
                         statusLabel = 'En Stock';
                       }

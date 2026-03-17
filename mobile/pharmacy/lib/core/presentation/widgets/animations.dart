@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_colors.dart';
 
 /// Widget d'animation fade + slide pour l'entrée d'éléments.
 class FadeSlideTransition extends StatefulWidget {
@@ -299,7 +300,7 @@ class _ShimmerLoadingState extends State<ShimmerLoading>
     )..repeat(reverse: true);
     
     final isDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
-    final baseColor = isDark ? const Color(0xFF424242) : const Color(0xFFE0E0E0);
+    final baseColor = isDark ? const Color(0xFF424242) : AppColors.border;
     final highlightColor = isDark ? const Color(0xFF616161) : const Color(0xFFF5F5F5);
     
     _colorAnimation = ColorTween(
