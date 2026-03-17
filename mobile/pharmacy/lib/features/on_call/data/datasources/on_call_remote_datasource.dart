@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/providers/core_providers.dart';
@@ -17,20 +18,43 @@ class OnCallRemoteDataSourceImpl implements OnCallRemoteDataSource {
   @override
   Future<List<OnCallModel>> getOnCalls() async {
     final response = await _apiClient.get('/pharmacy/on-calls');
-    final list = _extractList(response.data);
-    return list.map((e) => OnCallModel.fromJson(e)).toList();
+    final raw = response.data;
+    if (kDebugMode) {
+      debugPrint('[OnCall] response.data runtimeType=${raw.runtimeType}');
+      if (raw is Map) {
+        debugPrint('[OnCall] keys=${raw.keys.toList()}');
+        final d = raw['data'];
+        debugPrint('[OnCall] data runtimeType=${d.runtimeType}');
+        if (d is Map) debugPrint('[OnCall] data.keys=${d.keys.toList()}');
+      }
+    }
+    final list = _extractList(raw);
+    return list
+        .whereType<Map<String, dynamic>>()
+        .map((e) => OnCallModel.fromJson(e))
+        .toList();
   }
 
-  /// Extract a List from various API response shapes:
+  /// Extract a List from any API response shape — maximally defensive.
+  ///
+  /// Handles:
   ///   - Direct List
-  ///   - { "data": [ ... ] }                 (simple wrapper)
-  ///   - { "data": { "data": [ ... ] } }     (Laravel paginate inside wrapper)
+  ///   - { "data": [ ... ] }
+  ///   - { "data": { "data": [ ... ], ... } }   (paginate inside wrapper)
+  ///   - { "current_page": .., "data": [ ... ] } (raw paginator)
+  ///   - { "status": .., "data": { "current_page": .., "data": [...] } }
   static List _extractList(dynamic data) {
     if (data is List) return data;
     if (data is Map) {
       final inner = data['data'];
       if (inner is List) return inner;
-      if (inner is Map && inner['data'] is List) return inner['data'] as List;
+      if (inner is Map) {
+        final nested = inner['data'];
+        if (nested is List) return nested;
+      }
+      // Maybe 'items' key from some APIs
+      final items = data['items'];
+      if (items is List) return items;
     }
     return [];
   }
