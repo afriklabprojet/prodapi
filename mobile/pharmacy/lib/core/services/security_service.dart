@@ -155,7 +155,32 @@ class SecurityService {
         success: didAuthenticate,
         message: didAuthenticate ? 'Authentification réussie' : 'Authentification annulée',
       );
+    } on LocalAuthException catch (e) {
+      if (kDebugMode) debugPrint('❌ [SecurityService] Biometric auth error: ${e.code} - ${e.description}');
+      String message;
+      switch (e.code) {
+        case LocalAuthExceptionCode.noBiometricHardware:
+        case LocalAuthExceptionCode.biometricHardwareTemporarilyUnavailable:
+          message = 'Biométrie non disponible';
+        case LocalAuthExceptionCode.noBiometricsEnrolled:
+        case LocalAuthExceptionCode.noCredentialsSet:
+          message = 'Aucune empreinte enregistrée sur cet appareil';
+        case LocalAuthExceptionCode.temporaryLockout:
+        case LocalAuthExceptionCode.biometricLockout:
+          message = 'Trop de tentatives. Biométrie verrouillée.';
+        case LocalAuthExceptionCode.userCanceled:
+        case LocalAuthExceptionCode.systemCanceled:
+          message = 'Authentification annulée';
+        default:
+          message = 'Erreur d\'authentification: ${e.description}';
+      }
+      return BiometricResult(
+        success: false,
+        message: message,
+        errorCode: e.code.name,
+      );
     } catch (e) {
+      if (kDebugMode) debugPrint('❌ [SecurityService] Unexpected biometric error: $e');
       return BiometricResult(
         success: false,
         message: 'Erreur: $e',

@@ -95,6 +95,9 @@
 
 # ───────────── local_auth ─────────────
 -keep class io.flutter.plugins.localauth.** { *; }
+-keep class androidx.biometric.** { *; }
+-dontwarn androidx.biometric.**
+-keep class androidx.core.hardware.fingerprint.** { *; }
 
 # ───────────── flutter_local_notifications ─────────────
 -keep class com.dexterous.** { *; }

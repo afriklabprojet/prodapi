@@ -351,36 +351,60 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
 
   Future<void> _toggleBiometric(bool enabled) async {
     if (enabled) {
-      // Vérifier si l'appareil supporte la biométrie
-      final securityService = ref.read(securityServiceProvider);
-      final capability = await securityService.checkBiometricCapability();
-      
-      if (!capability.isAvailable) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Authentification biométrique non disponible sur cet appareil'),
-              backgroundColor: Colors.orange,
-            ),
-          );
+      try {
+        // Vérifier si l'appareil supporte la biométrie
+        final securityService = ref.read(securityServiceProvider);
+        final capability = await securityService.checkBiometricCapability();
+        
+        if (!capability.isAvailable) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Authentification biométrique non disponible sur cet appareil. '
+                  'Méthodes détectées: ${capability.availableMethodsText}',
+                ),
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+          return;
         }
-        return;
-      }
-      
-      // Authentifier d'abord
-      final result = await securityService.authenticateWithBiometric(
-        reason: 'Confirmez votre identité pour activer la biométrie',
-      );
-      
-      if (result.success) {
-        await securityService.setBiometricEnabled(true);
-        if (!mounted) return;
-        setState(() => _biometricEnabled = true);
+        
+        // Authentifier d'abord
+        final result = await securityService.authenticateWithBiometric(
+          reason: 'Confirmez votre identité pour activer la biométrie',
+        );
+        
+        if (result.success) {
+          await securityService.setBiometricEnabled(true);
+          if (!mounted) return;
+          setState(() => _biometricEnabled = true);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Authentification biométrique activée'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(result.message),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Authentification biométrique activée'),
-              backgroundColor: Colors.green,
+            SnackBar(
+              content: Text('Erreur biométrie: $e'),
+              backgroundColor: Colors.red,
             ),
           );
         }
