@@ -18,13 +18,13 @@ class VerificationController extends Controller
     }
 
     /**
-     * Verify Account OTP
+     * Verify Account OTP (supports 4 or 6 digit codes)
      */
     public function verify(Request $request)
     {
         $request->validate([
             'identifier' => 'required|string', // email or phone
-            'otp' => 'required|string|size:4',
+            'otp' => 'required|string|between:4,6',
         ]);
 
         $identifier = $request->identifier;
@@ -77,7 +77,8 @@ class VerificationController extends Controller
             return response()->json(['message' => 'Utilisateur non trouvé'], 404);
         }
 
-        $otp = $this->otpService->generateOtp($identifier);
+        // Generate 6-digit OTP (compatible with Firebase UX)
+        $otp = $this->otpService->generateOtp($identifier, length: 6);
         
         // Send OTP with email as fallback if identifier is phone
         $fallbackEmail = filter_var($identifier, FILTER_VALIDATE_EMAIL) ? null : $user->email;
