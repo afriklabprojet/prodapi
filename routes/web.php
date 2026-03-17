@@ -10,74 +10,74 @@ use App\Http\Controllers\Admin\PrivateDocumentController;
 Route::get('/', function () {
     $landing = [
         // SEO
-        'seo_title' => Setting::get('landing_seo_title', 'DR-PHARMA — Votre Santé, Simplifiée'),
-        'seo_description' => Setting::get('landing_seo_description', 'DR-PHARMA — La plateforme santé digitale N°1 en Côte d\'Ivoire. Commandez vos médicaments, gérez votre pharmacie, livrez en toute sécurité.'),
+        'seo_title' => Setting::get('landing_seo_title', 'DR-PHARMA — Pharmacie en ligne, livraison à Abidjan'),
+        'seo_description' => Setting::get('landing_seo_description', 'Commandez vos médicaments en ligne et faites-vous livrer à domicile à Abidjan. DR-PHARMA connecte patients, pharmacies et coursiers.'),
 
         // Hero
-        'hero_badge' => Setting::get('landing_hero_badge', 'Disponible en Côte d\'Ivoire'),
-        'hero_title_line1' => Setting::get('landing_hero_title_line1', 'Votre santé,'),
-        'hero_title_line2' => Setting::get('landing_hero_title_line2', 'simplifiée.'),
-        'hero_subtitle' => Setting::get('landing_hero_subtitle', 'Commandez vos médicaments, gérez votre pharmacie ou livrez en toute sécurité — tout depuis votre smartphone.'),
+        'hero_badge' => Setting::get('landing_hero_badge', 'Disponible à Abidjan'),
+        'hero_title_line1' => Setting::get('landing_hero_title_line1', 'Vos médicaments,'),
+        'hero_title_line2' => Setting::get('landing_hero_title_line2', 'livrés chez vous.'),
+        'hero_subtitle' => Setting::get('landing_hero_subtitle', 'Commandez depuis votre téléphone, on s\'occupe de la livraison. Fini les files d\'attente en pharmacie.'),
         'hero_cta_appstore_url' => Setting::get('landing_hero_cta_appstore_url', '#telecharger'),
         'hero_cta_playstore_url' => Setting::get('landing_hero_cta_playstore_url', '#telecharger'),
-        'hero_trust_1' => Setting::get('landing_hero_trust_1', 'Gratuit'),
-        'hero_trust_2' => Setting::get('landing_hero_trust_2', 'Sécurisé'),
-        'hero_trust_3' => Setting::get('landing_hero_trust_3', 'Rapide'),
+        'hero_trust_1' => Setting::get('landing_hero_trust_1', 'Téléchargement gratuit'),
+        'hero_trust_2' => Setting::get('landing_hero_trust_2', 'Données protégées'),
+        'hero_trust_3' => Setting::get('landing_hero_trust_3', 'Livraison rapide'),
         'hero_phone_title' => Setting::get('landing_hero_phone_title', 'DR-PHARMA'),
-        'hero_phone_subtitle' => Setting::get('landing_hero_phone_subtitle', 'Votre pharmacie de poche'),
+        'hero_phone_subtitle' => Setting::get('landing_hero_phone_subtitle', 'Commandez en quelques clics'),
 
         // Stats
         'stats' => Setting::get('landing_stats', [
-            ['value' => '500', 'suffix' => '+', 'label' => 'Pharmacies partenaires'],
-            ['value' => '10000', 'suffix' => '+', 'label' => 'Utilisateurs actifs'],
-            ['value' => '2000', 'suffix' => '+', 'label' => 'Médicaments référencés'],
-            ['value' => '98', 'suffix' => '%', 'label' => 'Satisfaction client'],
+            ['value' => '50', 'suffix' => '+', 'label' => 'Pharmacies inscrites'],
+            ['value' => '1200', 'suffix' => '+', 'label' => 'Commandes livrées'],
+            ['value' => '850', 'suffix' => '+', 'label' => 'Médicaments disponibles'],
+            ['value' => '42', 'suffix' => ' min', 'label' => 'Délai moyen de livraison'],
         ]),
 
         // Features
-        'features_badge' => Setting::get('landing_features_badge', 'Fonctionnalités'),
-        'features_title' => Setting::get('landing_features_title', 'Tout ce dont vous avez besoin'),
-        'features_title_highlight' => Setting::get('landing_features_title_highlight', 'besoin'),
-        'features_subtitle' => Setting::get('landing_features_subtitle', 'Une plateforme complète qui connecte patients, pharmaciens et coursiers pour un accès simple et rapide aux médicaments.'),
+        'features_badge' => Setting::get('landing_features_badge', 'L\'app en bref'),
+        'features_title' => Setting::get('landing_features_title', 'Ce que vous pouvez faire'),
+        'features_title_highlight' => Setting::get('landing_features_title_highlight', 'faire'),
+        'features_subtitle' => Setting::get('landing_features_subtitle', 'Patients, pharmaciens et coursiers — chacun y trouve son compte.'),
         'features' => Setting::get('landing_features', [
-            ['title' => 'Recherche intelligente', 'description' => 'Trouvez vos médicaments en quelques secondes parmi plus de 2000 références.', 'icon_color' => 'green'],
-            ['title' => 'Ordonnances numériques', 'description' => 'Envoyez une photo de votre ordonnance et recevez vos médicaments sans vous déplacer.', 'icon_color' => 'blue'],
-            ['title' => 'Suivi GPS en temps réel', 'description' => 'Suivez votre livreur en direct sur la carte.', 'icon_color' => 'amber'],
-            ['title' => 'Paiement sécurisé', 'description' => 'Mobile Money, carte bancaire ou paiement à la livraison.', 'icon_color' => 'purple'],
-            ['title' => 'Livraison express', 'description' => 'Recevez vos médicaments en moins de 45 minutes.', 'icon_color' => 'rose'],
-            ['title' => 'Tableau de bord pharmacie', 'description' => 'Gérez vos stocks, commandes et statistiques depuis un dashboard intuitif.', 'icon_color' => 'cyan'],
+            ['title' => 'Chercher un médicament', 'description' => 'Tapez le nom et trouvez les pharmacies qui l\'ont en stock près de chez vous.', 'icon_color' => 'green'],
+            ['title' => 'Envoyer une ordonnance', 'description' => 'Prenez en photo votre ordonnance, la pharmacie prépare votre commande.', 'icon_color' => 'blue'],
+            ['title' => 'Suivre la livraison', 'description' => 'Voyez où en est votre coursier sur la carte, en temps réel.', 'icon_color' => 'amber'],
+            ['title' => 'Payer comme vous voulez', 'description' => 'Orange Money, MTN, Wave, carte bancaire ou cash à la livraison.', 'icon_color' => 'purple'],
+            ['title' => 'Être livré rapidement', 'description' => 'Nos coursiers récupèrent vos médicaments et vous les apportent chez vous.', 'icon_color' => 'rose'],
+            ['title' => 'Gérer sa pharmacie', 'description' => 'Les pharmaciens suivent leurs stocks, commandes et ventes depuis l\'app.', 'icon_color' => 'cyan'],
         ]),
 
         // Steps
-        'steps_badge' => Setting::get('landing_steps_badge', 'Processus'),
-        'steps_title' => Setting::get('landing_steps_title', 'Comment ça marche ?'),
-        'steps_title_highlight' => Setting::get('landing_steps_title_highlight', 'marche ?'),
-        'steps_subtitle' => Setting::get('landing_steps_subtitle', 'En seulement 3 étapes, recevez vos médicaments à domicile.'),
+        'steps_badge' => Setting::get('landing_steps_badge', 'Comment ça marche'),
+        'steps_title' => Setting::get('landing_steps_title', 'En 3 étapes'),
+        'steps_title_highlight' => Setting::get('landing_steps_title_highlight', '3 étapes'),
+        'steps_subtitle' => Setting::get('landing_steps_subtitle', 'De la commande à la livraison, c\'est simple et rapide.'),
         'steps' => Setting::get('landing_steps', [
-            ['title' => 'Recherchez', 'description' => 'Tapez le nom du médicament ou envoyez une photo de votre ordonnance.', 'color' => 'green'],
-            ['title' => 'Commandez', 'description' => 'Choisissez la pharmacie la plus proche, ajoutez au panier et payez.', 'color' => 'blue'],
-            ['title' => 'Recevez', 'description' => 'Un coursier récupère votre commande et vous la livre en moins de 45 minutes.', 'color' => 'amber'],
+            ['title' => 'Cherchez', 'description' => 'Tapez le nom du médicament ou photographiez votre ordonnance.', 'color' => 'green'],
+            ['title' => 'Commandez', 'description' => 'Choisissez une pharmacie, ajoutez au panier et payez.', 'color' => 'blue'],
+            ['title' => 'Recevez', 'description' => 'Un coursier passe en pharmacie et vous livre directement.', 'color' => 'amber'],
         ]),
 
         // Apps
-        'apps_badge' => Setting::get('landing_apps_badge', 'Nos Applications'),
-        'apps_title' => Setting::get('landing_apps_title', '3 apps, 1 écosystème'),
-        'apps_title_highlight' => Setting::get('landing_apps_title_highlight', '1 écosystème'),
-        'apps_subtitle' => Setting::get('landing_apps_subtitle', 'Chaque acteur de la chaîne dispose de son application dédiée, connectée en temps réel.'),
+        'apps_badge' => Setting::get('landing_apps_badge', 'Nos apps'),
+        'apps_title' => Setting::get('landing_apps_title', 'Une app pour chaque besoin'),
+        'apps_title_highlight' => Setting::get('landing_apps_title_highlight', 'chaque besoin'),
+        'apps_subtitle' => Setting::get('landing_apps_subtitle', 'Patient, pharmacien ou coursier : téléchargez l\'app qui vous correspond.'),
         'apps' => Setting::get('landing_apps', [
-            ['tag' => 'PATIENT', 'title' => 'App Patient', 'description' => 'Commandez vos médicaments.', 'color' => 'green', 'features' => 'Recherche & commande|Upload d\'ordonnance|Suivi GPS en direct|Paiement Mobile Money'],
-            ['tag' => 'PHARMACIE', 'title' => 'App Pharmacien', 'description' => 'Gérez votre officine digitale.', 'color' => 'blue', 'features' => 'Gestion de stock|Traitement d\'ordonnances|Dashboard analytique|Notifications temps réel'],
-            ['tag' => 'COURSIER', 'title' => 'App Coursier', 'description' => 'Optimisez vos tournées.', 'color' => 'amber', 'features' => 'Navigation GPS|Système de challenges|Statistiques de gains|Paiement automatique'],
+            ['tag' => 'PATIENT', 'title' => 'App Patient', 'description' => 'Pour commander et se faire livrer.', 'color' => 'green', 'features' => 'Recherche de médicaments|Envoi d\'ordonnance|Suivi de livraison|Paiement mobile ou cash'],
+            ['tag' => 'PHARMACIE', 'title' => 'App Pharmacien', 'description' => 'Pour gérer les commandes et le stock.', 'color' => 'blue', 'features' => 'Gestion du stock|Traitement des ordonnances|Suivi des ventes|Alertes de commandes'],
+            ['tag' => 'COURSIER', 'title' => 'App Coursier', 'description' => 'Pour livrer et suivre ses gains.', 'color' => 'amber', 'features' => 'Navigation GPS|Historique des courses|Suivi des gains|Bonus de performance'],
         ]),
 
         // Testimonials
-        'testimonials_badge' => Setting::get('landing_testimonials_badge', 'Témoignages'),
-        'testimonials_title' => Setting::get('landing_testimonials_title', 'Ils nous font confiance'),
-        'testimonials_title_highlight' => Setting::get('landing_testimonials_title_highlight', 'confiance'),
+        'testimonials_badge' => Setting::get('landing_testimonials_badge', 'Avis'),
+        'testimonials_title' => Setting::get('landing_testimonials_title', 'Ce qu\'en disent nos utilisateurs'),
+        'testimonials_title_highlight' => Setting::get('landing_testimonials_title_highlight', 'utilisateurs'),
         'testimonials' => Setting::get('landing_testimonials', [
-            ['quote' => 'Depuis que j\'utilise DR-PHARMA, je ne fais plus la queue en pharmacie.', 'name' => 'Aminata K.', 'role' => 'Patiente — Cocody, Abidjan', 'initials' => 'AK', 'color' => 'green', 'rating' => 5],
-            ['quote' => 'DR-PHARMA a modernisé ma pharmacie.', 'name' => 'Dr. Yao D.', 'role' => 'Pharmacien — Plateau, Abidjan', 'initials' => 'DY', 'color' => 'blue', 'rating' => 5],
-            ['quote' => 'Grâce aux challenges et au système de bonus, je gagne bien ma vie.', 'name' => 'Kouadio S.', 'role' => 'Coursier — Yopougon, Abidjan', 'initials' => 'KS', 'color' => 'amber', 'rating' => 5],
+            ['quote' => 'J\'ai commandé pour ma mère qui ne peut pas se déplacer. En 40 minutes c\'était livré. Vraiment pratique.', 'name' => 'Aminata K.', 'role' => 'Utilisatrice — Cocody', 'initials' => 'AK', 'color' => 'green', 'rating' => 5],
+            ['quote' => 'Ça m\'évite de refuser des clients quand un produit manque. Je peux mieux gérer mon stock maintenant.', 'name' => 'Dr. Yao D.', 'role' => 'Pharmacien — Plateau', 'initials' => 'DY', 'color' => 'blue', 'rating' => 4],
+            ['quote' => 'Je fais mes courses entre les livraisons, c\'est flexible. Les bonus du week-end sont bien aussi.', 'name' => 'Kouadio S.', 'role' => 'Coursier — Yopougon', 'initials' => 'KS', 'color' => 'amber', 'rating' => 5],
         ]),
 
         // FAQ
@@ -85,25 +85,27 @@ Route::get('/', function () {
         'faq_title' => Setting::get('landing_faq_title', 'Questions fréquentes'),
         'faq_title_highlight' => Setting::get('landing_faq_title_highlight', 'fréquentes'),
         'faqs' => Setting::get('landing_faqs', [
-            ['question' => 'Comment commander mes médicaments ?', 'answer' => 'Téléchargez l\'app Patient, créez votre compte et recherchez votre médicament.'],
-            ['question' => 'L\'application est-elle gratuite ?', 'answer' => 'Oui ! Le téléchargement et l\'inscription sont entièrement gratuits.'],
-            ['question' => 'Quels sont les moyens de paiement acceptés ?', 'answer' => 'Nous acceptons Orange Money, MTN, Moov, Wave, les cartes bancaires et le cash.'],
+            ['question' => 'Comment je commande mes médicaments ?', 'answer' => 'Téléchargez l\'app, créez un compte avec votre numéro de téléphone, puis cherchez votre médicament ou envoyez une photo de votre ordonnance. Choisissez une pharmacie et validez.'],
+            ['question' => 'C\'est payant ?', 'answer' => 'L\'app est gratuite. Vous payez uniquement vos médicaments et les frais de livraison.'],
+            ['question' => 'Comment je paye ?', 'answer' => 'Par Orange Money, MTN MoMo, Moov Money, Wave, carte bancaire, ou en espèces à la livraison.'],
+            ['question' => 'En combien de temps je suis livré ?', 'answer' => 'Ça dépend de votre quartier et de la pharmacie, mais en général entre 30 et 60 minutes à Abidjan.'],
+            ['question' => 'Est-ce que mes données sont protégées ?', 'answer' => 'Oui. Vos données de santé sont chiffrées et ne sont partagées avec personne.'],
         ]),
 
         // CTA
-        'cta_title_line1' => Setting::get('landing_cta_title_line1', 'Prêt à simplifier'),
-        'cta_title_line2' => Setting::get('landing_cta_title_line2', 'votre accès aux médicaments ?'),
-        'cta_highlight' => Setting::get('landing_cta_highlight', 'médicaments'),
-        'cta_subtitle' => Setting::get('landing_cta_subtitle', 'Rejoignez des milliers d\'utilisateurs en Côte d\'Ivoire.'),
+        'cta_title_line1' => Setting::get('landing_cta_title_line1', 'Téléchargez DR-PHARMA'),
+        'cta_title_line2' => Setting::get('landing_cta_title_line2', 'et commandez dès maintenant'),
+        'cta_highlight' => Setting::get('landing_cta_highlight', 'dès maintenant'),
+        'cta_subtitle' => Setting::get('landing_cta_subtitle', 'Disponible gratuitement sur Android et bientôt sur iOS.'),
         'cta_appstore_url' => Setting::get('landing_cta_appstore_url', '#'),
         'cta_playstore_url' => Setting::get('landing_cta_playstore_url', '#'),
-        'cta_trust_1' => Setting::get('landing_cta_trust_1', '100% Sécurisé'),
-        'cta_trust_2' => Setting::get('landing_cta_trust_2', 'Gratuit'),
-        'cta_trust_3' => Setting::get('landing_cta_trust_3', 'Livraison < 45 min'),
-        'cta_trust_4' => Setting::get('landing_cta_trust_4', '4.8★ sur les stores'),
+        'cta_trust_1' => Setting::get('landing_cta_trust_1', 'Données chiffrées'),
+        'cta_trust_2' => Setting::get('landing_cta_trust_2', 'App gratuite'),
+        'cta_trust_3' => Setting::get('landing_cta_trust_3', 'Livraison à Abidjan'),
+        'cta_trust_4' => Setting::get('landing_cta_trust_4', 'Support par WhatsApp'),
 
         // Footer
-        'footer_description' => Setting::get('landing_footer_description', 'La plateforme santé digitale N°1 en Côte d\'Ivoire.'),
+        'footer_description' => Setting::get('landing_footer_description', 'Service de commande et livraison de médicaments à Abidjan, Côte d\'Ivoire.'),
         'footer_email' => Setting::get('landing_footer_email', 'contact@drlpharma.com'),
         'footer_phone' => Setting::get('landing_footer_phone', '+225 07 01 159 572'),
         'footer_address' => Setting::get('landing_footer_address', 'Abidjan, Côte d\'Ivoire'),
@@ -111,7 +113,7 @@ Route::get('/', function () {
         'footer_instagram_url' => Setting::get('landing_footer_instagram_url', '#'),
         'footer_twitter_url' => Setting::get('landing_footer_twitter_url', '#'),
         'footer_linkedin_url' => Setting::get('landing_footer_linkedin_url', '#'),
-        'footer_copyright' => Setting::get('landing_footer_copyright', '© 2026 DR-PHARMA. Tous droits réservés. Fait en Côte d\'Ivoire'),
+        'footer_copyright' => Setting::get('landing_footer_copyright', '© 2025 DR-PHARMA. Tous droits réservés.'),
     ];
 
     return view('welcome', compact('landing'));
