@@ -62,21 +62,10 @@ class AdminPanelProvider extends PanelProvider
                 \App\Filament\Widgets\StatsOverview::class,
                 \App\Filament\Widgets\FinanceOverviewWidget::class,
                 // Graphiques
-                \App\Filament\Widgets\OrdersChart::class,
-                \App\Filament\Widgets\RevenueChart::class,
                 \App\Filament\Widgets\DeliveryPerformanceChart::class,
-                \App\Filament\Widgets\CourierStatusChart::class,
-                // Tables urgentes
-                \App\Filament\Widgets\PendingWithdrawalsWidget::class,
-                \App\Filament\Widgets\PendingSupportWidget::class,
-                // Top performers
-                \App\Filament\Widgets\TopPharmaciesWidget::class,
-                \App\Filament\Widgets\TopCouriersWidget::class,
-                // Autres
-                \App\Filament\Widgets\OnDutyStatsWidget::class,
-                \App\Filament\Widgets\CurrentOnDutyPharmaciesWidget::class,
-                \App\Filament\Widgets\LatestOrdersWidget::class,
-                \App\Filament\Widgets\StockAlertsWidget::class,
+                // KYC & Prescriptions
+                \App\Filament\Widgets\PendingKYCWidget::class,
+                \App\Filament\Widgets\PendingPrescriptionsWidget::class,
             ])
             ->middleware([
                 EncryptCookies::class,
