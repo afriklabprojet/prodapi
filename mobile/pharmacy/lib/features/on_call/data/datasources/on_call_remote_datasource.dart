@@ -17,9 +17,22 @@ class OnCallRemoteDataSourceImpl implements OnCallRemoteDataSource {
   @override
   Future<List<OnCallModel>> getOnCalls() async {
     final response = await _apiClient.get('/pharmacy/on-calls');
-    final data = response.data;
-    final list = data is Map && data['data'] != null ? data['data'] as List : data as List;
+    final list = _extractList(response.data);
     return list.map((e) => OnCallModel.fromJson(e)).toList();
+  }
+
+  /// Extract a List from various API response shapes:
+  ///   - Direct List
+  ///   - { "data": [ ... ] }                 (simple wrapper)
+  ///   - { "data": { "data": [ ... ] } }     (Laravel paginate inside wrapper)
+  static List _extractList(dynamic data) {
+    if (data is List) return data;
+    if (data is Map) {
+      final inner = data['data'];
+      if (inner is List) return inner;
+      if (inner is Map && inner['data'] is List) return inner['data'] as List;
+    }
+    return [];
   }
 
   @override

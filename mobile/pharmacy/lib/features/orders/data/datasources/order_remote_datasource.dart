@@ -24,9 +24,20 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
       // Token is injected automatically by the ApiClient interceptor
     );
 
-    return (response.data['data'] as List)
-        .map((e) => OrderModel.fromJson(e))
+    return _extractList(response.data)
+        .map((e) => OrderModel.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  /// Extract a List from various API response shapes.
+  static List _extractList(dynamic data) {
+    if (data is List) return data;
+    if (data is Map) {
+      final inner = data['data'];
+      if (inner is List) return inner;
+      if (inner is Map && inner['data'] is List) return inner['data'] as List;
+    }
+    return [];
   }
 
   @override

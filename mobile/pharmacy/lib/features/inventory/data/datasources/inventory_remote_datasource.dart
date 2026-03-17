@@ -30,22 +30,32 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
 
   @override
   Future<List<ProductModel>> getProducts() async {
-    // Liste des produits
     final response = await apiClient.get('/pharmacy/inventory');
-
-    return (response.data['data'] as List)
+    return _extractList(response.data)
         .map((e) => ProductModel.fromJson(e))
         .toList();
   }
 
   @override
   Future<List<CategoryModel>> getCategories() async {
-    // Liste des catégories
     final response = await apiClient.get('/pharmacy/inventory/categories');
-
-    return (response.data['data'] as List)
+    return _extractList(response.data)
         .map((e) => CategoryModel.fromJson(e))
         .toList();
+  }
+
+  /// Extract a List from various API response shapes:
+  ///   - Direct List
+  ///   - { "data": [ ... ] }                 (simple wrapper)
+  ///   - { "data": { "data": [ ... ] } }     (Laravel paginate inside wrapper)
+  static List _extractList(dynamic data) {
+    if (data is List) return data;
+    if (data is Map) {
+      final inner = data['data'];
+      if (inner is List) return inner;
+      if (inner is Map && inner['data'] is List) return inner['data'] as List;
+    }
+    return [];
   }
 
   @override

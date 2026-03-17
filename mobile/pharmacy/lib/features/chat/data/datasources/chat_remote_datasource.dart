@@ -39,9 +39,19 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
         'participant_id': participantId,
       },
     );
-    final data = response.data;
-    final list = data is Map && data['data'] != null ? data['data'] as List : data as List;
+    final list = _extractList(response.data);
     return list.map((e) => ChatMessageModel.fromJson(e)).toList();
+  }
+
+  /// Extract a List from various API response shapes.
+  static List _extractList(dynamic data) {
+    if (data is List) return data;
+    if (data is Map) {
+      final inner = data['data'];
+      if (inner is List) return inner;
+      if (inner is Map && inner['data'] is List) return inner['data'] as List;
+    }
+    return [];
   }
 
   @override

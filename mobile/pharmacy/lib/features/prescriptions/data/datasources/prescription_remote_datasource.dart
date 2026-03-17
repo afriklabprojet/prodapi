@@ -40,10 +40,21 @@ class PrescriptionRemoteDataSourceImpl implements PrescriptionRemoteDataSource {
 
   PrescriptionRemoteDataSourceImpl(this._client);
 
+  /// Extract a List from various API response shapes.
+  static List _extractList(dynamic data) {
+    if (data is List) return data;
+    if (data is Map) {
+      final inner = data['data'];
+      if (inner is List) return inner;
+      if (inner is Map && inner['data'] is List) return inner['data'] as List;
+    }
+    return [];
+  }
+
   @override
   Future<List<PrescriptionModel>> getPrescriptions() async {
     final response = await _client.get('/pharmacy/prescriptions');
-    final data = response.data['data'] as List;
+    final data = _extractList(response.data);
     // Parse each item individually so one corrupt entry doesn't crash the whole list.
     final List<PrescriptionModel> result = [];
     for (final json in data) {

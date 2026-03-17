@@ -24,8 +24,23 @@ final dutyZonesProvider = FutureProvider<List<DutyZone>>((ref) async {
   try {
     final response = await apiClient.get('/duty-zones');
     final data = response.data;
-    final list = data is Map && data['data'] != null ? data['data'] as List : data as List;
-    return list.map((e) => DutyZone.fromJson(e)).toList();
+    // Handle direct list, {data: [...]}, or {data: {data: [...]}}
+    List rawList;
+    if (data is List) {
+      rawList = data;
+    } else if (data is Map) {
+      final inner = data['data'];
+      if (inner is List) {
+        rawList = inner;
+      } else if (inner is Map && inner['data'] is List) {
+        rawList = inner['data'] as List;
+      } else {
+        rawList = [];
+      }
+    } else {
+      rawList = [];
+    }
+    return rawList.map((e) => DutyZone.fromJson(e)).toList();
   } catch (e) {
     return [];
   }
