@@ -48,9 +48,17 @@ class OnCallController extends Controller
                   ->where('end_at', '>=', now());
         }
 
+        $paginated = $query->paginate(20);
+
         return response()->json([
             'status' => 'success',
-            'data' => $query->paginate(20)
+            'data' => $paginated->items(),
+            'meta' => [
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+            ],
         ]);
     }
 
