@@ -623,9 +623,7 @@
             padding-top: 80px;
             position: relative;
             overflow: hidden;
-            background: linear-gradient(135deg, var(--brand-50) 0%, #d1fae5 25%, #f0fdf4 50%, var(--brand-50) 75%, #d1fae5 100%);
-            background-size: 400% 400%;
-            animation: gradient-shift 15s ease infinite;
+            background: linear-gradient(135deg, var(--brand-50) 0%, #f0fdf4 50%, #d1fae5 100%);
         }
 
         .hero-grid {
@@ -722,39 +720,6 @@
             height: 20px;
             color: var(--brand-500);
             flex-shrink: 0;
-        }
-
-        /* Blobs */
-        .blob {
-            position: absolute;
-            border-radius: 50%;
-            filter: blur(80px);
-            opacity: .25;
-            pointer-events: none;
-        }
-
-        .hero .blob-1 {
-            width: 380px;
-            height: 380px;
-            background: var(--brand-300);
-            top: 10px;
-            left: -190px;
-        }
-
-        .hero .blob-2 {
-            width: 280px;
-            height: 280px;
-            background: var(--brand-200);
-            bottom: 80px;
-            right: 40px;
-        }
-
-        .dots-pattern {
-            position: absolute;
-            inset: 0;
-            opacity: .03;
-            background-image: radial-gradient(circle, var(--brand-600) 1px, transparent 1px);
-            background-size: 30px 30px;
         }
 
         /* Phone */
@@ -1457,38 +1422,6 @@
             text-align: center;
         }
 
-        .cta-section .cta-blob-1 {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            width: 280px;
-            height: 280px;
-            background: var(--brand-400);
-            border-radius: 50%;
-            filter: blur(120px);
-            opacity: .12;
-        }
-
-        .cta-section .cta-blob-2 {
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            width: 380px;
-            height: 380px;
-            background: var(--brand-300);
-            border-radius: 50%;
-            filter: blur(120px);
-            opacity: .1;
-        }
-
-        .cta-dots {
-            position: absolute;
-            inset: 0;
-            opacity: .02;
-            background-image: radial-gradient(circle, #fff 1px, transparent 1px);
-            background-size: 24px 24px;
-        }
-
         .cta-inner {
             position: relative;
             z-index: 5;
@@ -1805,9 +1738,6 @@
     <!-- HERO                                         -->
     <!-- ============================================ -->
     <section class="hero">
-        <div class="blob blob-1 animate-float"></div>
-        <div class="blob blob-2 animate-float-d"></div>
-        <div class="dots-pattern"></div>
 
         <div class="container">
             <div class="hero-grid">
@@ -1870,7 +1800,7 @@
                 </div>
 
                 <div class="hero-phone-wrap">
-                    <div class="phone animate-float">
+                    <div class="phone">
                         <div class="phone-content">
                             <div class="phone-logo-box">
                                 <img src="{{ asset('images/logo.png') }}" alt="DR-PHARMA">
@@ -1886,7 +1816,7 @@
                                         </svg></div>
                                     <div>
                                         <p>Rechercher</p>
-                                        <p>+2000 médicaments</p>
+                                        <p>Trouvez votre médicament</p>
                                     </div>
                                 </div>
                                 <div class="phone-card">
@@ -2183,9 +2113,6 @@
     <!-- CTA / TELECHARGER                            -->
     <!-- ============================================ -->
     <section id="telecharger" class="cta-section">
-        <div class="cta-blob-1"></div>
-        <div class="cta-blob-2"></div>
-        <div class="cta-dots"></div>
         <div class="container">
             <div class="cta-inner reveal">
                 <div class="cta-logo">
