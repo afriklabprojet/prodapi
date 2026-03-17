@@ -12,6 +12,7 @@ import '../../features/auth/presentation/pages/change_password_page.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/auth/presentation/providers/auth_state.dart';
 import '../../home_page.dart';
+import '../../main_shell_page.dart';
 import '../../features/pharmacies/presentation/pages/pharmacies_list_page_v2.dart';
 import '../../features/pharmacies/presentation/pages/pharmacy_details_page.dart';
 import '../../features/pharmacies/presentation/pages/pharmacies_map_page.dart';
@@ -23,6 +24,7 @@ import '../../features/orders/presentation/pages/checkout_page.dart';
 import '../../features/orders/presentation/pages/orders_list_page.dart';
 import '../../features/orders/presentation/pages/order_details_page.dart';
 import '../../features/orders/presentation/pages/tracking_page.dart';
+import '../../features/orders/presentation/pages/tracking_page_wrapper.dart';
 import '../../features/orders/presentation/pages/order_confirmation_page.dart';
 import '../../features/orders/domain/entities/delivery_address_entity.dart';
 import '../../features/prescriptions/presentation/pages/prescriptions_list_page.dart';
@@ -295,7 +297,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.home,
         name: 'home',
-        builder: (context, state) => const HomePage(),
+        builder: (context, state) => const MainShellPage(),
       ),
 
       // ===== Pharmacy Routes =====
@@ -396,21 +398,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'orderTracking',
         builder: (context, state) {
           final orderId = int.tryParse(state.pathParameters['id'] ?? '');
+          
+          if (orderId == null) {
+            return _buildInvalidRouteErrorPage(context, 'ID de commande invalide');
+          }
+          
+          // Extra peut être null (deep link), le wrapper gère ce cas
           final extra = state.extra as Map<String, dynamic>?;
+          final deliveryAddress = extra?['deliveryAddress'] as DeliveryAddressEntity?;
+          final pharmacyAddress = extra?['pharmacyAddress'] as String?;
           
-          if (orderId == null || extra == null) {
-            return _buildInvalidRouteErrorPage(context, 'Paramètres de suivi manquants');
-          }
-          
-          final deliveryAddress = extra['deliveryAddress'] as DeliveryAddressEntity?;
-          if (deliveryAddress == null) {
-            return _buildInvalidRouteErrorPage(context, 'Adresse de livraison manquante');
-          }
-          
-          return TrackingPage(
+          return TrackingPageWrapper(
             orderId: orderId,
             deliveryAddress: deliveryAddress,
-            pharmacyAddress: extra['pharmacyAddress'] as String?,
+            pharmacyAddress: pharmacyAddress,
           );
         },
       ),

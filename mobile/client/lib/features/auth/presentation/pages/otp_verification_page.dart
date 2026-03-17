@@ -234,11 +234,12 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
     final notifier = ref.read(firebaseOtpProvider.notifier);
     await notifier.sendOtp(widget.phoneNumber);
 
-    // Wait for Firebase to actually respond (max 15 seconds)
+    // Wait for Firebase to actually respond (max 10 seconds)
+    // UI shows loading state via firebaseOtpProvider.isLoading
     try {
-      await completer.future.timeout(const Duration(seconds: 15));
+      await completer.future.timeout(const Duration(seconds: 10));
     } catch (_) {
-      debugPrint('[OTP] Firebase did not respond within 15s, falling back to backend SMS');
+      debugPrint('[OTP] Firebase did not respond within 10s, falling back to backend SMS');
     }
 
     sub.close();

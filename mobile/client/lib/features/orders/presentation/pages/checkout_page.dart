@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -130,7 +131,11 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     if (cartState.isEmpty && !_isNavigatingToConfirmation) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_isNavigatingToConfirmation) {
-          Navigator.of(context).pop();
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go(AppRoutes.home);
+          }
         }
       });
     }
@@ -313,12 +318,18 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       await _saveAddressToProfile();
     }
 
-    // Upload prescription images if required
+    // Upload prescription images if required (skip if already uploaded - retry scenario)
     String? prescriptionImage;
     int? prescriptionId;
     if (cartState.hasPrescriptionRequiredItems) {
       final prescriptionState = ref.read(checkoutPrescriptionProvider);
-      if (prescriptionState.images.isNotEmpty) {
+      
+      // Vérifier si l'ordonnance a déjà été uploadée (cas de retry après échec de création)
+      if (prescriptionState.isAlreadyUploaded) {
+        AppLogger.debug('[Checkout] Prescription already uploaded, reusing: id=${prescriptionState.uploadedPrescriptionId}');
+        prescriptionId = prescriptionState.uploadedPrescriptionId;
+        prescriptionImage = prescriptionState.uploadedPrescriptionImage;
+      } else if (prescriptionState.images.isNotEmpty) {
         try {
           AppLogger.debug('[Checkout] Uploading prescription images...');
           await ref.read(prescriptionsProvider.notifier).uploadPrescription(
@@ -334,6 +345,12 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
               prescriptionImage = uploadedPrescription.imageUrls.first;
             }
             AppLogger.debug('[Checkout] Prescription uploaded: id=$prescriptionId, image=$prescriptionImage');
+            
+            // Marquer comme uploadé pour éviter re-upload en cas de retry
+            ref.read(checkoutPrescriptionProvider.notifier).markAsUploaded(
+              prescriptionId!,
+              prescriptionImage,
+            );
           }
         } catch (e) {
           AppLogger.error('[Checkout] Failed to upload prescription', error: e);

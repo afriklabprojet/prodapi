@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -70,31 +72,28 @@ class _SplashPageState extends ConsumerState<SplashPage>
       return;
     }
 
-    // Wait for auth check to resolve (stream-based, no busy-wait)
+    // Wait for auth check to resolve via listener (no busy-wait)
     AuthState authState = ref.read(authProvider);
 
     if (authState.status == AuthStatus.initial) {
-      // Listen for auth state change with a 3-second timeout
+      final completer = Completer<AuthState>();
+      final sub = ref.listenManual<AuthState>(
+        authProvider,
+        (_, next) {
+          if (!completer.isCompleted && next.status != AuthStatus.initial) {
+            completer.complete(next);
+          }
+        },
+      );
       try {
-        authState = await Future.any([
-          // Wait for auth to leave 'initial' state
-          Future<AuthState>(() async {
-            while (mounted) {
-              await Future.delayed(const Duration(milliseconds: 50));
-              final s = ref.read(authProvider);
-              if (s.status != AuthStatus.initial) return s;
-            }
-            return const AuthState.unauthenticated();
-          }),
-          // Timeout after 3 seconds → treat as unauthenticated
-          Future.delayed(
-            const Duration(seconds: 3),
-            () => const AuthState.unauthenticated(),
-          ),
-        ]);
+        authState = await completer.future.timeout(
+          const Duration(seconds: 3),
+          onTimeout: () => const AuthState.unauthenticated(),
+        );
       } catch (_) {
         authState = const AuthState.unauthenticated();
       }
+      sub.close();
     }
 
     if (!mounted) return;

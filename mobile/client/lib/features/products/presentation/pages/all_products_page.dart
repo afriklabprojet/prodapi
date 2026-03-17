@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:badges/badges.dart' as badges;
 import '../../../../core/constants/app_colors.dart';
@@ -11,7 +12,6 @@ import '../../../../core/widgets/empty_state.dart';
 import '../../../orders/presentation/providers/cart_provider.dart';
 import '../providers/products_provider.dart';
 import '../providers/products_state.dart';
-import 'product_details_page.dart';
 
 /// Page affichant tous les produits de toutes les pharmacies
 class AllProductsPage extends ConsumerStatefulWidget {
@@ -115,7 +115,13 @@ class _AllProductsPageState extends ConsumerState<AllProductsPage> {
             Icons.arrow_back,
             color: isDark ? Colors.white : Colors.black87,
           ),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(AppRoutes.home);
+            }
+          },
         ),
         iconTheme: IconThemeData(
           color: isDark ? Colors.white : Colors.black87,
@@ -285,11 +291,7 @@ class _AllProductsPageState extends ConsumerState<AllProductsPage> {
             product: product,
             currencyFormat: _currencyFormat,
             isDark: isDark,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ProductDetailsPage(productId: product.id),
-              ),
-            ),
+            onTap: () => context.goToProductDetails(product.id),
           );
         },
       ),

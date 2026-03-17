@@ -29,10 +29,13 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mes commandes'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
-        ),
+        automaticallyImplyLeading: false,
+        leading: context.canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => context.pop(),
+              )
+            : null,
       ),
       body: _buildBody(ordersState),
     );

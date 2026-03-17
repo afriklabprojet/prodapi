@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
 import 'core/constants/app_colors.dart';
@@ -111,93 +110,61 @@ class _HomePageState extends ConsumerState<HomePage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final r = ResponsiveUtils(context);
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) {
-          _showExitConfirmation(context);
-        }
-      },
-      child: Scaffold(
-        backgroundColor: isDark ? const Color(0xFF1A1A2E) : Colors.grey[50],
-        body: Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: r.value(mobile: double.infinity, tablet: 700.0, desktop: 900.0)),
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                HomeAppBar(cartState: cartState, isDark: isDark),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.all(r.horizontalPadding),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        WelcomeSection(userName: user?.name, isDark: isDark),
-                        SizedBox(height: r.value(mobile: 32.0, tablet: 40.0, desktop: 48.0)),
-                        FeaturedPharmaciesSection(
-                          pharmacies: ref.watch(pharmaciesProvider).featuredPharmacies,
-                          isLoading: ref.watch(pharmaciesProvider).isFeaturedLoading,
-                          isDark: isDark,
-                          pageController: _pharmacyPageController,
-                          currentIndex: _currentPharmacyIndex,
-                          onRefresh: () => ref.read(pharmaciesProvider.notifier).fetchFeaturedPharmacies(),
-                          onPageChanged: (index) {
-                            setState(() => _currentPharmacyIndex = index);
-                            final pharmacies = ref.read(pharmaciesProvider).featuredPharmacies;
-                            if (pharmacies.isNotEmpty && _pharmacyTimer == null) {
-                              _startPharmacyTimer(pharmacies.length);
-                            }
-                          },
-                        ),
-                        SizedBox(height: r.value(mobile: 32.0, tablet: 40.0, desktop: 48.0)),
-                        SectionTitle(title: AppLocalizations.of(context).homeServices, isDark: isDark),
-                        const SizedBox(height: 16),
-                        QuickActionsGrid(isDark: isDark),
-                        SizedBox(height: r.value(mobile: 32.0, tablet: 40.0, desktop: 48.0)),
-                        SectionTitle(title: AppLocalizations.of(context).homeFeatured, isDark: isDark),
-                        const SizedBox(height: 16),
-                        PromoSlider(
-                          items: _promoItems,
-                          controller: _promoPageController,
-                          currentIndex: _currentPromoIndex,
-                          isDark: isDark,
-                          onPageChanged: (index) => setState(() => _currentPromoIndex = index),
-                        ),
-                        const SizedBox(height: 100),
-                      ],
-                    ),
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF1A1A2E) : Colors.grey[50],
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: r.value(mobile: double.infinity, tablet: 700.0, desktop: 900.0)),
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              HomeAppBar(cartState: cartState, isDark: isDark),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.all(r.horizontalPadding),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      WelcomeSection(userName: user?.name, isDark: isDark),
+                      SizedBox(height: r.value(mobile: 32.0, tablet: 40.0, desktop: 48.0)),
+                      FeaturedPharmaciesSection(
+                        pharmacies: ref.watch(pharmaciesProvider).featuredPharmacies,
+                        isLoading: ref.watch(pharmaciesProvider).isFeaturedLoading,
+                        isDark: isDark,
+                        pageController: _pharmacyPageController,
+                        currentIndex: _currentPharmacyIndex,
+                        onRefresh: () => ref.read(pharmaciesProvider.notifier).fetchFeaturedPharmacies(),
+                        onPageChanged: (index) {
+                          setState(() => _currentPharmacyIndex = index);
+                          final pharmacies = ref.read(pharmaciesProvider).featuredPharmacies;
+                          if (pharmacies.isNotEmpty && _pharmacyTimer == null) {
+                            _startPharmacyTimer(pharmacies.length);
+                          }
+                        },
+                      ),
+                      SizedBox(height: r.value(mobile: 32.0, tablet: 40.0, desktop: 48.0)),
+                      SectionTitle(title: AppLocalizations.of(context).homeServices, isDark: isDark),
+                      const SizedBox(height: 16),
+                      QuickActionsGrid(isDark: isDark),
+                      SizedBox(height: r.value(mobile: 32.0, tablet: 40.0, desktop: 48.0)),
+                      SectionTitle(title: AppLocalizations.of(context).homeFeatured, isDark: isDark),
+                      const SizedBox(height: 16),
+                      PromoSlider(
+                        items: _promoItems,
+                        controller: _promoPageController,
+                        currentIndex: _currentPromoIndex,
+                        isDark: isDark,
+                        onPageChanged: (index) => setState(() => _currentPromoIndex = index),
+                      ),
+                      const SizedBox(height: 100),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
-  }
-
-  Future<void> _showExitConfirmation(BuildContext context) async {
-    final l10n = AppLocalizations.of(context);
-    final shouldExit = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.dialogQuitApp),
-        content: Text(l10n.dialogQuitAppMessage),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(l10n.btnCancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(l10n.btnQuit, style: TextStyle(color: AppColors.error)),
-          ),
-        ],
-      ),
-    );
-    if (shouldExit == true) {
-      SystemNavigator.pop();
-    }
   }
 }

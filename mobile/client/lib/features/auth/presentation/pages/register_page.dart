@@ -450,17 +450,62 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   }
 
   Widget _buildPhoneField(bool isDark) {
-    return _buildTextField(
+    return TextFormField(
       controller: _phoneController,
-      label: 'Téléphone',
-      icon: Icons.phone_outlined,
       keyboardType: TextInputType.phone,
-      isDark: isDark,
       inputFormatters: [
         FilteringTextInputFormatter.digitsOnly,
         LengthLimitingTextInputFormatter(10),
       ],
       validator: FormValidators.validatePhone,
+      style: TextStyle(color: isDark ? Colors.white : AppColors.textPrimary),
+      decoration: InputDecoration(
+        labelText: 'Téléphone',
+        labelStyle: TextStyle(
+          color: isDark ? Colors.grey[400] : Colors.grey[600],
+        ),
+        prefixIcon: Container(
+          padding: const EdgeInsets.only(left: 14, right: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.phone_outlined,
+                color: isDark ? Colors.grey[400] : AppColors.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '+225',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white70 : AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        filled: true,
+        fillColor: isDark
+            ? Colors.white.withValues(alpha: 0.05)
+            : Colors.grey[100],
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.red.shade400, width: 1.5),
+        ),
+      ),
     );
   }
 

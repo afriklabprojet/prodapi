@@ -35,6 +35,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
+        automaticallyImplyLeading: false,
+        leading: context.canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => context.pop(),
+              )
+            : null,
       ),
       body: RefreshIndicator(
         onRefresh: () async {
