@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/app_router.dart';
@@ -80,7 +81,7 @@ class CartPage extends ConsumerWidget {
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => context.go(AppRoutes.products),
             icon: const Icon(Icons.shopping_bag),
             label: const Text('Voir les produits'),
             style: ElevatedButton.styleFrom(
