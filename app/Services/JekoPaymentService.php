@@ -22,14 +22,18 @@ class JekoPaymentService
 
     public function __construct()
     {
-        $this->apiUrl = config('services.jeko.api_url', 'https://api.jeko.africa');
+        // Utiliser ?: pour gérer les cas où la variable existe mais est vide
+        $this->apiUrl = config('services.jeko.api_url') ?: 'https://api.jeko.africa';
         $this->apiKey = config('services.jeko.api_key');
         $this->apiKeyId = config('services.jeko.api_key_id');
         $this->storeId = config('services.jeko.store_id');
         $this->webhookSecret = config('services.jeko.webhook_secret');
         
-        // Vérifier si Jeko est configuré
-        $this->isConfigured = !empty($this->apiKey) && !empty($this->apiKeyId) && !empty($this->storeId);
+        // Vérifier si Jeko est configuré (avec URL valide)
+        $this->isConfigured = !empty($this->apiKey) 
+            && !empty($this->apiKeyId) 
+            && !empty($this->storeId)
+            && filter_var($this->apiUrl, FILTER_VALIDATE_URL);
     }
     
     /**
@@ -91,12 +95,13 @@ class JekoPaymentService
         }
 
         try {
-            // Appel API JEKO
+            // Appel API JEKO avec timeout et retry
             $response = Http::withHeaders([
                 'X-API-KEY' => $this->apiKey,
                 'X-API-KEY-ID' => $this->apiKeyId,
                 'Content-Type' => 'application/json',
-            ])->post("{$this->apiUrl}/partner_api/payment_requests", [
+            ])->timeout(15)->connectTimeout(5)->retry(2, 1000, throw: false)
+            ->post("{$this->apiUrl}/partner_api/payment_requests", [
                 'storeId' => $this->storeId,
                 'amountCents' => $amountCents,
                 'currency' => 'XOF',
@@ -125,17 +130,40 @@ class JekoPaymentService
 
             $data = $response->json();
 
+            // Log complet de la réponse JEKO pour faciliter le diagnostic
+            Log::info('JEKO API Response received', [
+                'reference' => $payment->reference,
+                'http_status' => $response->status(),
+                'response_keys' => array_keys($data ?? []),
+                'has_redirectUrl' => isset($data['redirectUrl']),
+                'has_redirect_url' => isset($data['redirect_url']),
+            ]);
+
+            // Supporte à la fois camelCase (redirectUrl) et snake_case (redirect_url)
+            // selon version/configuration de l'API JEKO
+            $redirectUrl = $data['redirectUrl'] ?? $data['redirect_url'] ?? null;
+
+            if (empty($redirectUrl)) {
+                Log::error('JEKO API: redirect_url manquant dans la réponse', [
+                    'reference' => $payment->reference,
+                    'response_keys' => array_keys($data ?? []),
+                    'response_body' => $data,
+                ]);
+                $payment->markAsFailed('Réponse JEKO invalide: redirect_url absent');
+                throw new \Exception('Réponse JEKO invalide: le champ redirect_url est absent de la réponse');
+            }
+
             // Mettre à jour avec les données JEKO
             $payment->update([
-                'jeko_payment_request_id' => $data['id'],
-                'redirect_url' => $data['redirectUrl'],
+                'jeko_payment_request_id' => $data['id'] ?? null,
+                'redirect_url' => $redirectUrl,
                 'status' => JekoPaymentStatus::PROCESSING,
             ]);
 
             Log::info('JEKO Payment Created', [
                 'reference' => $payment->reference,
-                'jeko_id' => $data['id'],
-                'redirect_url' => $data['redirectUrl'],
+                'jeko_id' => $data['id'] ?? null,
+                'redirect_url' => $redirectUrl,
             ]);
 
             return $payment->fresh();
@@ -169,7 +197,8 @@ class JekoPaymentService
             $response = Http::withHeaders([
                 'X-API-KEY' => $this->apiKey,
                 'X-API-KEY-ID' => $this->apiKeyId,
-            ])->get("{$this->apiUrl}/partner_api/payment_requests/{$payment->jeko_payment_request_id}");
+            ])->timeout(10)->connectTimeout(5)->retry(2, 500, throw: false)
+            ->get("{$this->apiUrl}/partner_api/payment_requests/{$payment->jeko_payment_request_id}");
 
             if (!$response->successful()) {
                 Log::warning('JEKO Status Check Failed', [
@@ -180,8 +209,16 @@ class JekoPaymentService
             }
 
             $data = $response->json();
+            $wasSuccess = $payment->isSuccess();
             
-            return $this->updatePaymentFromJekoResponse($payment, $data);
+            $payment = $this->updatePaymentFromJekoResponse($payment, $data);
+
+            // Si le paiement vient de passer en succès, dispatcher le traitement métier
+            if ($payment->isSuccess() && !$wasSuccess && !$payment->business_processed) {
+                $this->handleSuccessfulPayment($payment);
+            }
+
+            return $payment;
 
         } catch (\Exception $e) {
             Log::error('JEKO Status Check Exception', [
@@ -216,9 +253,11 @@ class JekoPaymentService
             return false;
         }
 
-        // Extraire référence et ID selon la structure officielle Jeko
-        // apiTransactionableDetails est présent uniquement pour les transactions Partner API
-        $apiDetails = $payload['apiTransactionableDetails'] ?? [];
+        // Extraire référence et ID selon la structure Jeko
+        // apiTransactionableDetails (Partner API) OU transactionDetails (webhooks réels)
+        $apiDetails = $payload['apiTransactionableDetails']
+            ?? $payload['transactionDetails']
+            ?? [];
         $reference = $apiDetails['reference'] ?? null;
         $jekoId = $apiDetails['id'] ?? $payload['id'] ?? null;
 
@@ -271,6 +310,11 @@ class JekoPaymentService
                 // Si succès, exécuter la logique métier
                 if ($payment->isSuccess()) {
                     $this->handleSuccessfulPayment($payment);
+                }
+
+                // Si payout (décaissement) échoué, rembourser le wallet
+                if ($payment->is_payout && $payment->status === JekoPaymentStatus::FAILED) {
+                    $this->handleFailedPayout($payment);
                 }
 
                 return true;
@@ -476,44 +520,105 @@ class JekoPaymentService
 
     /**
      * Exécuter la logique métier après un paiement réussi
+     * Dispatch un job asynchrone pour traitement robuste avec retry
      */
     private function handleSuccessfulPayment(JekoPayment $payment): void
     {
+        // Dispatch le traitement métier vers un job dédié (idempotent + retry-safe)
+        \App\Jobs\ProcessPaymentResultJob::dispatch($payment->id)->onQueue('payments');
+
+        Log::info('JEKO Payment Success: job dispatched', [
+            'reference' => $payment->reference,
+            'payment_id' => $payment->id,
+            'payable_type' => $payment->payable_type,
+        ]);
+    }
+
+    /**
+     * Traiter un payout (décaissement) échoué : rembourser le wallet
+     */
+    private function handleFailedPayout(JekoPayment $payment): void
+    {
         $payable = $payment->payable;
 
-        if (!$payable) {
-            Log::warning('JEKO Payment Success - No Payable', ['reference' => $payment->reference]);
+        if (!$payable instanceof \App\Models\Wallet) {
+            Log::warning('Failed payout: payable is not a Wallet', [
+                'reference' => $payment->reference,
+                'payable_type' => $payment->payable_type,
+            ]);
             return;
         }
 
-        // Dispatch un event pour permettre aux listeners de réagir
-        // event(new PaymentSucceeded($payment));
+        $wallet = $payable;
+        $amountToRefund = (float) ($payment->amount_cents / 100);
+        $refundReference = 'REFUND-' . $payment->reference;
 
-        // Logique spécifique selon le type de payable
-        $payableClass = get_class($payable);
+        // Idempotent : vérifier si un remboursement existe déjà
+        $existingRefund = $wallet->transactions()
+            ->where('reference', $refundReference)
+            ->exists();
 
-        switch ($payableClass) {
-            case \App\Models\Order::class:
-                $this->handleOrderPayment($payable, $payment);
-                break;
-            
-            case \App\Models\Wallet::class:
-                $this->handleWalletTopup($payable, $payment);
-                break;
-            
-            default:
-                Log::info('JEKO Payment Success - Unknown Payable Type', [
-                    'reference' => $payment->reference,
-                    'type' => $payableClass,
-                ]);
+        if ($existingRefund) {
+            Log::info('Failed payout refund already exists (idempotent)', [
+                'reference' => $payment->reference,
+            ]);
+            return;
         }
+
+        // Chercher la transaction de débit correspondante (wallet_transaction)
+        $debitTransaction = $wallet->transactions()
+            ->where('category', 'withdrawal')
+            ->where('type', 'DEBIT')
+            ->where('status', '!=', 'refunded')
+            ->where(function ($q) use ($payment, $amountToRefund) {
+                $q->where('metadata', 'like', '%' . $payment->reference . '%')
+                    ->orWhere(function ($q2) use ($amountToRefund) {
+                        $q2->where('amount', $amountToRefund)
+                            ->whereIn('status', ['processing', 'pending', 'failed']);
+                    });
+            })
+            ->first();
+
+        // Créditer le wallet
+        $wallet->credit(
+            $amountToRefund,
+            $refundReference,
+            "Remboursement automatique: retrait échoué ({$payment->error_message})",
+            ['original_payment_reference' => $payment->reference]
+        );
+
+        // Mettre à jour le statut de la transaction de débit
+        if ($debitTransaction) {
+            $debitTransaction->update([
+                'status' => 'refunded',
+                'category' => 'withdrawal',
+            ]);
+        }
+
+        Log::info('Failed payout: wallet refunded', [
+            'wallet_id' => $wallet->id,
+            'amount' => $amountToRefund,
+            'payment_reference' => $payment->reference,
+            'refund_reference' => $refundReference,
+        ]);
     }
 
     /**
      * Traiter le paiement d'une commande
+     * NOTE: Méthode conservée pour usage direct (sandbox), 
+     * en production le ProcessPaymentResultJob est utilisé.
      */
     private function handleOrderPayment($order, JekoPayment $payment): void
     {
+        // Idempotent : vérifier si déjà payé
+        if ($order->payment_status === 'paid') {
+            Log::info('Order already paid (idempotent skip)', [
+                'order_id' => $order->id,
+                'payment_reference' => $payment->reference,
+            ]);
+            return;
+        }
+
         if (method_exists($order, 'markAsPaid')) {
             $order->markAsPaid($payment->reference);
         } else {
@@ -529,32 +634,45 @@ class JekoPaymentService
             'payment_reference' => $payment->reference,
         ]);
 
-        // === NOTIFIER LA PHARMACIE DE LA NOUVELLE COMMANDE PAYÉE ===
-        $order->load(['items', 'customer', 'pharmacy.user']);
+        // Notification asynchrone via job
+        $order->load(['items', 'customer', 'pharmacy.users']);
         
-        if ($order->pharmacy?->user) {
-            $order->pharmacy->user->notify(new NewOrderReceivedNotification($order));
-            
-            Log::info('Notification nouvelle commande payée envoyée à la pharmacie', [
-                'order_id' => $order->id,
-                'order_reference' => $order->reference ?? $order->id,
-                'pharmacy_id' => $order->pharmacy_id,
-                'pharmacy_user_id' => $order->pharmacy->user->id,
-            ]);
+        if ($order->pharmacy) {
+            foreach ($order->pharmacy->users as $pharmacyUser) {
+                \App\Jobs\SendNotificationJob::dispatch(
+                    $pharmacyUser,
+                    new NewOrderReceivedNotification($order),
+                    ['order_id' => $order->id, 'pharmacy_id' => $order->pharmacy_id]
+                )->onQueue('notifications');
+            }
         }
     }
 
     /**
      * Traiter le rechargement d'un wallet
+     * NOTE: Méthode conservée pour usage direct (sandbox),
+     * en production le ProcessPaymentResultJob est utilisé.
      */
     private function handleWalletTopup($wallet, JekoPayment $payment): void
     {
-        // Créditer le wallet
+        // Idempotent : vérifier si déjà crédité avec cette référence
+        $alreadyCredited = $wallet->transactions()
+            ->where('reference', $payment->reference)
+            ->exists();
+
+        if ($alreadyCredited) {
+            Log::info('Wallet topup already credited (idempotent skip)', [
+                'wallet_id' => $wallet->id,
+                'payment_reference' => $payment->reference,
+            ]);
+            return;
+        }
+
         $walletService = app(\App\Services\WalletService::class);
         
         $walletService->topUp(
             $wallet->walletable,
-            $payment->amount,
+            (float) $payment->amount / 100,
             $payment->payment_method->value,
             $payment->reference
         );
@@ -579,26 +697,20 @@ class JekoPaymentService
     }
 
     /**
-     * Vérifier si on est en mode sandbox (clés JEKO non configurées ou JEKO_SANDBOX_MODE=true)
+     * Vérifier si on est en mode sandbox
+     * 
+     * SECURITY H-2: Uniquement via config explicite ou clés absentes.
+     * Ne JAMAIS deviner le mode sandbox par le contenu des clés.
      */
     private function isSandboxMode(): bool
     {
-        // Mode sandbox explicitement activé dans la config
+        // Mode sandbox explicitement activé dans la config (.env: JEKO_SANDBOX_MODE=true)
         if (config('services.jeko.sandbox_mode', false)) {
             return true;
         }
         
-        // En mode sandbox si les clés contiennent "your_" ou sont vides
-        $placeholders = ['your_', 'xxx', 'test', 'placeholder'];
-        
-        foreach ($placeholders as $placeholder) {
-            if (str_contains(strtolower($this->apiKey ?? ''), $placeholder) ||
-                str_contains(strtolower($this->storeId ?? ''), $placeholder)) {
-                return true;
-            }
-        }
-        
-        return empty($this->apiKey) || empty($this->storeId);
+        // Sandbox si Jeko n'est pas correctement configuré (clés absentes ou URL invalide)
+        return !$this->isConfigured;
     }
 
     /**
@@ -665,9 +777,53 @@ class JekoPaymentService
 
     /**
      * ======================================================================
-     * PAYOUT / DISBURSEMENT - Décaissement vers Mobile Money ou Bank
+     * PAYOUT / TRANSFER - Décaissement vers Mobile Money
      * ======================================================================
+     * 
+     * FLUX JEKO:
+     * 1. Créer un contact: POST /partner_api/contacts
+     * 2. Faire le transfert: POST /partner_api/transfers avec le contactId
      */
+
+    /**
+     * Créer ou récupérer un contact Jeko pour le payout
+     *
+     * @param string $phone Numéro de téléphone
+     * @param string $name Nom du bénéficiaire
+     * @param JekoPaymentMethod $method Méthode de paiement
+     * @return string Contact UUID
+     */
+    private function getOrCreateJekoContact(
+        string $phone,
+        string $name,
+        JekoPaymentMethod $method
+    ): string {
+        $response = Http::withHeaders([
+            'X-API-KEY' => $this->apiKey,
+            'X-API-KEY-ID' => $this->apiKeyId,
+            'Content-Type' => 'application/json',
+        ])->post("{$this->apiUrl}/partner_api/contacts", [
+            'storeId' => $this->storeId,
+            'name' => $name,
+            'paymentMethod' => $method->value,
+            'identifier' => [
+                'number' => $phone,
+            ],
+        ]);
+
+        if (!$response->successful()) {
+            $errorBody = $response->json();
+            Log::error('JEKO Contact Creation Error', [
+                'phone' => $phone,
+                'status' => $response->status(),
+                'body' => $errorBody,
+            ]);
+            throw new \Exception($errorBody['message'] ?? 'Erreur lors de la création du contact JEKO');
+        }
+
+        $data = $response->json();
+        return $data['id'];
+    }
 
     /**
      * Créer une demande de décaissement (payout) via JEKO
@@ -689,9 +845,9 @@ class JekoPaymentService
         ?User $user = null,
         ?string $description = null
     ): JekoPayment {
-        // Validation du montant minimum
-        if ($amountCents < 100) {
-            throw new \InvalidArgumentException('Le montant minimum est de 100 centimes (1 XOF)');
+        // Validation du montant minimum (500 centimes = 5 XOF pour Jeko transfers)
+        if ($amountCents < 500) {
+            throw new \InvalidArgumentException('Le montant minimum est de 500 centimes (5 XOF)');
         }
 
         // Nettoyer le numéro de téléphone
@@ -718,52 +874,66 @@ class JekoPaymentService
         }
 
         try {
-            // Appel API JEKO pour le décaissement
+            // Étape 1: Créer ou récupérer le contact Jeko
+            $beneficiaryName = $user?->name ?? 'Client DR-PHARMA';
+            $contactId = $this->getOrCreateJekoContact($recipientPhone, $beneficiaryName, $method);
+
+            Log::info('JEKO Contact created/retrieved', [
+                'contact_id' => $contactId,
+                'phone' => $recipientPhone,
+            ]);
+
+            // Étape 2: Effectuer le transfert
             $response = Http::withHeaders([
                 'X-API-KEY' => $this->apiKey,
                 'X-API-KEY-ID' => $this->apiKeyId,
                 'Content-Type' => 'application/json',
-            ])->post("{$this->apiUrl}/partner_api/disbursements", [
+            ])->post("{$this->apiUrl}/partner_api/transfers", [
                 'storeId' => $this->storeId,
+                'contactId' => $contactId,
                 'amountCents' => $amountCents,
                 'currency' => 'XOF',
-                'reference' => $payment->reference,
-                'recipientPhone' => $recipientPhone,
-                'paymentMethod' => $method->value,
-                'description' => $description ?? 'Retrait DR-PHARMA',
             ]);
 
             if (!$response->successful()) {
                 $errorBody = $response->json();
-                Log::error('JEKO Payout API Error', [
+                Log::error('JEKO Transfer API Error', [
                     'reference' => $payment->reference,
                     'status' => $response->status(),
                     'body' => $errorBody,
                 ]);
 
-                $payment->markAsFailed($errorBody['message'] ?? 'Erreur API JEKO Payout');
-                throw new \Exception($errorBody['message'] ?? 'Erreur lors du décaissement JEKO');
+                $payment->markAsFailed($errorBody['message'] ?? 'Erreur API JEKO Transfer');
+                throw new \Exception($errorBody['message'] ?? 'Erreur lors du transfert JEKO');
             }
 
             $data = $response->json();
 
             // Mettre à jour avec les données JEKO
             $payment->update([
-                'jeko_payment_request_id' => $data['id'] ?? $data['disbursementId'] ?? null,
+                'jeko_payment_request_id' => $data['id'] ?? null,
                 'status' => JekoPaymentStatus::PROCESSING,
+                'metadata' => [
+                    'jeko_contact_id' => $contactId,
+                    'jeko_transfer_id' => $data['id'] ?? null,
+                    'jeko_status' => $data['status'] ?? 'pending',
+                    'jeko_fees' => $data['fees']['amount'] ?? null,
+                ],
             ]);
 
-            Log::info('JEKO Payout Created', [
+            Log::info('JEKO Transfer Created', [
                 'reference' => $payment->reference,
-                'jeko_id' => $data['id'] ?? $data['disbursementId'] ?? null,
+                'jeko_transfer_id' => $data['id'] ?? null,
                 'amount' => $amountCents / 100,
+                'fees' => ($data['fees']['amount'] ?? 0) / 100,
                 'recipient' => $recipientPhone,
+                'status' => $data['status'] ?? 'pending',
             ]);
 
             return $payment->fresh();
 
         } catch (\Illuminate\Http\Client\RequestException $e) {
-            Log::error('JEKO Payout API Request Exception', [
+            Log::error('JEKO Transfer API Request Exception', [
                 'reference' => $payment->reference,
                 'message' => $e->getMessage(),
             ]);
@@ -790,72 +960,16 @@ class JekoPaymentService
         ?User $user = null,
         ?string $description = null
     ): JekoPayment {
-        // Validation des détails bancaires
-        $required = ['bank_code', 'account_number', 'holder_name'];
-        foreach ($required as $field) {
-            if (empty($bankDetails[$field])) {
-                throw new \InvalidArgumentException("Le champ {$field} est requis pour un virement bancaire");
-            }
-        }
-
-        // Créer l'enregistrement local
-        $payment = JekoPayment::create([
-            'payable_type' => get_class($payable),
-            'payable_id' => $payable->id,
+        // NOTE: L'API Jeko ne supporte pas encore les virements bancaires directs
+        // On pourrait utiliser le même flux contact+transfer avec paymentMethod approprié
+        // Pour l'instant, on refuse les virements bancaires
+        
+        Log::warning('Bank payout requested but not supported by Jeko API', [
             'user_id' => $user?->id,
-            'amount_cents' => $amountCents,
-            'currency' => 'XOF',
-            'payment_method' => JekoPaymentMethod::BANK_TRANSFER,
-            'status' => JekoPaymentStatus::PENDING,
-            'is_payout' => true,
-            'bank_details' => $bankDetails,
-            'description' => $description ?? 'Virement DR-PHARMA',
-            'initiated_at' => now(),
+            'amount' => $amountCents / 100,
         ]);
-
-        // MODE SANDBOX
-        if ($this->isSandboxMode()) {
-            return $this->handleSandboxPayout($payment);
-        }
-
-        try {
-            $response = Http::withHeaders([
-                'X-API-KEY' => $this->apiKey,
-                'X-API-KEY-ID' => $this->apiKeyId,
-                'Content-Type' => 'application/json',
-            ])->post("{$this->apiUrl}/partner_api/bank_transfers", [
-                'storeId' => $this->storeId,
-                'amountCents' => $amountCents,
-                'currency' => 'XOF',
-                'reference' => $payment->reference,
-                'bankCode' => $bankDetails['bank_code'],
-                'accountNumber' => $bankDetails['account_number'],
-                'holderName' => $bankDetails['holder_name'],
-                'description' => $description ?? 'Virement DR-PHARMA',
-            ]);
-
-            if (!$response->successful()) {
-                $errorBody = $response->json();
-                $payment->markAsFailed($errorBody['message'] ?? 'Erreur virement bancaire');
-                throw new \Exception($errorBody['message'] ?? 'Erreur lors du virement');
-            }
-
-            $data = $response->json();
-            $payment->update([
-                'jeko_payment_request_id' => $data['id'] ?? null,
-                'status' => JekoPaymentStatus::PROCESSING,
-            ]);
-
-            return $payment->fresh();
-
-        } catch (\Exception $e) {
-            Log::error('JEKO Bank Payout Error', [
-                'reference' => $payment->reference,
-                'message' => $e->getMessage(),
-            ]);
-            $payment->markAsFailed($e->getMessage());
-            throw $e;
-        }
+        
+        throw new \Exception('Les virements bancaires ne sont pas encore disponibles. Veuillez utiliser Mobile Money (Wave, Orange Money, MTN, Moov).');
     }
 
     /**
@@ -941,11 +1055,8 @@ class JekoPaymentService
                 'jeko_reference' => $payment->reference,
             ]);
 
-            // Débiter le wallet
-            $wallet = $payable->wallet;
-            if ($wallet) {
-                $wallet->debit($payable->amount, 'withdrawal', "Retrait {$payment->reference}");
-            }
+            // NE PAS débiter ici - le wallet a déjà été débité lors de l'initiation du retrait
+            // dans WalletController::withdraw()
 
             Log::info('Withdrawal completed via Jeko', [
                 'withdrawal_id' => $payable->id,
@@ -973,7 +1084,7 @@ class JekoPaymentService
     }
 
     /**
-     * Vérifier le statut d'un décaissement
+     * Vérifier le statut d'un décaissement (transfer)
      */
     public function checkPayoutStatus(JekoPayment $payment): JekoPayment
     {
@@ -989,23 +1100,23 @@ class JekoPaymentService
             $response = Http::withHeaders([
                 'X-API-KEY' => $this->apiKey,
                 'X-API-KEY-ID' => $this->apiKeyId,
-            ])->get("{$this->apiUrl}/partner_api/disbursements/{$payment->jeko_payment_request_id}");
+            ])->get("{$this->apiUrl}/partner_api/transfers/{$payment->jeko_payment_request_id}");
 
             if (!$response->successful()) {
                 return $payment;
             }
 
             $data = $response->json();
-            $status = $data['status'] ?? null;
+            $status = strtoupper($data['status'] ?? '');
 
-            if ($status === 'SUCCESS' || $status === 'COMPLETED') {
+            if ($status === 'SUCCESS' || $status === 'COMPLETED' || $status === 'SENT') {
                 $payment->update([
                     'status' => JekoPaymentStatus::SUCCESS,
                     'completed_at' => now(),
                 ]);
                 $this->handleSuccessfulPayout($payment);
-            } elseif ($status === 'FAILED' || $status === 'REJECTED') {
-                $payment->markAsFailed($data['message'] ?? 'Décaissement échoué');
+            } elseif ($status === 'FAILED' || $status === 'REJECTED' || $status === 'CANCELLED') {
+                $payment->markAsFailed($data['message'] ?? 'Transfert échoué');
             }
 
             return $payment->fresh();

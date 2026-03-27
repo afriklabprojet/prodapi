@@ -10,6 +10,8 @@ use App\Models\WithdrawalRequest;
 use App\Services\JekoPaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
@@ -152,6 +154,7 @@ class WalletController extends Controller
         
         if ($validator->fails()) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Donnees invalides',
                 'errors' => $validator->errors()
@@ -164,6 +167,7 @@ class WalletController extends Controller
         // Vérifier si un PIN est configuré
         if (!$pharmacy->hasPinConfigured()) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Vous devez configurer un code PIN avant de faire un retrait',
                 'code' => 'PIN_NOT_CONFIGURED'
@@ -174,6 +178,7 @@ class WalletController extends Controller
         if ($pharmacy->isPinLocked()) {
             $minutes = $pharmacy->pinLockRemainingMinutes();
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => "Code PIN verrouillé. Réessayez dans {$minutes} minutes.",
                 'code' => 'PIN_LOCKED',
@@ -185,6 +190,7 @@ class WalletController extends Controller
         if (!$pharmacy->verifyWithdrawalPin($request->pin)) {
             $remaining = 5 - $pharmacy->fresh()->pin_attempts;
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => "Code PIN incorrect. {$remaining} tentative(s) restante(s).",
                 'code' => 'PIN_INVALID',
@@ -196,24 +202,45 @@ class WalletController extends Controller
         
         if (!$wallet || $wallet->balance < $request->amount) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Solde insuffisant'
             ], 400);
         }
         
-        // Create withdrawal request record
+        // Create withdrawal request record and debit wallet atomically
         $reference = 'WD-' . strtoupper(Str::random(8));
         
-        $withdrawal = WithdrawalRequest::create([
-            'wallet_id' => $wallet->id,
-            'pharmacy_id' => $pharmacy->id,
-            'amount' => $request->amount,
-            'payment_method' => $request->payment_method,
-            'phone' => $request->phone,
-            'bank_details' => $request->bank_details,
-            'reference' => $reference,
-            'status' => 'pending',
-        ]);
+        try {
+            $withdrawal = DB::transaction(function () use ($wallet, $pharmacy, $request, $reference) {
+                // Relock wallet inside transaction
+                $wallet = $wallet->lockForUpdate()->first() ?? $wallet->fresh();
+                
+                if ($wallet->balance < $request->amount) {
+                    throw new \Exception('Solde insuffisant');
+                }
+            
+            // Débiter le portefeuille avec création de transaction
+            $wallet->debit($request->amount, $reference, 'Retrait en cours de traitement');
+            
+            return WithdrawalRequest::create([
+                'wallet_id' => $wallet->id,
+                'pharmacy_id' => $pharmacy->id,
+                'amount' => $request->amount,
+                'payment_method' => $request->payment_method,
+                'phone' => $request->phone,
+                'bank_details' => $request->bank_details,
+                'reference' => $reference,
+                'status' => 'pending',
+            ]);
+        });
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'status' => 'error',
+                'message' => $e->getMessage(),
+            ], 400);
+        }
 
         try {
             // Determine Jeko payment method
@@ -249,6 +276,7 @@ class WalletController extends Controller
             ]);
 
             return response()->json([
+                'success' => true,
                 'status' => 'success',
                 'message' => 'Retrait en cours de traitement via JEKO Pay',
                 'data' => [
@@ -261,12 +289,33 @@ class WalletController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            // Mark withdrawal as failed
-            $withdrawal->update(['status' => 'failed', 'error_message' => $e->getMessage()]);
+            // Rembourser le wallet et marquer comme échoué
+            DB::transaction(function () use ($wallet, $withdrawal, $e) {
+                $wallet->credit($withdrawal->amount, 'refund', 'Échec du retrait: ' . $e->getMessage());
+                $withdrawal->update(['status' => 'failed', 'error_message' => $e->getMessage()]);
+            });
+
+            // Log l'erreur technique
+            Log::error('Withdrawal failed', [
+                'reference' => $reference ?? null,
+                'pharmacy_id' => $pharmacy->id ?? null,
+                'amount' => $request->amount,
+                'error' => $e->getMessage(),
+            ]);
+
+            // Message user-friendly
+            $userMessage = match (true) {
+                str_contains($e->getMessage(), 'Cannot POST') => 'Service de paiement temporairement indisponible. Veuillez réessayer plus tard.',
+                str_contains($e->getMessage(), 'timeout') => 'Le service de paiement met trop de temps à répondre. Veuillez réessayer.',
+                str_contains($e->getMessage(), 'connexion') => 'Impossible de contacter le service de paiement. Vérifiez votre connexion.',
+                default => 'Une erreur est survenue lors du retrait. Veuillez réessayer ou contacter le support.',
+            };
 
             return response()->json([
+                'success' => false,
                 'status' => 'error',
-                'message' => 'Erreur lors du retrait: ' . $e->getMessage(),
+                'message' => $userMessage,
+                'code' => 'PAYOUT_ERROR',
             ], 500);
         }
     }
@@ -301,6 +350,7 @@ class WalletController extends Controller
         
         if ($validator->fails()) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Donnees invalides',
                 'errors' => $validator->errors()
@@ -323,6 +373,7 @@ class WalletController extends Controller
         );
         
         return response()->json([
+            'success' => true,
             'status' => 'success',
             'message' => 'Informations bancaires enregistrees'
         ]);
@@ -342,6 +393,7 @@ class WalletController extends Controller
         
         if ($validator->fails()) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Donnees invalides',
                 'errors' => $validator->errors()
@@ -367,6 +419,7 @@ class WalletController extends Controller
         );
         
         return response()->json([
+            'success' => true,
             'status' => 'success',
             'message' => 'Informations Mobile Money enregistrees'
         ]);
@@ -390,6 +443,7 @@ class WalletController extends Controller
         $requireMobileMoney = (bool) Setting::get('withdrawal_require_mobile_money', true);
         
         return response()->json([
+            'success' => true,
             'status' => 'success',
             'data' => [
                 'threshold' => $pharmacy->withdrawal_threshold ?? $defaultThreshold,
@@ -428,6 +482,7 @@ class WalletController extends Controller
         
         if ($validator->fails()) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Donnees invalides',
                 'errors' => $validator->errors()
@@ -437,6 +492,7 @@ class WalletController extends Controller
         // Check if auto-withdraw is globally allowed
         if ($request->auto_withdraw && !$autoWithdrawGlobalEnabled) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Le retrait automatique est desactive par l\'administrateur',
             ], 403);
@@ -451,6 +507,7 @@ class WalletController extends Controller
         ]);
         
         return response()->json([
+            'success' => true,
             'status' => 'success',
             'message' => 'Seuil de retrait configure',
             'data' => [
@@ -473,6 +530,7 @@ class WalletController extends Controller
         
         if ($validator->fails()) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Donnees invalides',
                 'errors' => $validator->errors()
@@ -485,6 +543,7 @@ class WalletController extends Controller
         
         if (!$wallet) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Aucun portefeuille trouve'
             ], 404);
@@ -500,6 +559,7 @@ class WalletController extends Controller
         $filename = 'releve_' . now()->format('Y-m-d') . '.' . $request->format;
         
         return response()->json([
+            'success' => true,
             'status' => 'success',
             'message' => 'Export genere',
             'download_url' => url('/exports/' . $filename),
@@ -543,6 +603,7 @@ class WalletController extends Controller
         
         if ($validator->fails()) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Donnees invalides',
                 'errors' => $validator->errors()
@@ -555,6 +616,7 @@ class WalletController extends Controller
         // Si PIN déjà configuré, utiliser changePin
         if ($pharmacy->hasPinConfigured()) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Un code PIN est déjà configuré. Utilisez la modification de PIN.',
                 'code' => 'PIN_ALREADY_SET'
@@ -564,6 +626,7 @@ class WalletController extends Controller
         $pharmacy->setWithdrawalPin($request->pin);
 
         return response()->json([
+            'success' => true,
             'status' => 'success',
             'message' => 'Code PIN configuré avec succès'
         ]);
@@ -582,6 +645,7 @@ class WalletController extends Controller
         
         if ($validator->fails()) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Donnees invalides',
                 'errors' => $validator->errors()
@@ -593,6 +657,7 @@ class WalletController extends Controller
 
         if (!$pharmacy->hasPinConfigured()) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Aucun code PIN configuré',
                 'code' => 'PIN_NOT_SET'
@@ -603,6 +668,7 @@ class WalletController extends Controller
         if ($pharmacy->isPinLocked()) {
             $minutes = $pharmacy->pinLockRemainingMinutes();
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => "Code PIN verrouillé. Réessayez dans {$minutes} minutes.",
                 'code' => 'PIN_LOCKED',
@@ -613,6 +679,7 @@ class WalletController extends Controller
         if (!$pharmacy->verifyWithdrawalPin($request->current_pin)) {
             $remaining = 5 - $pharmacy->fresh()->pin_attempts;
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => "Code PIN actuel incorrect. {$remaining} tentative(s) restante(s).",
                 'code' => 'PIN_INVALID',
@@ -623,6 +690,7 @@ class WalletController extends Controller
         $pharmacy->setWithdrawalPin($request->new_pin);
 
         return response()->json([
+            'success' => true,
             'status' => 'success',
             'message' => 'Code PIN modifié avec succès'
         ]);
@@ -639,6 +707,7 @@ class WalletController extends Controller
         
         if ($validator->fails()) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Code PIN requis',
             ], 422);
@@ -649,6 +718,7 @@ class WalletController extends Controller
 
         if (!$pharmacy->hasPinConfigured()) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Aucun code PIN configuré',
                 'code' => 'PIN_NOT_SET'
@@ -658,6 +728,7 @@ class WalletController extends Controller
         if ($pharmacy->isPinLocked()) {
             $minutes = $pharmacy->pinLockRemainingMinutes();
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => "Code PIN verrouillé. Réessayez dans {$minutes} minutes.",
                 'code' => 'PIN_LOCKED',
@@ -667,6 +738,7 @@ class WalletController extends Controller
         if (!$pharmacy->verifyWithdrawalPin($request->pin)) {
             $remaining = 5 - $pharmacy->fresh()->pin_attempts;
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => "Code PIN incorrect. {$remaining} tentative(s) restante(s).",
                 'code' => 'PIN_INVALID',
@@ -675,6 +747,7 @@ class WalletController extends Controller
         }
 
         return response()->json([
+            'success' => true,
             'status' => 'success',
             'message' => 'Code PIN valide',
             'is_valid' => true,
@@ -700,6 +773,7 @@ class WalletController extends Controller
         
         if ($validator->fails()) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Donnees invalides',
                 'errors' => $validator->errors()
@@ -712,6 +786,7 @@ class WalletController extends Controller
         // Vérifier le PIN
         if (!$pharmacy->hasPinConfigured()) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Configurez un code PIN avant de modifier les informations bancaires',
                 'code' => 'PIN_NOT_CONFIGURED'
@@ -721,6 +796,7 @@ class WalletController extends Controller
         if ($pharmacy->isPinLocked()) {
             $minutes = $pharmacy->pinLockRemainingMinutes();
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => "Code PIN verrouillé. Réessayez dans {$minutes} minutes.",
                 'code' => 'PIN_LOCKED',
@@ -730,6 +806,7 @@ class WalletController extends Controller
         if (!$pharmacy->verifyWithdrawalPin($request->pin)) {
             $remaining = 5 - $pharmacy->fresh()->pin_attempts;
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => "Code PIN incorrect. {$remaining} tentative(s) restante(s).",
                 'code' => 'PIN_INVALID',
@@ -749,6 +826,7 @@ class WalletController extends Controller
         );
         
         return response()->json([
+            'success' => true,
             'status' => 'success',
             'message' => 'Informations bancaires mises à jour'
         ]);
@@ -769,6 +847,7 @@ class WalletController extends Controller
         
         if ($validator->fails()) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Donnees invalides',
                 'errors' => $validator->errors()
@@ -781,6 +860,7 @@ class WalletController extends Controller
         // Vérifier le PIN
         if (!$pharmacy->hasPinConfigured()) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Configurez un code PIN avant de modifier les informations Mobile Money',
                 'code' => 'PIN_NOT_CONFIGURED'
@@ -790,6 +870,7 @@ class WalletController extends Controller
         if ($pharmacy->isPinLocked()) {
             $minutes = $pharmacy->pinLockRemainingMinutes();
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => "Code PIN verrouillé. Réessayez dans {$minutes} minutes.",
                 'code' => 'PIN_LOCKED',
@@ -799,6 +880,7 @@ class WalletController extends Controller
         if (!$pharmacy->verifyWithdrawalPin($request->pin)) {
             $remaining = 5 - $pharmacy->fresh()->pin_attempts;
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => "Code PIN incorrect. {$remaining} tentative(s) restante(s).",
                 'code' => 'PIN_INVALID',
@@ -821,6 +903,7 @@ class WalletController extends Controller
         );
         
         return response()->json([
+            'success' => true,
             'status' => 'success',
             'message' => 'Informations Mobile Money mises à jour'
         ]);
