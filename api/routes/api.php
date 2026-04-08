@@ -45,6 +45,12 @@ if (app()->environment('local', 'testing')) {
     Route::get('/payments/sandbox/confirm', [\App\Http\Controllers\Api\JekoPaymentController::class, 'sandboxConfirm']);
 }
 
+// App Version Check & Feature Flags (public - apps need to check on startup)
+Route::middleware('throttle:public')->prefix('app')->group(function () {
+    Route::get('/version-check', [\App\Http\Controllers\Api\AppVersionController::class, 'check']);
+    Route::get('/features', [\App\Http\Controllers\Api\AppVersionController::class, 'features']);
+});
+
 // Public Data Routes (rate limited for public access)
 Route::middleware('throttle:public')->group(function () {
     Route::get('/duty-zones', [\App\Http\Controllers\Api\Pharmacy\DutyZoneController::class, 'index']);
@@ -84,6 +90,8 @@ Route::prefix('products')->middleware('throttle:search')->group(function () {
     Route::get('/category/{category}', [ProductController::class, 'byCategory']);
     Route::get('/search', [ProductController::class, 'search']);
     Route::get('/{id}', [ProductController::class, 'show'])->where('id', '[0-9]+');
+    Route::get('/{id}/compare-prices', [ProductController::class, 'comparePrices'])->where('id', '[0-9]+');
+    Route::get('/{id}/reviews', [\App\Http\Controllers\Api\ProductReviewController::class, 'index'])->where('id', '[0-9]+');
     Route::get('/slug/{slug}', [ProductController::class, 'showBySlug']);
 });
 
@@ -134,6 +142,8 @@ Route::prefix('liveness')->middleware(['auth:sanctum', 'throttle:liveness'])->gr
     Route::post('/validate', [\App\Http\Controllers\Api\LivenessController::class, 'validate']);
     Route::post('/validate/file', [\App\Http\Controllers\Api\LivenessController::class, 'validateWithFile']);
     Route::get('/status/{sessionId}', [\App\Http\Controllers\Api\LivenessController::class, 'status']);
+    Route::get('/score/{sessionId}', [\App\Http\Controllers\Api\LivenessController::class, 'score']);
+    Route::get('/history', [\App\Http\Controllers\Api\LivenessController::class, 'history']);
     Route::delete('/cancel/{sessionId}', [\App\Http\Controllers\Api\LivenessController::class, 'cancel']);
     Route::get('/diagnostics', [\App\Http\Controllers\Api\LivenessController::class, 'diagnostics']);
 });
@@ -165,6 +175,8 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
         Route::post('/fcm-token', [NotificationController::class, 'updateFcmToken']);
         Route::delete('/fcm-token', [NotificationController::class, 'removeFcmToken']);
+        Route::get('/preferences', [NotificationController::class, 'getPreferences']);
+        Route::put('/preferences', [NotificationController::class, 'updatePreferences']);
         Route::delete('/{id}', [NotificationController::class, 'destroy']);
     });
     
@@ -202,6 +214,16 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         Route::get('/orders/{id}/rating', [\App\Http\Controllers\Api\Customer\RatingController::class, 'show']);
         Route::post('/orders/{id}/rate', [\App\Http\Controllers\Api\Customer\RatingController::class, 'store']);
         
+        // Product Reviews (authenticated - must have purchased)
+        Route::post('/products/{id}/reviews', [\App\Http\Controllers\Api\ProductReviewController::class, 'store'])->where('id', '[0-9]+');
+        
+        // Loyalty Program
+        Route::prefix('loyalty')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\Customer\LoyaltyController::class, 'index']);
+            Route::post('/redeem', [\App\Http\Controllers\Api\Customer\LoyaltyController::class, 'redeem']);
+            Route::get('/history', [\App\Http\Controllers\Api\Customer\LoyaltyController::class, 'history']);
+        });
+        
         // Chat avec le livreur (via delivery)
         Route::get('/deliveries/{delivery}/chat', [\App\Http\Controllers\Api\ChatController::class, 'getMessages']);
         Route::post('/deliveries/{delivery}/chat', [\App\Http\Controllers\Api\ChatController::class, 'sendMessage']);
@@ -209,13 +231,13 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         Route::post('/deliveries/{delivery}/chat/read', [\App\Http\Controllers\Api\ChatController::class, 'markAllAsRead']);
         
         // Orders - Actions sensibles nécessitent téléphone vérifié et rate limiting
-        Route::middleware(['verified.phone', 'throttle:orders'])->group(function () {
+        Route::middleware(['verified.phone', 'throttle:orders', 'idempotent'])->group(function () {
             Route::post('/orders', [CustomerOrderController::class, 'store']);
             Route::post('/orders/{id}/cancel', [CustomerOrderController::class, 'cancel']);
         });
         
-        // Payment - Rate limiting strict
-        Route::middleware(['verified.phone', 'throttle:payment'])->group(function () {
+        // Payment - Rate limiting strict + idempotency
+        Route::middleware(['verified.phone', 'throttle:payment', 'idempotent'])->group(function () {
             Route::post('/orders/{id}/payment/initiate', [CustomerOrderController::class, 'initiatePayment']);
         });
         
@@ -226,12 +248,41 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         // Prescriptions - Upload nécessite téléphone vérifié et rate limiting
         Route::middleware(['verified.phone', 'throttle:uploads'])->group(function () {
             Route::post('/prescriptions/upload', [PrescriptionController::class, 'upload']);
+            Route::post('/prescriptions/ocr', [PrescriptionController::class, 'ocr']);
         });
         
         // Prescription payment - rate limiting strict
         Route::middleware(['verified.phone', 'throttle:payment'])->group(function () {
             Route::post('/prescriptions/{id}/pay', [PrescriptionController::class, 'pay']);
         });
+
+        // Promo Codes - Validation
+        Route::post('/promo-codes/validate', [\App\Http\Controllers\Api\PromoCodeController::class, 'validate']);
+
+        // Refunds - Demandes de remboursement
+        Route::prefix('refunds')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\RefundController::class, 'index']);
+            Route::get('/{id}', [\App\Http\Controllers\Api\RefundController::class, 'show']);
+            Route::post('/', [\App\Http\Controllers\Api\RefundController::class, 'store'])->middleware('throttle:10,1');
+        });
+
+        // Wallet
+        Route::prefix('wallet')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\Customer\WalletController::class, 'index']);
+            Route::get('/transactions', [\App\Http\Controllers\Api\Customer\WalletController::class, 'transactions']);
+            Route::middleware(['verified.phone', 'throttle:payment', 'idempotent'])->group(function () {
+                Route::post('/topup', [\App\Http\Controllers\Api\Customer\WalletController::class, 'topUp']);
+                Route::post('/withdraw', [\App\Http\Controllers\Api\Customer\WalletController::class, 'withdraw']);
+                Route::post('/pay-order', [\App\Http\Controllers\Api\Customer\WalletController::class, 'payOrder']);
+            });
+        });
+
+        // JEKO Payments - Customer
+        Route::post('/payments/initiate', [\App\Http\Controllers\Api\JekoPaymentController::class, 'initiate'])
+            ->middleware(['verified.phone', 'throttle:10,1', 'idempotent']);
+        Route::get('/payments', [\App\Http\Controllers\Api\JekoPaymentController::class, 'index']);
+        Route::get('/payments/methods', [\App\Http\Controllers\Api\JekoPaymentController::class, 'methods']);
+        Route::get('/payments/{reference}/status', [\App\Http\Controllers\Api\JekoPaymentController::class, 'status']);
     });
     
     // Pharmacy routes - Nécessite rôle pharmacy
@@ -279,12 +330,14 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         Route::get('/prescriptions/{id}', [\App\Http\Controllers\Api\Pharmacy\PrescriptionController::class, 'show']);
         Route::post('/prescriptions/{id}/status', [\App\Http\Controllers\Api\Pharmacy\PrescriptionController::class, 'updateStatus']);
         Route::post('/prescriptions/{id}/analyze', [\App\Http\Controllers\Api\Pharmacy\PrescriptionController::class, 'analyze']);
+        Route::post('/prescriptions/{id}/dispense', [\App\Http\Controllers\Api\Pharmacy\PrescriptionController::class, 'dispense']);
+        Route::get('/prescriptions/{id}/dispensing-history', [\App\Http\Controllers\Api\Pharmacy\PrescriptionController::class, 'dispensingHistory']);
         Route::get('/prescriptions-stats/analysis', [\App\Http\Controllers\Api\Pharmacy\PrescriptionController::class, 'analysisStats']);
 
         // Wallet
         Route::get('/wallet', [\App\Http\Controllers\Api\Pharmacy\WalletController::class, 'index']);
         Route::get('/wallet/stats', [\App\Http\Controllers\Api\Pharmacy\WalletController::class, 'stats']);
-        Route::post('/wallet/withdraw', [\App\Http\Controllers\Api\Pharmacy\WalletController::class, 'withdraw']);
+        Route::post('/wallet/withdraw', [\App\Http\Controllers\Api\Pharmacy\WalletController::class, 'withdraw'])->middleware('idempotent');
         Route::post('/wallet/bank-info', [\App\Http\Controllers\Api\Pharmacy\WalletController::class, 'saveBankInfo']);
         Route::post('/wallet/mobile-money', [\App\Http\Controllers\Api\Pharmacy\WalletController::class, 'saveMobileMoneyInfo']);
         Route::get('/wallet/threshold', [\App\Http\Controllers\Api\Pharmacy\WalletController::class, 'getWithdrawalSettings']);
@@ -296,6 +349,8 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         Route::post('/wallet/pin/set', [\App\Http\Controllers\Api\Pharmacy\WalletController::class, 'setPin']);
         Route::post('/wallet/pin/change', [\App\Http\Controllers\Api\Pharmacy\WalletController::class, 'changePin']);
         Route::post('/wallet/pin/verify', [\App\Http\Controllers\Api\Pharmacy\WalletController::class, 'verifyPin']);
+        Route::post('/wallet/pin/reset-request', [\App\Http\Controllers\Api\Pharmacy\WalletController::class, 'requestPinReset']);
+        Route::post('/wallet/pin/reset-confirm', [\App\Http\Controllers\Api\Pharmacy\WalletController::class, 'confirmPinReset']);
         Route::get('/wallet/payment-info', [\App\Http\Controllers\Api\Pharmacy\WalletController::class, 'getPaymentInfo']);
         Route::put('/wallet/bank-info', [\App\Http\Controllers\Api\Pharmacy\WalletController::class, 'updateBankInfo']);
         Route::put('/wallet/mobile-money', [\App\Http\Controllers\Api\Pharmacy\WalletController::class, 'updateMobileMoneyInfo']);
@@ -306,6 +361,9 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         Route::put('/on-calls/{id}', [\App\Http\Controllers\Api\Pharmacy\OnCallController::class, 'update']);
         Route::delete('/on-calls/{id}', [\App\Http\Controllers\Api\Pharmacy\OnCallController::class, 'destroy']);
 
+        // Dashboard Stats
+        Route::get('/stats/week', [\App\Http\Controllers\Api\Pharmacy\PharmacyDashboardController::class, 'weekStats']);
+
         // Reports & Analytics
         Route::prefix('reports')->group(function () {
             Route::get('/overview', [\App\Http\Controllers\Api\Pharmacy\ReportsController::class, 'overview']);
@@ -314,6 +372,18 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
             Route::get('/inventory', [\App\Http\Controllers\Api\Pharmacy\ReportsController::class, 'inventory']);
             Route::get('/stock-alerts', [\App\Http\Controllers\Api\Pharmacy\ReportsController::class, 'stockAlerts']);
             Route::get('/export', [\App\Http\Controllers\Api\Pharmacy\ReportsController::class, 'export']);
+        });
+
+        // Team Management (Gestion d'équipe multi-utilisateurs)
+        Route::prefix('team')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\Pharmacy\TeamController::class, 'index']);
+            Route::get('/roles', [\App\Http\Controllers\Api\Pharmacy\TeamController::class, 'availableRoles']);
+            Route::post('/invite', [\App\Http\Controllers\Api\Pharmacy\TeamController::class, 'invite']);
+            Route::get('/invitations', [\App\Http\Controllers\Api\Pharmacy\TeamController::class, 'pendingInvitations']);
+            Route::delete('/invitations/{id}', [\App\Http\Controllers\Api\Pharmacy\TeamController::class, 'cancelInvitation']);
+            Route::post('/invitations/accept', [\App\Http\Controllers\Api\Pharmacy\TeamController::class, 'acceptInvitation']);
+            Route::put('/members/{id}/role', [\App\Http\Controllers\Api\Pharmacy\TeamController::class, 'updateRole']);
+            Route::delete('/members/{id}', [\App\Http\Controllers\Api\Pharmacy\TeamController::class, 'removeMember']);
         });
 
         // Statement Preferences (Relevés automatiques)
@@ -331,11 +401,12 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
     // Courier routes - Middleware 'courier' vérifie le profil coursier
     Route::prefix('courier')->middleware('courier')->group(function () {
         Route::get('/profile', [DeliveryController::class, 'profile']);
+        Route::post('/profile/update', [DeliveryController::class, 'updateCourierProfile']);
         
         // Wallet
         Route::get('/wallet', [\App\Http\Controllers\Api\Courier\WalletController::class, 'index']);
-        Route::post('/wallet/topup', [\App\Http\Controllers\Api\Courier\WalletController::class, 'topUp']);
-        Route::post('/wallet/withdraw', [\App\Http\Controllers\Api\Courier\WalletController::class, 'withdraw']);
+        Route::post('/wallet/topup', [\App\Http\Controllers\Api\Courier\WalletController::class, 'topUp'])->middleware('idempotent');
+        Route::post('/wallet/withdraw', [\App\Http\Controllers\Api\Courier\WalletController::class, 'withdraw'])->middleware('idempotent');
         Route::get('/wallet/can-deliver', [\App\Http\Controllers\Api\Courier\WalletController::class, 'canDeliver']);
         Route::get('/wallet/earnings-history', [\App\Http\Controllers\Api\Courier\WalletController::class, 'earningsHistory']);
 
@@ -348,6 +419,9 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         Route::post('/challenges/{id}/claim', [\App\Http\Controllers\Api\Courier\ChallengeController::class, 'claimReward']);
         Route::get('/bonuses', [\App\Http\Controllers\Api\Courier\ChallengeController::class, 'bonuses']);
         Route::post('/bonuses/calculate', [\App\Http\Controllers\Api\Courier\ChallengeController::class, 'calculateBonus']);
+
+        // Gamification (badges, niveaux, classement)
+        Route::get('/gamification', [\App\Http\Controllers\Api\Courier\GamificationController::class, 'index']);
 
         Route::get('/deliveries', [DeliveryController::class, 'index']);
         
@@ -384,7 +458,7 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         // JEKO Payments
         // SECURITY V-003: Rate limiting - max 10 initiations de paiement par minute par utilisateur
         Route::post('/payments/initiate', [\App\Http\Controllers\Api\JekoPaymentController::class, 'initiate'])
-            ->middleware('throttle:10,1');
+            ->middleware(['throttle:10,1', 'idempotent']);
         Route::get('/payments', [\App\Http\Controllers\Api\JekoPaymentController::class, 'index']);
         Route::get('/payments/methods', [\App\Http\Controllers\Api\JekoPaymentController::class, 'methods']);
         Route::get('/payments/{reference}/status', [\App\Http\Controllers\Api\JekoPaymentController::class, 'status']);
@@ -395,7 +469,7 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
     });
     
     // Admin routes - Courier Assignment
-    Route::prefix('admin')->middleware('role:admin')->group(function () {
+    Route::prefix('admin')->middleware(['role:admin', 'audit'])->group(function () {
         Route::get('/orders/{order}/couriers/available', [CourierAssignmentController::class, 'getAvailableCouriers']);
         Route::post('/orders/{order}/couriers/auto-assign', [CourierAssignmentController::class, 'autoAssign']);
         Route::post('/orders/{order}/couriers/manual-assign', [CourierAssignmentController::class, 'manualAssign']);
@@ -405,6 +479,71 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         // Heatmap / Analytics
         Route::get('/heatmap/orders', [\App\Http\Controllers\Api\Admin\OrderHeatmapController::class, 'index']);
         Route::get('/heatmap/pharmacies', [\App\Http\Controllers\Api\Admin\OrderHeatmapController::class, 'pharmacyHeatmap']);
+
+        // Stats & Revenue tracking
+        Route::get('/stats/dashboard', [\App\Http\Controllers\Api\Admin\StatsController::class, 'dashboard']);
+        Route::get('/stats/revenue', [\App\Http\Controllers\Api\Admin\StatsController::class, 'revenue']);
+        Route::get('/stats/today', [\App\Http\Controllers\Api\Admin\StatsController::class, 'today']);
+        Route::get('/stats/funnel', [\App\Http\Controllers\Api\Admin\StatsController::class, 'funnel']);
+        Route::get('/stats/events', [\App\Http\Controllers\Api\Admin\StatsController::class, 'events']);
+        Route::get('/stats/alerts', [\App\Http\Controllers\Api\Admin\StatsController::class, 'alerts']);
+
+        // CSV Exports
+        Route::prefix('export')->group(function () {
+            Route::get('/orders', [\App\Http\Controllers\Api\Admin\ExportController::class, 'orders']);
+            Route::get('/deliveries', [\App\Http\Controllers\Api\Admin\ExportController::class, 'deliveries']);
+            Route::get('/revenue', [\App\Http\Controllers\Api\Admin\ExportController::class, 'revenue']);
+            Route::get('/pharmacies', [\App\Http\Controllers\Api\Admin\ExportController::class, 'pharmacies']);
+            Route::get('/couriers', [\App\Http\Controllers\Api\Admin\ExportController::class, 'couriers']);
+        });
+
+        // Audit Trail
+        Route::get('/audit-logs', function (\Illuminate\Http\Request $request) {
+            $logs = \Illuminate\Support\Facades\DB::table('admin_audit_logs')
+                ->orderByDesc('created_at')
+                ->when($request->input('user_id'), fn ($q, $id) => $q->where('user_id', $id))
+                ->when($request->input('action'), fn ($q, $a) => $q->where('action', $a))
+                ->paginate(min($request->input('per_page', 50), 100));
+
+            return response()->json(['success' => true, 'data' => $logs]);
+        });
     });
+});
+
+// Public health check (no auth required)
+Route::get('/health', \App\Http\Controllers\Api\HealthController::class);
+
+// DEBUG: Diagnostic pharmacies — protégé par auth admin
+Route::middleware(['auth:sanctum'])->get('/debug/pharmacies-audit', function () {
+    // Restreindre aux admins uniquement
+    /** @var \App\Models\User|null $user */
+    $user = \Illuminate\Support\Facades\Auth::user();
+    if (!$user || $user->role !== 'admin') {
+        return response()->json(['success' => false, 'message' => 'Accès refusé'], 403);
+    }
+
+    $pharmacies = \App\Models\Pharmacy::withCount('products')
+        ->withCount(['products as available_products_count' => function ($q) {
+            $q->where('is_available', true);
+        }])
+        ->get(['id', 'name', 'status', 'is_active', 'is_open', 'created_at']);
+    
+    return response()->json([
+        'success' => true,
+        'total_pharmacies' => $pharmacies->count(),
+        'approved_count' => $pharmacies->where('status', 'approved')->count(),
+        'pending_count' => $pharmacies->where('status', 'pending')->count(),
+        'rejected_count' => $pharmacies->where('status', 'rejected')->count(),
+        'pharmacies' => $pharmacies->map(fn($p) => [
+            'id' => $p->id,
+            'name' => $p->name,
+            'status' => $p->status,
+            'is_active' => $p->is_active,
+            'is_open' => $p->is_open,
+            'total_products' => $p->products_count,
+            'available_products' => $p->available_products_count,
+            'created_at' => $p->created_at?->toDateTimeString(),
+        ]),
+    ]);
 });
 

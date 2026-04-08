@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\Courier;
 use App\Models\Delivery;
 use App\Models\Order;
 use App\Models\Product;
+use App\Observers\CourierObserver;
 use App\Observers\DeliveryObserver;
 use App\Observers\OrderObserver;
 use App\Observers\ProductObserver;
@@ -15,6 +17,7 @@ use Illuminate\Http\Request;
 use App\Events\PaymentConfirmed;
 use App\Listeners\DistributeCommissions;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Database\Eloquent\Model;
 
 class AppServiceProvider extends ServiceProvider
@@ -48,9 +51,13 @@ class AppServiceProvider extends ServiceProvider
         }
         
         // Register Observers
+        Courier::observe(CourierObserver::class); // Sync KYC status -> account status
         Order::observe(OrderObserver::class);
         Product::observe(ProductObserver::class);
         Delivery::observe(DeliveryObserver::class); // Auto-assignation automatique
+
+        // Register Policies
+        Gate::policy(Delivery::class, \App\Policies\DeliveryPolicy::class);
 
         // Register Event Listeners
         Event::listen(
