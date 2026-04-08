@@ -241,31 +241,36 @@ class DeliveryController extends Controller
             ], 400);
         }
 
-        // Get available deliveries
-        $deliveries = Delivery::with('order')
-            ->whereIn('id', $request->delivery_ids)
-            ->where('status', 'pending')
-            ->whereNull('courier_id')
-            ->get();
+        // Accept all deliveries in a transaction with lock
+        try {
+            $deliveries = DB::transaction(function () use ($request, $courier, $requestedCount) {
+                $deliveries = Delivery::with('order')
+                    ->whereIn('id', $request->delivery_ids)
+                    ->where('status', 'pending')
+                    ->whereNull('courier_id')
+                    ->lockForUpdate()
+                    ->get();
 
-        if ($deliveries->count() !== $requestedCount) {
-            $unavailable = $requestedCount - $deliveries->count();
+                if ($deliveries->count() !== $requestedCount) {
+                    $unavailable = $requestedCount - $deliveries->count();
+                    throw new \Exception("$unavailable livraison(s) n'est/ne sont plus disponible(s)");
+                }
+
+                foreach ($deliveries as $delivery) {
+                    $delivery->update([
+                        'courier_id' => $courier->id,
+                        'status' => 'assigned',
+                    ]);
+                }
+
+                return $deliveries;
+            });
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => "$unavailable livraison(s) n'est/ne sont plus disponible(s)",
-                'available_count' => $deliveries->count(),
-            ], 400);
+                'message' => $e->getMessage(),
+            ], 409);
         }
-
-        // Accept all deliveries in a transaction
-        DB::transaction(function () use ($deliveries, $courier) {
-            foreach ($deliveries as $delivery) {
-                $delivery->update([
-                    'courier_id' => $courier->id,
-                    'status' => 'assigned',
-                ]);
-            }
-        });
 
         // Calculate total estimated earnings
         $commissionAmount = WalletService::getCommissionAmount();
@@ -607,35 +612,35 @@ class DeliveryController extends Controller
 
                 $commissionTransaction = $this->walletService->deductCommission($courier, $delivery);
 
-                // 6. Notifier la pharmacie que la livraison est terminée
+                // 6. Notifier la pharmacie que la livraison est terminée (async)
                 $pharmacy = $delivery->order->pharmacy;
-                if ($pharmacy && $pharmacy->user) {
-                    $pharmacy->user->notify(new OrderDeliveredToPharmacyNotification(
-                        $delivery->order,
-                        $delivery
-                    ));
-                    Log::info('Notification de livraison envoyée à la pharmacie', [
-                        'pharmacy_id' => $pharmacy->id,
-                        'order_id' => $delivery->order->id,
-                    ]);
+                if ($pharmacy) {
+                    foreach ($pharmacy->users as $pharmacyUser) {
+                        \App\Jobs\SendNotificationJob::dispatch(
+                            $pharmacyUser,
+                            new OrderDeliveredToPharmacyNotification($delivery->order, $delivery),
+                            ['order_id' => $delivery->order->id, 'pharmacy_id' => $pharmacy->id]
+                        )->onQueue('notifications');
+                    }
                 }
 
-                // 7. Calculer et distribuer les commissions pour la pharmacie (paiement cash)
-                // Pour les paiements cash, le paiement est confirmé à la livraison
-                // La pharmacie reçoit 100% du prix des médicaments, la plateforme reçoit les frais de service
-                if (in_array($delivery->order->payment_mode, ['cash', 'on_delivery'])) {
-                    try {
-                        $this->calculateCommission->execute($delivery->order);
-                        Log::info('Commissions calculées pour commande cash', [
-                            'order_id' => $delivery->order->id,
-                            'pharmacy_id' => $pharmacy?->id,
-                        ]);
-                    } catch (\Exception $e) {
-                        Log::error('Erreur calcul commissions cash', [
-                            'order_id' => $delivery->order->id,
-                            'error' => $e->getMessage(),
-                        ]);
-                    }
+                // 7. Calculer et distribuer les commissions pour la pharmacie
+                // Pour les paiements cash, le paiement est confirmé à la livraison.
+                // Pour les paiements en ligne, les commissions sont normalement calculées
+                // lors de la confirmation du paiement (ProcessPaymentResultJob).
+                // On appelle ici en fallback (idempotent : CalculateCommissionAction vérifie les doublons).
+                try {
+                    $this->calculateCommission->execute($delivery->order);
+                    Log::info('Commissions calculées pour commande', [
+                        'order_id' => $delivery->order->id,
+                        'pharmacy_id' => $pharmacy?->id,
+                        'payment_mode' => $delivery->order->payment_mode,
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('Erreur calcul commissions', [
+                        'order_id' => $delivery->order->id,
+                        'error' => $e->getMessage(),
+                    ]);
                 }
 
                 Log::info('Livraison validée avec succès', [
@@ -721,6 +726,25 @@ class DeliveryController extends Controller
 
         $courier->updateLocation($validated['latitude'], $validated['longitude']);
 
+        // Sauvegarder l'historique de position pour la livraison active
+        $activeDelivery = $courier->deliveries()
+            ->whereIn('status', ['accepted', 'picked_up', 'in_transit'])
+            ->first();
+
+        if ($activeDelivery) {
+            $history = $activeDelivery->location_history ?? [];
+            $history[] = [
+                'lat' => $validated['latitude'],
+                'lng' => $validated['longitude'],
+                'ts' => now()->toIso8601String(),
+            ];
+            // Garder max 500 points (environ 8h à 1 update/min)
+            if (count($history) > 500) {
+                $history = array_slice($history, -500);
+            }
+            $activeDelivery->update(['location_history' => $history]);
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Position mise à jour',
@@ -778,6 +802,42 @@ class DeliveryController extends Controller
             ], 403);
         }
 
+        // Récupérer les badges (challenges complétés)
+        $badges = $courier->challenges()
+            ->wherePivot('status', 'completed')
+            ->get()
+            ->map(fn ($challenge) => [
+                'id' => $challenge->id,
+                'title' => $challenge->title,
+                'description' => $challenge->description,
+                'icon' => $challenge->icon,
+                'color' => $challenge->color,
+                'completed_at' => $challenge->pivot->completed_at,
+                'reward_amount' => $challenge->reward_amount,
+            ]);
+
+        // Challenges actifs en cours
+        $activeChallenges = $courier->challenges()
+            ->wherePivot('status', 'in_progress')
+            ->whereNotNull('ends_at')
+            ->where('ends_at', '>', now())
+            ->where('is_active', true)
+            ->get()
+            ->map(fn ($challenge) => [
+                'id' => $challenge->id,
+                'title' => $challenge->title,
+                'description' => $challenge->description,
+                'icon' => $challenge->icon,
+                'color' => $challenge->color,
+                'target_value' => $challenge->target_value,
+                'current_progress' => $challenge->pivot->current_progress,
+                'progress_percentage' => $challenge->target_value > 0
+                    ? min(round(($challenge->pivot->current_progress / $challenge->target_value) * 100, 1), 100)
+                    : 0,
+                'reward_amount' => $challenge->reward_amount,
+                'ends_at' => $challenge->ends_at,
+            ]);
+
         return response()->json([
             'success' => true,
             'data' => [
@@ -791,6 +851,78 @@ class DeliveryController extends Controller
                 'rating' => $courier->rating,
                 'completed_deliveries' => $courier->deliveries()->where('status', 'delivered')->count(),
                 'earnings' => $courier->commissionLines()->sum('amount'),
+                'kyc_status' => $courier->kyc_status ?? 'pending_review',
+                'badges' => $badges,
+                'active_challenges' => $activeChallenges,
+            ],
+        ]);
+    }
+
+    /**
+     * Update courier profile (vehicle info) and/or user info (name, phone)
+     *
+     * POST /api/courier/profile/update
+     */
+    public function updateCourierProfile(Request $request)
+    {
+        $request->validate([
+            'name' => 'nullable|string|max:255',
+            'phone' => 'nullable|string|max:20|unique:users,phone,' . $request->user()->id,
+            'vehicle_type' => 'nullable|string|in:motorcycle,car,bicycle,scooter',
+            'vehicle_number' => 'nullable|string|max:20',
+        ]);
+
+        $user = $request->user();
+        $courier = $user->courier;
+
+        if (!$courier) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Profil livreur non trouvé',
+            ], 403);
+        }
+
+        // Update user fields
+        $userData = [];
+        if ($request->filled('name')) {
+            $userData['name'] = $request->name;
+        }
+        if ($request->filled('phone') && $user->phone !== $request->phone) {
+            $userData['phone'] = $request->phone;
+        }
+        if (!empty($userData)) {
+            $user->update($userData);
+        }
+
+        // Update courier fields
+        $courierData = [];
+        if ($request->filled('vehicle_type')) {
+            $courierData['vehicle_type'] = $request->vehicle_type;
+        }
+        if ($request->has('vehicle_number')) {
+            $courierData['vehicle_number'] = $request->vehicle_number;
+        }
+        if (!empty($courierData)) {
+            $courier->update($courierData);
+        }
+
+        $courier->refresh();
+        $user->refresh();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profil mis à jour avec succès',
+            'data' => [
+                'id' => $courier->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'avatar' => $user->avatar,
+                'status' => $courier->status,
+                'vehicle_type' => $courier->vehicle_type,
+                'plate_number' => $courier->plate_number,
+                'rating' => $courier->rating,
+                'completed_deliveries' => $courier->deliveries()->where('status', 'delivered')->count(),
             ],
         ]);
     }
