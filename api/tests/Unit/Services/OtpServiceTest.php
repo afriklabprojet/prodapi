@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 use Mockery;
+use PHPUnit\Framework\Attributes\Test;
 
 class OtpServiceTest extends TestCase
 {
@@ -25,7 +26,7 @@ class OtpServiceTest extends TestCase
         Cache::flush();
     }
 
-    /** @test */
+    #[Test]
     public function it_generates_otp_with_correct_length()
     {
         $otp = $this->otpService->generateOtp('test@example.com', 4);
@@ -34,7 +35,7 @@ class OtpServiceTest extends TestCase
         $this->assertIsNumeric($otp);
     }
 
-    /** @test */
+    #[Test]
     public function it_generates_6_digit_otp()
     {
         $otp = $this->otpService->generateOtp('test@example.com', 6);
@@ -43,7 +44,7 @@ class OtpServiceTest extends TestCase
         $this->assertIsNumeric($otp);
     }
 
-    /** @test */
+    #[Test]
     public function it_stores_otp_in_cache()
     {
         $identifier = 'test@example.com';
@@ -52,7 +53,7 @@ class OtpServiceTest extends TestCase
         $this->assertEquals($otp, Cache::get('otp_' . $identifier));
     }
 
-    /** @test */
+    #[Test]
     public function it_verifies_correct_otp()
     {
         $identifier = 'test@example.com';
@@ -61,7 +62,7 @@ class OtpServiceTest extends TestCase
         $this->assertTrue($this->otpService->verifyOtp($identifier, $otp));
     }
 
-    /** @test */
+    #[Test]
     public function it_rejects_incorrect_otp()
     {
         $identifier = 'test@example.com';
@@ -70,7 +71,7 @@ class OtpServiceTest extends TestCase
         $this->assertFalse($this->otpService->verifyOtp($identifier, '9999'));
     }
 
-    /** @test */
+    #[Test]
     public function it_removes_otp_after_verification()
     {
         $identifier = 'test@example.com';
@@ -82,7 +83,7 @@ class OtpServiceTest extends TestCase
         $this->assertFalse($this->otpService->verifyOtp($identifier, $otp));
     }
 
-    /** @test */
+    #[Test]
     public function it_checks_otp_without_removing()
     {
         $identifier = 'test@example.com';
@@ -94,7 +95,7 @@ class OtpServiceTest extends TestCase
         $this->assertTrue($this->otpService->checkOtp($identifier, $otp));
     }
 
-    /** @test */
+    #[Test]
     public function it_sends_otp_via_email_for_email_identifier()
     {
         Mail::fake();
@@ -110,7 +111,7 @@ class OtpServiceTest extends TestCase
         });
     }
 
-    /** @test */
+    #[Test]
     public function it_sends_otp_via_sms_for_phone_identifier()
     {
         // Disable WhatsApp OTP so SMS is used as primary channel
@@ -135,7 +136,7 @@ class OtpServiceTest extends TestCase
         $this->assertEquals('sms', $channel);
     }
 
-    /** @test */
+    #[Test]
     public function it_falls_back_to_email_when_sms_fails()
     {
         // Disable WhatsApp OTP so SMS is used as primary channel
@@ -166,7 +167,7 @@ class OtpServiceTest extends TestCase
         });
     }
 
-    /** @test */
+    #[Test]
     public function it_generates_different_messages_for_different_purposes()
     {
         // Use reflection to test protected method
@@ -182,7 +183,7 @@ class OtpServiceTest extends TestCase
         $this->assertStringContainsString('connexion', $loginMsg);
     }
 
-    /** @test */
+    #[Test]
     public function otp_expires_after_validity_period()
     {
         $identifier = 'test@example.com';
@@ -194,7 +195,7 @@ class OtpServiceTest extends TestCase
         $this->assertFalse($this->otpService->verifyOtp($identifier, $otp));
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_false_for_expired_otp()
     {
         $identifier = 'test@example.com';
@@ -203,7 +204,7 @@ class OtpServiceTest extends TestCase
         $this->assertFalse($this->otpService->verifyOtp($identifier, '1234'));
     }
 
-    /** @test */
+    #[Test]
     public function it_generates_unique_otps()
     {
         $otps = [];
@@ -220,7 +221,7 @@ class OtpServiceTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_overwrites_previous_otp_for_same_identifier()
     {
         $identifier = 'test@example.com';

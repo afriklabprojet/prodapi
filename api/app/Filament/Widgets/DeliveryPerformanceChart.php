@@ -41,10 +41,10 @@ class DeliveryPerformanceChart extends ChartWidget
             $cancelled->push($cancelledCount);
             
             // Temps moyen de livraison (en minutes) - Compatible MySQL
-            $avgDeliveryTime = Delivery::whereDate('completed_at', $date)
-                ->whereNotNull('completed_at')
-                ->whereNotNull('started_at')
-                ->selectRaw('AVG(TIMESTAMPDIFF(MINUTE, started_at, completed_at)) as avg_time')
+            $avgDeliveryTime = Delivery::whereDate('delivered_at', $date)
+                ->whereNotNull('delivered_at')
+                ->whereNotNull('accepted_at')
+                ->selectRaw('AVG(TIMESTAMPDIFF(MINUTE, accepted_at, delivered_at)) as avg_time')
                 ->value('avg_time') ?? 0;
             $avgTime->push(round($avgDeliveryTime));
         }

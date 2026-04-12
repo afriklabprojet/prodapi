@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class PharmacyInventoryApiTest extends TestCase
 {
@@ -34,7 +35,7 @@ class PharmacyInventoryApiTest extends TestCase
         $this->pharmacy->users()->attach($this->pharmacyUser->id, ['role' => 'owner']);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_list_products()
     {
         // Create products for this pharmacy
@@ -57,7 +58,7 @@ class PharmacyInventoryApiTest extends TestCase
         $this->assertCount(5, $response->json('data'));
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_add_product()
     {
         Sanctum::actingAs($this->pharmacyUser);
@@ -89,7 +90,7 @@ class PharmacyInventoryApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_update_stock()
     {
         $product = Product::factory()->create([
@@ -114,7 +115,7 @@ class PharmacyInventoryApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_update_price()
     {
         $product = Product::factory()->create([
@@ -139,7 +140,7 @@ class PharmacyInventoryApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_toggle_product_availability()
     {
         $product = Product::factory()->create([
@@ -162,7 +163,7 @@ class PharmacyInventoryApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_cannot_access_other_pharmacy_products()
     {
         // Create another pharmacy
@@ -180,7 +181,7 @@ class PharmacyInventoryApiTest extends TestCase
         $response->assertStatus(404);
     }
 
-    /** @test */
+    #[Test]
     public function unapproved_pharmacy_cannot_access_inventory()
     {
         // Update pharmacy status to pending
@@ -193,7 +194,7 @@ class PharmacyInventoryApiTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function non_pharmacy_user_cannot_access_inventory()
     {
         $customerUser = User::factory()->create(['role' => 'customer']);

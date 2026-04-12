@@ -11,6 +11,7 @@ use App\Services\OrderService;
 use App\Services\WalletService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class OrderServiceTest extends TestCase
 {
@@ -32,7 +33,7 @@ class OrderServiceTest extends TestCase
         Customer::factory()->create(['user_id' => $this->customer->id]);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_products_availability()
     {
         $product = Product::factory()->create([
@@ -50,7 +51,7 @@ class OrderServiceTest extends TestCase
         $this->assertNull($result);
     }
 
-    /** @test */
+    #[Test]
     public function it_rejects_unavailable_products()
     {
         $product = Product::factory()->create([
@@ -69,7 +70,7 @@ class OrderServiceTest extends TestCase
         $this->assertFalse($result['success']);
     }
 
-    /** @test */
+    #[Test]
     public function it_rejects_insufficient_stock()
     {
         $product = Product::factory()->create([
@@ -88,7 +89,7 @@ class OrderServiceTest extends TestCase
         $this->assertFalse($result['success']);
     }
 
-    /** @test */
+    #[Test]
     public function it_calculates_subtotal_correctly()
     {
         $items = [
@@ -102,7 +103,7 @@ class OrderServiceTest extends TestCase
         $this->assertEquals(3500, $subtotal);
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_product_price_when_available()
     {
         $product = Product::factory()->create([
@@ -120,7 +121,7 @@ class OrderServiceTest extends TestCase
         $this->assertEquals(3000, $subtotal);
     }
 
-    /** @test */
+    #[Test]
     public function it_calculates_order_totals()
     {
         $items = [
@@ -138,7 +139,7 @@ class OrderServiceTest extends TestCase
         $this->assertEquals($totals['subtotal'] + $totals['delivery_fee'], $totals['total_amount']);
     }
 
-    /** @test */
+    #[Test]
     public function it_creates_order()
     {
         $data = [
@@ -163,7 +164,7 @@ class OrderServiceTest extends TestCase
         $this->assertEquals('XOF', $order->currency);
     }
 
-    /** @test */
+    #[Test]
     public function it_generates_unique_order_reference()
     {
         $data = [
@@ -182,7 +183,7 @@ class OrderServiceTest extends TestCase
         $this->assertNotEquals($order1->reference, $order2->reference);
     }
 
-    /** @test */
+    #[Test]
     public function it_creates_order_items()
     {
         $product = Product::factory()->create([
@@ -206,7 +207,7 @@ class OrderServiceTest extends TestCase
         $this->assertEquals(2, $order->items()->first()->quantity);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_items_without_product_id()
     {
         $items = [
@@ -219,7 +220,7 @@ class OrderServiceTest extends TestCase
         $this->assertNull($result);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_prescription_image()
     {
         $data = [
@@ -238,7 +239,7 @@ class OrderServiceTest extends TestCase
         $this->assertEquals('prescriptions/test.jpg', $order->prescription_image);
     }
 
-    /** @test */
+    #[Test]
     public function it_stores_delivery_coordinates()
     {
         $data = [

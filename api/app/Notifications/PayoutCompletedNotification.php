@@ -48,6 +48,8 @@ class PayoutCompletedNotification extends Notification implements ShouldQueue
 
     public function toFcm(object $notifiable): array
     {
+        $fcmConfig = \App\Services\NotificationSettingsService::getFcmConfig('payout_completed');
+
         return [
             'title' => 'Décaissement effectué ✅',
             'body' => sprintf(
@@ -55,10 +57,12 @@ class PayoutCompletedNotification extends Notification implements ShouldQueue
                 number_format($this->amount, 0, ',', ' '),
                 $this->reference,
             ),
-            'data' => [
+            'data' => array_merge($fcmConfig['data'], [
                 'type' => 'payout_completed',
                 'reference' => $this->reference,
-            ],
+            ]),
+            'android' => $fcmConfig['android'],
+            'apns' => $fcmConfig['apns'],
         ];
     }
 }

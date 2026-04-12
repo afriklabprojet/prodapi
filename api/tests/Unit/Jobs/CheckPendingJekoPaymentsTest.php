@@ -14,6 +14,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 use Mockery;
+use PHPUnit\Framework\Attributes\Test;
 
 class CheckPendingJekoPaymentsTest extends TestCase
 {
@@ -47,7 +48,7 @@ class CheckPendingJekoPaymentsTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function job_can_be_queued()
     {
         Queue::fake();
@@ -57,7 +58,7 @@ class CheckPendingJekoPaymentsTest extends TestCase
         Queue::assertPushed(CheckPendingJekoPayments::class);
     }
 
-    /** @test */
+    #[Test]
     public function job_can_be_constructed_with_timeout()
     {
         $job = new CheckPendingJekoPayments(10);
@@ -65,7 +66,7 @@ class CheckPendingJekoPaymentsTest extends TestCase
         $this->assertEquals(10, $job->timeoutMinutes);
     }
 
-    /** @test */
+    #[Test]
     public function job_uses_default_timeout_of_5_minutes()
     {
         $job = new CheckPendingJekoPayments();
@@ -73,7 +74,7 @@ class CheckPendingJekoPaymentsTest extends TestCase
         $this->assertEquals(5, $job->timeoutMinutes);
     }
 
-    /** @test */
+    #[Test]
     public function it_checks_expired_pending_payments()
     {
         // Mock JekoPaymentService
@@ -91,7 +92,7 @@ class CheckPendingJekoPaymentsTest extends TestCase
         $this->assertTrue(true);
     }
 
-    /** @test */
+    #[Test]
     public function it_marks_payment_as_expired_when_still_pending()
     {
         $payment = Mockery::mock(JekoPayment::class)->makePartial();
@@ -115,7 +116,7 @@ class CheckPendingJekoPaymentsTest extends TestCase
         $this->assertTrue(true);
     }
 
-    /** @test */
+    #[Test]
     public function it_skips_recent_pending_payments()
     {
         // Payment initiated only 2 minutes ago - should not be checked
@@ -132,7 +133,7 @@ class CheckPendingJekoPaymentsTest extends TestCase
         $this->assertTrue(true);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_successful_payment_resolution()
     {
         $payment = Mockery::mock(JekoPayment::class)->makePartial();
@@ -149,7 +150,7 @@ class CheckPendingJekoPaymentsTest extends TestCase
         $this->assertTrue(true);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_failed_payment_resolution()
     {
         $payment = Mockery::mock(JekoPayment::class)->makePartial();
@@ -167,7 +168,7 @@ class CheckPendingJekoPaymentsTest extends TestCase
         $this->assertTrue(true);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_exceptions_gracefully()
     {
         $mockService = Mockery::mock(JekoPaymentService::class);
@@ -182,7 +183,7 @@ class CheckPendingJekoPaymentsTest extends TestCase
         $this->assertTrue(true);
     }
 
-    /** @test */
+    #[Test]
     public function it_processes_multiple_pending_payments()
     {
         // Create additional pending payments

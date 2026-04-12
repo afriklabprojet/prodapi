@@ -56,7 +56,7 @@ class CourierSeeder extends Seeder
                 'kyc_status' => 'approved',
                 'latitude' => 5.3167 + (rand(-100, 100) / 10000),
                 'longitude' => -4.0167 + (rand(-100, 100) / 10000),
-                'rating' => 4.5,
+                'rating' => 0,
                 'completed_deliveries' => rand(10, 100),
             ]);
 

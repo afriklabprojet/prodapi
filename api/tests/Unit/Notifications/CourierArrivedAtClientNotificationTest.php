@@ -14,6 +14,7 @@ use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class CourierArrivedAtClientNotificationTest extends TestCase
 {
@@ -66,7 +67,7 @@ class CourierArrivedAtClientNotificationTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_be_constructed_with_all_parameters()
     {
         $notification = new CourierArrivedAtClientNotification(
@@ -81,7 +82,7 @@ class CourierArrivedAtClientNotificationTest extends TestCase
         $this->assertEquals(100, $notification->feePerMinute);
     }
 
-    /** @test */
+    #[Test]
     public function via_returns_database_and_fcm_channels()
     {
         $notification = new CourierArrivedAtClientNotification($this->delivery, 30, 100);
@@ -91,7 +92,7 @@ class CourierArrivedAtClientNotificationTest extends TestCase
         $this->assertContains(FcmChannel::class, $channels);
     }
 
-    /** @test */
+    #[Test]
     public function to_database_returns_correct_structure()
     {
         $notification = new CourierArrivedAtClientNotification($this->delivery, 30, 100);
@@ -105,7 +106,7 @@ class CourierArrivedAtClientNotificationTest extends TestCase
         $this->assertEquals(100, $data['fee_per_minute']);
     }
 
-    /** @test */
+    #[Test]
     public function to_database_contains_message_with_order_reference()
     {
         $notification = new CourierArrivedAtClientNotification($this->delivery, 30, 100);
@@ -115,7 +116,7 @@ class CourierArrivedAtClientNotificationTest extends TestCase
         $this->assertStringContainsString($this->order->reference, $data['message']);
     }
 
-    /** @test */
+    #[Test]
     public function to_database_contains_warning_about_timeout()
     {
         $notification = new CourierArrivedAtClientNotification($this->delivery, 30, 100);
@@ -124,7 +125,7 @@ class CourierArrivedAtClientNotificationTest extends TestCase
         $this->assertStringContainsString('30 minutes', $data['warning']);
     }
 
-    /** @test */
+    #[Test]
     public function to_database_contains_countdown_started_at()
     {
         $notification = new CourierArrivedAtClientNotification($this->delivery, 30, 100);
@@ -133,7 +134,7 @@ class CourierArrivedAtClientNotificationTest extends TestCase
         $this->assertArrayHasKey('countdown_started_at', $data);
     }
 
-    /** @test */
+    #[Test]
     public function to_fcm_returns_correct_structure()
     {
         $notification = new CourierArrivedAtClientNotification($this->delivery, 30, 100);
@@ -145,7 +146,7 @@ class CourierArrivedAtClientNotificationTest extends TestCase
         $this->assertEquals('Coursier arrivé chez le client', $fcm['title']);
     }
 
-    /** @test */
+    #[Test]
     public function to_fcm_body_contains_countdown_info()
     {
         $notification = new CourierArrivedAtClientNotification($this->delivery, 30, 100);
@@ -155,7 +156,7 @@ class CourierArrivedAtClientNotificationTest extends TestCase
         $this->assertStringContainsString('30 minutes', $fcm['body']);
     }
 
-    /** @test */
+    #[Test]
     public function to_fcm_data_contains_all_required_fields()
     {
         $notification = new CourierArrivedAtClientNotification($this->delivery, 30, 100);
@@ -170,7 +171,7 @@ class CourierArrivedAtClientNotificationTest extends TestCase
         $this->assertEquals('ORDER_DETAIL', $fcm['data']['click_action']);
     }
 
-    /** @test */
+    #[Test]
     public function notification_can_be_sent()
     {
         Notification::fake();
@@ -180,7 +181,7 @@ class CourierArrivedAtClientNotificationTest extends TestCase
         Notification::assertSentTo($this->pharmacyUser, CourierArrivedAtClientNotification::class);
     }
 
-    /** @test */
+    #[Test]
     public function notification_implements_should_queue()
     {
         $notification = new CourierArrivedAtClientNotification($this->delivery, 30, 100);

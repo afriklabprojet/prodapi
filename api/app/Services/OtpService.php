@@ -12,7 +12,7 @@ class OtpService
     /**
      * Generate an OTP for a given identifier (email or phone)
      */
-    public function generateOtp(string $identifier, int $length = 4, int $validityMinutes = 10): string
+    public function generateOtp(string $identifier, int $length = 6, int $validityMinutes = 10): string
     {
         // In production, generate random number. For dev/demo, use '1234' or similar if needed, 
         // but let's stick to random for "complete backend".
@@ -50,11 +50,37 @@ class OtpService
     }
 
     /**
-     * Send the OTP via appropriate channel
-     * Priority: WhatsApp > SMS > Email
-     * Returns the channel used: 'whatsapp', 'email', 'sms', 'sms_fallback_email', 'whatsapp_fallback_sms', 'whatsapp_fallback_email'
+     * Check if Firebase Auth service account is functional.
+     * Cached for 5 minutes to avoid checking on every OTP request.
      */
-    public function sendOtp(string $identifier, string $otp, string $purpose = 'verification', ?string $fallbackEmail = null): string
+    protected function isFirebaseAvailable(): bool
+    {
+        return Cache::remember('firebase_auth_available', now()->addMinutes(5), function () {
+            try {
+                $auth = app('firebase.auth');
+                // Quick check: try to list 1 user (lightweight call)
+                iterator_to_array($auth->listUsers(1));
+                Log::info('Firebase Auth: service account is functional');
+                return true;
+            } catch (\Throwable $e) {
+                Log::warning('Firebase Auth unavailable: ' . $e->getMessage());
+                return false;
+            }
+        });
+    }
+
+    /**
+     * Send the OTP via appropriate channel
+     * Priority: Firebase Phone Auth (client) > Infobip SMS > Email
+     *
+     * Flow:
+     * 1. Check if Firebase service account works → return 'firebase' (app uses client SDK)
+     * 2. If Firebase is down OR force_fallback → send via Infobip SMS
+     * 3. If SMS fails → send via Email
+     *
+     * Returns the channel used: 'firebase', 'sms', 'email', 'sms_fallback_email'
+     */
+    public function sendOtp(string $identifier, string $otp, string $purpose = 'verification', ?string $fallbackEmail = null, bool $forceFallback = false): string
     {
         // Determine if identifier is email or phone
         if (filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
@@ -62,40 +88,35 @@ class OtpService
             return 'email';
         }
 
-        // For phone numbers: try WhatsApp first, then SMS, then email fallback
-        
-        // 1. Try WhatsApp (if enabled for OTP)
-        if (config('whatsapp.notifications.otp', false)) {
-            $whatsappSent = $this->sendWhatsAppOtp($identifier, $otp, $purpose);
-            if ($whatsappSent) {
-                return 'whatsapp';
-            }
-            
-            // WhatsApp failed, try SMS
-            $smsSent = $this->sendSmsOtp($identifier, $otp, $purpose);
-            if ($smsSent) {
-                return 'whatsapp_fallback_sms';
-            }
-            
-            // SMS also failed, try email
-            if ($fallbackEmail) {
-                $this->sendEmailOtp($fallbackEmail, $otp, $purpose);
-                return 'whatsapp_fallback_email';
-            }
-            
-            return 'whatsapp'; // Return whatsapp even if failed (logged)
+        // For phone numbers: Firebase first, then Infobip SMS, then Email
+
+        // 1. Firebase Phone Auth — only if service account works AND client didn't request fallback
+        if (!$forceFallback && $this->isFirebaseAvailable()) {
+            Log::info("OTP channel: firebase (client-side) for {$identifier}");
+            return 'firebase';
         }
 
-        // 2. Try SMS first (default behavior when WhatsApp OTP not enabled)
+        // 2. Firebase unavailable or client requested fallback → Infobip SMS
+        $reason = $forceFallback ? 'client fallback' : 'Firebase unavailable';
+        Log::info("OTP sending via Infobip SMS for {$identifier} (reason: {$reason})");
+
         $smsSent = $this->sendSmsOtp($identifier, $otp, $purpose);
-        
-        // If SMS failed and we have a fallback email, send via email
-        if (!$smsSent && $fallbackEmail) {
-            $this->sendEmailOtp($fallbackEmail, $otp, $purpose);
-            return 'sms_fallback_email';
+        if ($smsSent) {
+            return 'sms';
         }
-        
-        return 'sms';
+
+        // 3. Infobip SMS failed → fallback email
+        Log::warning("Infobip SMS failed for {$identifier}, trying email fallback");
+        if ($fallbackEmail) {
+            $emailSent = $this->sendEmailOtp($fallbackEmail, $otp, $purpose);
+            if ($emailSent) {
+                return 'sms_fallback_email';
+            }
+        }
+
+        // All channels failed
+        Log::error("All OTP channels failed for {$identifier}");
+        return 'failed';
     }
 
     /**
@@ -139,7 +160,7 @@ class OtpService
     protected function sendEmailOtp(string $email, string $otp, string $purpose = 'verification'): bool
     {
         try {
-            Mail::to($email)->send(new OtpMail($otp, $purpose));
+            Mail::to($email)->queue(new OtpMail($otp, $purpose));
             Log::info("OTP email sent successfully to {$email}");
             return true;
         } catch (\Exception $e) {

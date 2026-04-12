@@ -9,6 +9,7 @@ use App\Models\DutyZone;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class OnCallControllerTest extends TestCase
 {
@@ -34,7 +35,7 @@ class OnCallControllerTest extends TestCase
         $this->pharmacy->users()->attach($this->user->id);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_list_on_call_shifts()
     {
         PharmacyOnCall::factory()->count(3)->create([
@@ -49,22 +50,26 @@ class OnCallControllerTest extends TestCase
             ->assertJsonStructure([
                 'status',
                 'data' => [
-                    'data' => [
-                        '*' => [
-                            'id',
-                            'pharmacy_id',
-                            'duty_zone_id',
-                            'start_at',
-                            'end_at',
-                            'type',
-                            'is_active',
-                        ],
+                    '*' => [
+                        'id',
+                        'pharmacy_id',
+                        'duty_zone_id',
+                        'start_at',
+                        'end_at',
+                        'type',
+                        'is_active',
                     ],
+                ],
+                'meta' => [
+                    'current_page',
+                    'last_page',
+                    'per_page',
+                    'total',
                 ],
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_filter_active_shifts_only()
     {
         PharmacyOnCall::factory()->create([
@@ -87,7 +92,7 @@ class OnCallControllerTest extends TestCase
         $response->assertOk();
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_declare_on_call_shift()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -99,7 +104,7 @@ class OnCallControllerTest extends TestCase
 
         $response->assertCreated()
             ->assertJsonPath('status', 'success')
-            ->assertJsonPath('message', 'On-call shift declared successfully.')
+            ->assertJsonPath('message', 'Garde programmée avec succès.')
             ->assertJsonStructure([
                 'status',
                 'message',
@@ -121,7 +126,7 @@ class OnCallControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function on_call_declaration_requires_valid_dates()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -135,7 +140,7 @@ class OnCallControllerTest extends TestCase
             ->assertJsonValidationErrors(['start_at']);
     }
 
-    /** @test */
+    #[Test]
     public function end_date_must_be_after_start_date()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -149,7 +154,7 @@ class OnCallControllerTest extends TestCase
             ->assertJsonValidationErrors(['end_at']);
     }
 
-    /** @test */
+    #[Test]
     public function on_call_type_must_be_valid()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -163,7 +168,7 @@ class OnCallControllerTest extends TestCase
             ->assertJsonValidationErrors(['type']);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_update_on_call_shift()
     {
         $onCall = PharmacyOnCall::factory()->create([
@@ -188,7 +193,7 @@ class OnCallControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_deactivate_on_call_shift()
     {
         $onCall = PharmacyOnCall::factory()->create([
@@ -210,7 +215,7 @@ class OnCallControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_delete_on_call_shift()
     {
         $onCall = PharmacyOnCall::factory()->create([
@@ -229,7 +234,7 @@ class OnCallControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_cannot_modify_other_pharmacy_shifts()
     {
         $otherPharmacy = Pharmacy::factory()->create(['status' => 'approved']);
@@ -246,7 +251,7 @@ class OnCallControllerTest extends TestCase
         $response->assertNotFound();
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_without_zone_cannot_declare_shift()
     {
         $pharmacyNoZone = Pharmacy::factory()->create([
@@ -267,7 +272,7 @@ class OnCallControllerTest extends TestCase
             ->assertJsonPath('status', 'error');
     }
 
-    /** @test */
+    #[Test]
     public function user_without_pharmacy_cannot_access()
     {
         $userNoPharmacy = User::factory()->create(['role' => 'pharmacy']);
@@ -278,7 +283,7 @@ class OnCallControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function unauthenticated_user_cannot_access()
     {
         $response = $this->getJson('/api/pharmacy/on-calls');

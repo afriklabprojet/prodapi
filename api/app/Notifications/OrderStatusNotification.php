@@ -42,7 +42,7 @@ class OrderStatusNotification extends Notification implements ShouldQueue
         }
 
         // SMS for important status updates
-        if (in_array($this->status, ['confirmed', 'assigned', 'delivered']) && $notifiable->phone) {
+        if (in_array($this->status, ['confirmed', 'assigned', 'on_the_way', 'delivered', 'cancelled']) && $notifiable->phone) {
             $channels[] = \App\Channels\SmsChannel::class;
         }
 
@@ -86,14 +86,18 @@ class OrderStatusNotification extends Notification implements ShouldQueue
             'cancelled' => 'Votre commande a été annulée.',
         ];
 
+        $fcmConfig = \App\Services\NotificationSettingsService::getFcmConfig('order_status');
+
         return [
             'title' => $titles[$this->status] ?? 'Mise à jour commande',
             'body' => $this->additionalMessage ?? ($bodies[$this->status] ?? "Le statut de votre commande est maintenant : {$this->status}"),
-            'data' => [
+            'data' => array_merge($fcmConfig['data'], [
                 'type' => 'order_status',
                 'order_id' => (string) $this->order->id,
                 'status' => $this->status,
-            ],
+            ]),
+            'android' => $fcmConfig['android'],
+            'apns' => $fcmConfig['apns'],
         ];
     }
 
@@ -113,8 +117,14 @@ class OrderStatusNotification extends Notification implements ShouldQueue
                 $courierInfo = $courier ? " Livreur: {$courier->name} ({$courier->phone})" : "";
                 $message .= "Un livreur a été assigné à votre commande {$this->order->reference}.{$courierInfo}";
                 break;
+            case 'on_the_way':
+                $message .= "Votre commande {$this->order->reference} est en cours de livraison!";
+                break;
             case 'delivered':
                 $message .= "Votre commande {$this->order->reference} a été livrée! Merci d'avoir utilisé DR-PHARMA.";
+                break;
+            case 'cancelled':
+                $message .= "Votre commande {$this->order->reference} a été annulée.";
                 break;
             default:
                 $message .= "Votre commande {$this->order->reference} a été mise à jour.";

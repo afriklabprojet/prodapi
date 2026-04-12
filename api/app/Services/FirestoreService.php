@@ -14,7 +14,8 @@ use Google\Cloud\Firestore\FirestoreClient;
  */
 class FirestoreService
 {
-    protected ?FirestoreClient $firestore = null;
+    /** @var FirestoreClient|null */
+    protected mixed $firestore = null;
 
     public function __construct()
     {

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\Customer;
 use App\Http\Controllers\Controller;
 use App\Models\Prescription;
 use App\Http\Resources\PrescriptionResource;
+use App\Services\PrescriptionOcrService;
+use App\Services\ProductMatchingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -64,12 +66,39 @@ class PrescriptionController extends Controller
             ], 500);
         }
 
+        // Calculer le hash SHA-256 de la première image pour détection de doublons
+        $imageHash = null;
+        try {
+            $firstImagePath = $imagePaths[0];
+            $disk = Storage::disk('private');
+            if ($disk->exists($firstImagePath)) {
+                $imageHash = hash('sha256', $disk->get($firstImagePath));
+            }
+        } catch (\Exception $e) {
+            \Log::warning('Image hash calculation failed: ' . $e->getMessage());
+        }
+
+        // Vérifier si une ordonnance identique existe déjà pour ce client
+        $isDuplicate = false;
+        $existingPrescription = null;
+        if ($imageHash) {
+            $existingPrescription = Prescription::where('image_hash', $imageHash)
+                ->where('customer_id', $request->user()->id)
+                ->latest()
+                ->first();
+
+            if ($existingPrescription) {
+                $isDuplicate = true;
+            }
+        }
+
         $prescription = Prescription::create([
             'customer_id' => $request->user()->id,
             'images' => $imagePaths,
             'notes' => $request->notes,
             'status' => 'pending',
-            'source' => $request->input('source', 'upload'), // Par défaut 'upload'
+            'source' => $request->input('source', 'upload'),
+            'image_hash' => $imageHash,
         ]);
 
         // Ne notifier les pharmacies que pour les uploads directs (pas checkout)
@@ -93,8 +122,13 @@ class PrescriptionController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Prescription uploaded successfully',
+            'message' => $isDuplicate
+                ? 'Attention : cette ordonnance semble avoir déjà été soumise.'
+                : 'Prescription uploaded successfully',
             'data' => new PrescriptionResource($prescription),
+            'is_duplicate' => $isDuplicate,
+            'existing_prescription_id' => $existingPrescription?->id,
+            'existing_status' => $existingPrescription?->status,
         ], 201);
     }
 
@@ -183,5 +217,91 @@ class PrescriptionController extends Controller
             'order' => $order,
             'prescription_status' => 'paid'
         ]);
+    }
+
+    /**
+     * Analyse une image d'ordonnance via OCR et match les produits
+     */
+    public function ocr(Request $request, PrescriptionOcrService $ocrService, ProductMatchingService $matchingService)
+    {
+        try {
+            $request->validate([
+                'image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:10240',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation échouée',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        try {
+            // Store the image temporarily
+            $image = $request->file('image');
+            $filename = 'ocr_' . Str::uuid() . '.' . $image->getClientOriginalExtension();
+            $path = $image->storeAs('temp/ocr', $filename, 'public');
+
+            // Run OCR analysis
+            $ocrResult = $ocrService->analyzeImage($path);
+
+            if (!$ocrResult['success']) {
+                // Clean up temp file
+                Storage::disk('public')->delete($path);
+                return response()->json([
+                    'success' => false,
+                    'message' => $ocrResult['error'] ?? 'Erreur lors de l\'analyse OCR',
+                ], 400);
+            }
+
+            // Match medications with products
+            $medications = $ocrResult['medications'] ?? [];
+            $matchResult = $matchingService->matchMedications($medications);
+
+            // Build response with matched products
+            $matchedProducts = collect($matchResult['matched'])->map(function ($match) {
+                return [
+                    'name' => $match['medication'],
+                    'dosage' => null, // Could be parsed from medication name
+                    'frequency' => null,
+                    'quantity' => 1,
+                    'confidence' => $match['match_score'] ?? 0,
+                    'product_id' => $match['product_id'],
+                    'product_name' => $match['product_name'],
+                    'price' => $match['price'],
+                    'pharmacy_name' => $match['pharmacy_name'],
+                ];
+            })->toArray();
+
+            // Unmatched = not_found + out_of_stock
+            $unmatchedMedications = collect($matchResult['not_found'])
+                ->pluck('medication')
+                ->merge(collect($matchResult['out_of_stock'])->pluck('medication'))
+                ->unique()
+                ->values()
+                ->toArray();
+
+            // Clean up temp file
+            Storage::disk('public')->delete($path);
+
+            return response()->json([
+                'success' => true,
+                'matched_products' => $matchedProducts,
+                'unmatched_medications' => $unmatchedMedications,
+                'confidence' => $ocrResult['confidence'] ?? 0,
+                'raw_text' => $ocrResult['raw_text'] ?? '',
+                'is_prescription' => $ocrResult['is_prescription'] ?? false,
+                'stats' => $matchResult['stats'] ?? null,
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('OCR analysis error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'analyse de l\'ordonnance',
+            ], 500);
+        }
     }
 }

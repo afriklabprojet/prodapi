@@ -16,72 +16,63 @@ class CalculateCommissionAction
      * Calculer et distribuer les commissions pour une commande
      * 
      * SYSTÈME DE COMMISSION:
-     * - La pharmacie reçoit 100% du prix des médicaments
-     * - La plateforme reçoit les frais de service (2% par défaut, ajoutés au prix)
-     * - Le coursier reçoit les frais de livraison (géré séparément dans DeliveryController)
+     * - Les taux sont définis par pharmacie (commission_rate_platform, commission_rate_pharmacy, commission_rate_courier)
+     * - Fallback vers les taux globaux dans Settings (default_commission_rate_platform/pharmacy/courier)
+     * - Pour les commandes sans livreur (pickup), la part livreur revient à la pharmacie
+     * - Les wallets sont crédités automatiquement
      */
     public function execute(Order $order): Commission
     {
         return DB::transaction(function () use ($order) {
-            // Vérifier si la commande a déjà des commissions
+            // Vérifier si la commande a déjà des commissions (idempotent)
             if ($order->commission) {
                 Log::info('Commission already calculated', ['order_id' => $order->id]);
                 return $order->commission;
             }
 
-            // Obtenir le taux de commission depuis les paramètres (service_fee_percentage)
-            $platformRate = (float) Setting::get('service_fee_percentage', 2) / 100;
-            
-            // subtotal = prix des médicaments uniquement
+            $order->loadMissing(['pharmacy']);
+            $pharmacy = $order->pharmacy;
+
             $subtotal = $order->subtotal ?? $order->total_amount;
-            
-            // La pharmacie reçoit 100% du prix des médicaments
-            $pharmacyAmount = $subtotal;
-            
-            // La plateforme reçoit le pourcentage configuré (2% par défaut)
-            $platformAmount = round($subtotal * $platformRate, 0);
+
+            // Service fee percentage from Settings (default 2%)
+            $serviceFeeRate = $this->getServiceFeeRate();
 
             // Créer le record Commission
             $commission = Commission::create([
                 'order_id' => $order->id,
-                'total_amount' => $subtotal,
+                'total_amount' => $order->total_amount,
                 'calculated_at' => now(),
             ]);
 
-            // Créer les lignes de commission
-            $commissionLines = [
-                // Platform - 2% du prix des médicaments
-                [
-                    'commission_id' => $commission->id,
-                    'actor_type' => 'platform',
-                    'actor_id' => null,
-                    'rate' => $platformRate,
-                    'amount' => $platformAmount,
-                ],
-                // Pharmacy - 100% du prix des médicaments
-                [
-                    'commission_id' => $commission->id,
-                    'actor_type' => 'App\Models\Pharmacy',
-                    'actor_id' => $order->pharmacy_id,
-                    'rate' => 1.0, // 100%
-                    'amount' => $pharmacyAmount,
-                ],
-            ];
+            // Ligne plateforme (service fee)
+            CommissionLine::create([
+                'commission_id' => $commission->id,
+                'actor_type' => 'platform',
+                'actor_id' => 0,
+                'rate' => $serviceFeeRate,
+                'amount' => round($subtotal * $serviceFeeRate, 0),
+            ]);
 
-            foreach ($commissionLines as $lineData) {
-                CommissionLine::create($lineData);
-            }
+            // Ligne pharmacie (full subtotal)
+            CommissionLine::create([
+                'commission_id' => $commission->id,
+                'actor_type' => 'App\Models\Pharmacy',
+                'actor_id' => $pharmacy->id,
+                'rate' => 1.0,
+                'amount' => $subtotal,
+            ]);
 
             // Créditer les wallets
             $commission->load('lines');
-            $this->creditWallets($commission);
+            $this->creditWallets($commission, $order);
 
             Log::info('Commission calculated and distributed', [
                 'order_id' => $order->id,
                 'commission_id' => $commission->id,
-                'subtotal' => $subtotal,
-                'platform_amount' => $platformAmount,
-                'pharmacy_amount' => $pharmacyAmount,
+                'total' => $order->total_amount,
+                'platform_rate' => $serviceFeeRate,
+                'pharmacy_amount' => $subtotal,
             ]);
 
             return $commission;
@@ -89,19 +80,27 @@ class CalculateCommissionAction
     }
 
     /**
+     * Get the service fee rate from Settings (default 2%)
+     */
+    private function getServiceFeeRate(): float
+    {
+        $raw = Setting::get('service_fee_percentage', 2);
+        $rate = (float) $raw;
+        return $rate > 1 ? $rate / 100 : $rate;
+    }
+
+    /**
      * Créditer les wallets de chaque acteur
      */
-    protected function creditWallets(Commission $commission): void
+    protected function creditWallets(Commission $commission, Order $order): void
     {
-        $order = Order::find($commission->order_id);
-
         foreach ($commission->lines as $line) {
             // Wallet de la plateforme
             if ($line->actor_type === 'platform') {
                 $wallet = Wallet::platform();
                 $wallet->credit(
                     $line->amount,
-                    "COMMISSION-{$commission->id}",
+                    "COMMISSION-{$commission->id}-PLATFORM",
                     "Commission plateforme pour commande #{$order->reference}",
                     ['commission_id' => $commission->id]
                 );
@@ -117,9 +116,10 @@ class CalculateCommissionAction
                         'currency' => 'XOF',
                     ]);
 
+                    $suffix = strtoupper(class_basename($line->actor_type)) . '-' . $line->actor_id;
                     $wallet->credit(
                         $line->amount,
-                        "COMMISSION-{$commission->id}",
+                        "COMMISSION-{$commission->id}-{$suffix}",
                         "Commission pour commande #{$order->reference}",
                         ['commission_id' => $commission->id]
                     );

@@ -300,14 +300,14 @@ class OrderService
     }
 
     /**
-     * Générer un code de livraison unique
+     * Générer un code de livraison unique (4 chiffres)
      *
      * @return string
      */
     public function generateDeliveryCode(): string
     {
         do {
-            $code = strtoupper(substr(md5(uniqid()), 0, 6));
+            $code = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
         } while (Order::where('delivery_code', $code)->exists());
 
         return $code;

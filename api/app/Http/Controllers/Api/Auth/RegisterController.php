@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\BusinessEventService;
 use App\Services\OtpService;
 use App\Services\KycValidationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rules\Password;
 
 class RegisterController extends Controller
@@ -50,19 +52,26 @@ class RegisterController extends Controller
             'role' => 'customer',
         ]);
 
-        // Firebase gère l'OTP dans les apps mobiles - pas besoin d'envoyer via backend
-        // L'envoi SMS/WhatsApp Infobip est réservé aux notifications (commandes, livraisons)
-        $channel = 'firebase'; // OTP géré côté client via Firebase Phone Auth
+        // Send OTP: Firebase (si disponible) > Infobip SMS > Email
+        $otp = $this->otpService->generateOtp($user->phone, length: 6);
+        $channel = $this->otpService->sendOtp($user->phone, $otp, 'verification', $user->email);
 
         // Create token
         $token = $user->createToken($request->device_name ?? 'mobile-app')->plainTextToken;
 
         // Determine verification message
         $verificationMessage = match($channel) {
+            'firebase' => 'Vérifiez votre numéro via l\'application.',
             'sms' => 'Un code de vérification a été envoyé par SMS.',
             'sms_fallback_email' => 'SMS indisponible, un code a été envoyé à votre email.',
+            'email' => 'Un code de vérification a été envoyé par email.',
             default => 'Un code de vérification vous a été envoyé.',
         };
+
+        // Track signup event
+        BusinessEventService::signup($user->id, 'customer', [
+            'otp_channel' => $channel,
+        ]);
 
         return response()->json([
             'success' => true,
@@ -78,6 +87,7 @@ class RegisterController extends Controller
                 ],
                 'token' => $token,
                 'otp_channel' => $channel,
+                'force_fallback_available' => true,
             ],
         ], 201);
     }
@@ -99,10 +109,10 @@ class RegisterController extends Controller
             'vehicle_registration' => 'required|string|max:50',
             'license_number' => 'nullable|string|max:50',
             'device_name' => 'nullable|string',
-            // KYC Documents - Recto/Verso
-            'id_card_front_document' => 'required|file|mimetypes:image/jpeg,image/png,application/pdf|max:5120',
-            'id_card_back_document' => 'required|file|mimetypes:image/jpeg,image/png,application/pdf|max:5120',
-            'selfie_document' => 'required|file|mimetypes:image/jpeg,image/png|max:5120',
+            // KYC Documents - Recto/Verso (nullable: KYC peut être soumis après inscription)
+            'id_card_front_document' => 'nullable|file|mimetypes:image/jpeg,image/png,application/pdf|max:5120',
+            'id_card_back_document' => 'nullable|file|mimetypes:image/jpeg,image/png,application/pdf|max:5120',
+            'selfie_document' => 'nullable|file|mimetypes:image/jpeg,image/png|max:5120',
             'driving_license_front_document' => 'nullable|file|mimetypes:image/jpeg,image/png,application/pdf|max:5120',
             'driving_license_back_document' => 'nullable|file|mimetypes:image/jpeg,image/png,application/pdf|max:5120',
         ]);
@@ -178,8 +188,9 @@ class RegisterController extends Controller
                 'kyc_status' => ($idCardFrontPath && $idCardBackPath && $selfiePath) ? 'pending_review' : 'incomplete',
             ]);
 
-            // Firebase gère l'OTP dans les apps mobiles - pas besoin d'envoyer via backend
-            // L'envoi SMS Infobip est réservé aux notifications (commandes, livraisons, etc.)
+            // Send OTP: Firebase (si disponible) > Infobip SMS > Email
+            $otp = $this->otpService->generateOtp($user->phone, length: 6);
+            $otpChannel = $this->otpService->sendOtp($user->phone, $otp, 'verification', $user->email);
 
             // Générer un token pour permettre la vérification du téléphone
             $deviceName = $request->input('device_name', 'courier_app');
@@ -187,7 +198,7 @@ class RegisterController extends Controller
 
             $response = response()->json([
                 'success' => true,
-                'message' => 'Inscription livreur réussie. Votre compte est en attente d\'approbation par l\'administrateur. Vous recevrez une notification une fois approuvé.',
+                'message' => 'Inscription livreur réussie. Votre compte est en attente d\'approbation par l\'administrateur.',
                 'data' => [
                     'user' => [
                         'id' => $user->id,
@@ -199,6 +210,7 @@ class RegisterController extends Controller
                     ],
                     'requires_approval' => true,
                     'token' => $token,
+                    'otp_channel' => $otpChannel,
                 ],
             ], 201);
         });
@@ -331,10 +343,9 @@ class RegisterController extends Controller
         $users = User::whereNull('phone_verified_at')
             ->where(function ($query) use ($email, $phone) {
                 if ($email) {
-                    $query->where('email', strtolower(trim($email)));
+                    $query->orWhere('email', strtolower(trim($email)));
                 }
                 if ($phone) {
-                    // BUGFIX: orWhere correctement scopé
                     $query->orWhere('phone', $phone);
                 }
             })
@@ -375,7 +386,7 @@ class RegisterController extends Controller
                     $request->file('selfie_document')->getRealPath()
                 );
             } catch (\Throwable $e) {
-                \Log::error('KYC selfie validation crash: ' . $e->getMessage());
+                Log::error('KYC selfie validation crash: ' . $e->getMessage());
                 $selfieResult = ['valid' => true, 'skipped' => true, 'error' => $e->getMessage()];
             }
             $details['selfie'] = $selfieResult;
@@ -393,7 +404,7 @@ class RegisterController extends Controller
                     $request->file('id_card_front_document')->getRealPath()
                 );
             } catch (\Throwable $e) {
-                \Log::error('KYC id_card_front validation crash: ' . $e->getMessage());
+                Log::error('KYC id_card_front validation crash: ' . $e->getMessage());
                 $idFrontResult = ['valid' => true, 'skipped' => true, 'error' => $e->getMessage()];
             }
             $details['id_card_front'] = $idFrontResult;
@@ -411,7 +422,7 @@ class RegisterController extends Controller
                     $request->file('id_card_back_document')->getRealPath()
                 );
             } catch (\Throwable $e) {
-                \Log::error('KYC id_card_back validation crash: ' . $e->getMessage());
+                Log::error('KYC id_card_back validation crash: ' . $e->getMessage());
                 $idBackResult = ['valid' => true, 'skipped' => true, 'error' => $e->getMessage()];
             }
             $details['id_card_back'] = $idBackResult;

@@ -31,8 +31,8 @@ return [
     */
     'allowed_origins' => array_filter(
         array_merge(
-            // Frontend URL from environment
-            [env('FRONTEND_URL', 'http://localhost:3000')],
+            // Frontend URL from environment (pas de fallback localhost en production)
+            [env('FRONTEND_URL', env('APP_ENV') === 'production' ? '' : 'http://localhost:3000')],
             // Additional origins from comma-separated env variable
             explode(',', env('CORS_ALLOWED_ORIGINS', ''))
         )

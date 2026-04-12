@@ -110,6 +110,7 @@ class ProductMatchingService
         
         // Construction de la requête de base
         $query = Product::query()
+            ->with('pharmacy')
             ->where('is_available', true);
 
         if ($pharmacyId) {
@@ -203,6 +204,7 @@ class ProductMatchingService
         // Rechercher par principe actif
         if ($product->active_ingredient) {
             $query = Product::query()
+                ->with('pharmacy')
                 ->where('is_available', true)
                 ->where('stock_quantity', '>', 0)
                 ->where('id', '!=', $product->id)
@@ -230,6 +232,7 @@ class ProductMatchingService
             $existingIds[] = $product->id;
 
             $query = Product::query()
+                ->with('pharmacy')
                 ->where('is_available', true)
                 ->where('stock_quantity', '>', 0)
                 ->where('category', $product->category)

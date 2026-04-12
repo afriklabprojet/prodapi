@@ -20,7 +20,7 @@ class NotificationController extends Controller
 
         $notifications = $user->notifications()
             ->orderBy('created_at', 'desc')
-            ->paginate(min((int) $request->get('per_page', 20), 100));
+            ->paginate(min((int) $request->input('per_page', 20), 100));
 
         return response()->json([
             'success' => true,
@@ -46,7 +46,7 @@ class NotificationController extends Controller
         $user = Auth::user();
 
         $notifications = $user->unreadNotifications()
-            ->paginate($request->get('per_page', 20));
+            ->paginate($request->input('per_page', 20));
 
         return response()->json([
             'success' => true,
@@ -429,5 +429,50 @@ class NotificationController extends Controller
         $ref = $data['order_reference'] ?? '';
         if ($ref) $parts[] = 'Réf: ' . $this->shortRef($ref);
         return !empty($parts) ? implode(' · ', $parts) : 'La commande a été livrée avec succès';
+    }
+
+    /**
+     * Get notification preferences for the authenticated user
+     */
+    public function getPreferences(): JsonResponse
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        $defaults = [
+            'order_updates' => true,
+            'promotions' => true,
+            'prescriptions' => true,
+            'delivery_alerts' => true,
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => array_merge($defaults, $user->notification_preferences ?? []),
+        ]);
+    }
+
+    /**
+     * Update notification preferences for the authenticated user
+     */
+    public function updatePreferences(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'order_updates' => 'sometimes|boolean',
+            'promotions' => 'sometimes|boolean',
+            'prescriptions' => 'sometimes|boolean',
+            'delivery_alerts' => 'sometimes|boolean',
+        ]);
+
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        $current = $user->notification_preferences ?? [];
+        $user->notification_preferences = array_merge($current, $validated);
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'data' => $user->notification_preferences,
+            'message' => 'Préférences mises à jour',
+        ]);
     }
 }

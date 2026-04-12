@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Pharmacy;
 use App\Models\Prescription;
+use App\Models\Setting;
 use App\Notifications\NewOrderReceivedNotification;
 use App\Notifications\OrderStatusNotification;
-use App\Services\PaymentService;
+use App\Enums\JekoPaymentMethod;
+use App\Services\BusinessEventService;
+use App\Services\JekoPaymentService;
 use App\Services\WalletService;
 use App\Services\WaitingFeeService;
 use Illuminate\Http\Request;
@@ -17,12 +20,10 @@ use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
-    protected PaymentService $paymentService;
     protected WaitingFeeService $waitingFeeService;
 
-    public function __construct(PaymentService $paymentService, WaitingFeeService $waitingFeeService)
+    public function __construct(WaitingFeeService $waitingFeeService, private JekoPaymentService $jekoService)
     {
-        $this->paymentService = $paymentService;
         $this->waitingFeeService = $waitingFeeService;
     }
 
@@ -34,6 +35,7 @@ class OrderController extends Controller
         $perPage = min($request->input('per_page', 15), 50); // Max 50 par page
         
         $orders = $request->user()->orders()
+            ->withCount('items')
             ->with(['pharmacy:id,name,phone', 'delivery', 'payments'])
             ->latest()
             ->paginate($perPage);
@@ -54,6 +56,7 @@ class OrderController extends Controller
                 'total_amount' => (float) $order->total_amount,
                 'currency' => $order->currency,
                 'delivery_address' => $order->delivery_address,
+                'items_count' => (int) $order->items_count,
                 'created_at' => $order->created_at,
                 'paid_at' => $order->paid_at,
                 'delivered_at' => $order->delivered_at,
@@ -94,10 +97,24 @@ class OrderController extends Controller
             'delivery_latitude' => 'nullable|numeric',
             'delivery_longitude' => 'nullable|numeric',
             'customer_phone' => 'required|string',
-            'payment_mode' => 'required|in:cash,mobile_money,card,platform,on_delivery',
+            'payment_mode' => 'required|in:mobile_money,card,platform,cash,on_delivery',
+            'promo_code' => 'nullable|string|max:50',
         ]);
 
-        // Normaliser le payment_mode pour la compatibilité avec l'ancien format
+        // Vérifier que le mode de paiement est activé dans les paramètres
+        $modeMap = [
+            'platform' => 'payment_mode_platform_enabled',
+            'mobile_money' => 'payment_mode_platform_enabled',
+            'card' => 'payment_mode_platform_enabled',
+            'cash' => 'payment_mode_cash_enabled',
+            'on_delivery' => 'payment_mode_cash_enabled',
+        ];
+        $settingKey = $modeMap[$validated['payment_mode']] ?? 'payment_mode_platform_enabled';
+        if (!Setting::get($settingKey, true)) {
+            return $this->error('Ce mode de paiement n\'est pas disponible actuellement.', 422);
+        }
+
+        // Normaliser le payment_mode
         $paymentMode = match($validated['payment_mode']) {
             'platform' => 'mobile_money',
             'on_delivery' => 'cash',
@@ -113,36 +130,26 @@ class OrderController extends Controller
             return $item;
         })->toArray();
 
-        // Validate products availability and stock (before transaction)
-        foreach ($items as $item) {
-            if (isset($item['id'])) {
-                $product = \App\Models\Product::find($item['id']);
-                if ($product) {
-                    if (!$product->is_available) {
-                        return response()->json([
-                            'success' => false,
-                            'message' => "Le produit {$product->name} n'est pas disponible",
-                            'errors' => ['items' => ["Le produit {$product->name} n'est pas disponible"]]
-                        ], 422);
-                    }
-                    if ($product->stock_quantity < $item['quantity'] ) {
-                        return response()->json([
-                            'success' => false,
-                            'message' => "Stock insuffisant pour le produit {$product->name}",
-                            'errors' => ['items' => ["Stock insuffisant pour le produit {$product->name}"]]
-                        ], 422);
-                    }
-                }
-            }
-        }
-
         try {
             $order = DB::transaction(function () use ($request, $validated, $items) {
-                // Preload all products at once to avoid N+1 queries
+                // Preload all products at once with lock to prevent race condition
                 $productIds = collect($items)->pluck('id')->filter()->unique()->values()->toArray();
                 $products = !empty($productIds) 
-                    ? \App\Models\Product::whereIn('id', $productIds)->get()->keyBy('id') 
+                    ? \App\Models\Product::whereIn('id', $productIds)->lockForUpdate()->get()->keyBy('id') 
                     : collect();
+
+                // Validate stock INSIDE transaction (atomic)
+                foreach ($items as $item) {
+                    if (isset($item['id']) && $products->has($item['id'])) {
+                        $product = $products->get($item['id']);
+                        if (!$product->is_available) {
+                            throw new \Exception("Le produit {$product->name} n'est pas disponible");
+                        }
+                        if ($product->stock_quantity < $item['quantity']) {
+                            throw new \Exception("Stock insuffisant pour le produit {$product->name}");
+                        }
+                    }
+                }
 
                 // Calculate totals
                 $subtotal = 0;
@@ -168,6 +175,22 @@ class OrderController extends Controller
                 $paymentFee = $allFees['payment_fee'];
                 $totalAmount = $allFees['total_amount'];
 
+                // Appliquer le code promo si fourni
+                $promoDiscount = 0;
+                $promoCodeId = null;
+                if (!empty($validated['promo_code'])) {
+                    $promoResult = \App\Http\Controllers\Api\PromoCodeController::applyPromoCode(
+                        $validated['promo_code'],
+                        $request->user()->id,
+                        $subtotal
+                    );
+                    if ($promoResult) {
+                        $promoDiscount = $promoResult['discount'];
+                        $promoCodeId = $promoResult['promo_code_id'];
+                        $totalAmount = max(0, $totalAmount - $promoDiscount);
+                    }
+}
+
                 // Create order
                 $order = Order::create([
                     'reference' => Order::generateReference(),
@@ -188,9 +211,11 @@ class OrderController extends Controller
                     'delivery_latitude' => $validated['delivery_latitude'] ?? null,
                     'delivery_longitude' => $validated['delivery_longitude'] ?? null,
                     'customer_phone' => $validated['customer_phone'],
+                    'promo_code_id' => $promoCodeId,
+                    'promo_discount' => $promoDiscount,
                 ]);
 
-                // Create order items using preloaded products
+                // Create order items using preloaded products + decrement stock
                 foreach ($items as $item) {
                     $price = $item['price'];
                     if (isset($item['id']) && $products->has($item['id'])) {
@@ -203,6 +228,11 @@ class OrderController extends Controller
                         'unit_price' => $price,
                         'total_price' => $item['quantity'] * $price,
                     ]);
+
+                    // Décrémenter le stock (atomic, dans la transaction)
+                    if (isset($item['id']) && $products->has($item['id'])) {
+                        $products->get($item['id'])->decrement('stock_quantity', $item['quantity']);
+                    }
                 }
 
                 // === LIER LA PRESCRIPTION À LA COMMANDE (DANS LA TRANSACTION) ===
@@ -252,19 +282,44 @@ class OrderController extends Controller
                 ]);
             }
 
+            // Track order creation
+            BusinessEventService::orderCreated(
+                $request->user()->id,
+                $order->id,
+                (float) $order->total_amount,
+                $order->payment_mode
+            );
+
             return response()->json([
                 'success' => true,
                 'message' => 'Commande créée avec succès',
                 'data' => [
                     'order_id' => $order->id,
                     'reference' => $order->reference,
-                    'total_amount' => $order->total_amount,
+                    'total_amount' => (float) $order->total_amount,
+                    'currency' => 'XOF',
                     'status' => $order->status,
+                    'payment_mode' => $order->payment_mode,
                     'delivery_code' => $order->delivery_code,
+                    'next_step' => $order->payment_mode === 'cash'
+                        ? 'Votre commande a été envoyée à la pharmacie.'
+                        : 'Procédez au paiement pour confirmer votre commande.',
                 ],
             ], 201);
 
         } catch (\Exception $e) {
+            // Stock/disponibilité errors → 422, autres → 500
+            $isStockError = str_contains($e->getMessage(), 'Stock insuffisant') 
+                         || str_contains($e->getMessage(), "n'est pas disponible");
+
+            if ($isStockError) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                    'errors' => ['items' => [$e->getMessage()]],
+                ], 422);
+            }
+
             Log::error('Order creation failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -356,49 +411,43 @@ class OrderController extends Controller
 
         $order = $request->user()->orders()->findOrFail($id);
 
-        // Check if order is already paid (based on actual payment status, not order status)
         if ($order->payment_status === 'paid' || $order->paid_at !== null) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cette commande est déjà payée',
-            ], 400);
+            return response()->json(['success' => false, 'message' => 'Cette commande est déjà payée'], 400);
         }
 
-        // Check if order is cancelled
         if ($order->status === 'cancelled') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cette commande a été annulée',
-            ], 400);
+            return response()->json(['success' => false, 'message' => 'Cette commande a été annulée'], 400);
         }
 
         try {
-            $paymentIntent = $this->paymentService->initiatePayment(
+            $method = JekoPaymentMethod::from($validated['payment_method']);
+            $amountCents = (int) ($order->total_amount * 100);
+
+            $payment = $this->jekoService->createRedirectPayment(
                 $order,
-                $validated['provider'],
-                [
-                    'name' => $request->user()->name,
-                    'phone' => $request->user()->phone,
-                    'email' => $request->user()->email,
-                    'payment_method' => $validated['payment_method'] ?? 'orange',
-                ]
+                $amountCents,
+                $method,
+                $request->user(),
+                "Paiement commande #{$order->id}"
             );
 
             return response()->json([
                 'success' => true,
                 'message' => 'Paiement initié',
                 'data' => [
-                    'payment_url' => $paymentIntent->provider_payment_url,
-                    'provider' => $paymentIntent->provider,
-                    'amount' => $paymentIntent->amount,
-                    'reference' => $paymentIntent->reference,
+                    'reference'    => $payment->reference,
+                    'redirect_url' => $payment->redirect_url,
+                    'payment_url'  => $payment->redirect_url,
+                    'amount'       => $payment->amount,
+                    'currency'     => $payment->currency,
+                    'payment_method' => $payment->payment_method->value,
                 ],
             ]);
 
         } catch (\Exception $e) {
             Log::error('Payment initiation failed', [
                 'order_id' => $order->id,
-                'error' => $e->getMessage(),
+                'error'    => $e->getMessage(),
             ]);
 
             return response()->json([
@@ -423,8 +472,13 @@ class OrderController extends Controller
 
         $order = Order::with(['delivery', 'pharmacy', 'customer'])->findOrFail($id);
 
-        // SECURITY: Vérifier l'autorisation via Policy
-        $this->authorize('cancel', $order);
+        // SECURITY: Vérifier que le client est bien le propriétaire de la commande
+        if ((int) $order->customer_id !== (int) $request->user()->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vous n\'êtes pas autorisé à annuler cette commande',
+            ], 403);
+        }
 
         if (!in_array($order->status, ['pending', 'processing', 'confirmed'])) {
             return response()->json([
@@ -508,6 +562,14 @@ class OrderController extends Controller
                 'had_courier' => (bool) $order->delivery?->courier_id,
             ]);
 
+            // Track cancellation
+            BusinessEventService::orderCancelled(
+                $request->user()->id,
+                $order->id,
+                $validated['reason'],
+                'customer'
+            );
+
             return response()->json([
                 'success' => true,
                 'message' => 'Commande annulée avec succès',
@@ -524,6 +586,14 @@ class OrderController extends Controller
                 'message' => 'Erreur lors de l\'annulation de la commande',
             ], 500);
         }
+    }
+
+    /**
+     * Backward-compatible alias for the routed delivery waiting status endpoint.
+     */
+    public function deliveryWaitingStatus(Request $request, $id)
+    {
+        return $this->waitingStatus($request, $id);
     }
 
     /**

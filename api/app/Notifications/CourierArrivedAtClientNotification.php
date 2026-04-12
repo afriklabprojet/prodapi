@@ -59,10 +59,12 @@ class CourierArrivedAtClientNotification extends Notification implements ShouldQ
 
     public function toFcm($notifiable): array
     {
+        $fcmConfig = \App\Services\NotificationSettingsService::getFcmConfig('courier_arrived_at_client');
+
         return [
             'title' => 'Coursier arrivé chez le client',
             'body' => "Le coursier est arrivé chez le client pour la commande #{$this->delivery->order?->reference}. Compte à rebours de {$this->timeoutMinutes} minutes démarré.",
-            'data' => [
+            'data' => array_merge($fcmConfig['data'], [
                 'type' => 'courier_arrived_at_client',
                 'delivery_id' => (string) $this->delivery->id,
                 'order_id' => (string) $this->delivery->order_id,
@@ -71,7 +73,9 @@ class CourierArrivedAtClientNotification extends Notification implements ShouldQ
                 'timeout_minutes' => (string) $this->timeoutMinutes,
                 'fee_per_minute' => (string) $this->feePerMinute,
                 'click_action' => 'ORDER_DETAIL',
-            ],
+            ]),
+            'android' => $fcmConfig['android'],
+            'apns' => $fcmConfig['apns'],
         ];
     }
 

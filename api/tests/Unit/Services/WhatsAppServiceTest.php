@@ -17,6 +17,7 @@ use Infobip\Api\WhatsAppApi;
 use Infobip\Configuration;
 use Mockery;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class WhatsAppServiceTest extends TestCase
 {
@@ -82,7 +83,7 @@ class WhatsAppServiceTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_reports_not_configured_when_disabled()
     {
         config(['whatsapp.enabled' => false]);
@@ -91,7 +92,7 @@ class WhatsAppServiceTest extends TestCase
         $this->assertFalse($service->isConfigured());
     }
 
-    /** @test */
+    #[Test]
     public function it_reports_not_configured_when_missing_credentials()
     {
         config([
@@ -104,7 +105,7 @@ class WhatsAppServiceTest extends TestCase
         $this->assertFalse($service->isConfigured());
     }
 
-    /** @test */
+    #[Test]
     public function it_reports_configured_with_valid_credentials()
     {
         $service = $this->getConfiguredService();
@@ -112,7 +113,7 @@ class WhatsAppServiceTest extends TestCase
         $this->assertTrue($service->isConfigured());
     }
 
-    /** @test */
+    #[Test]
     public function it_normalizes_local_phone_numbers()
     {
         $service = $this->getConfiguredService();
@@ -120,7 +121,7 @@ class WhatsAppServiceTest extends TestCase
         $this->assertEquals('+225712345678', $service->normalizePhone('0712345678'));
     }
 
-    /** @test */
+    #[Test]
     public function it_normalizes_phone_without_plus()
     {
         $service = $this->getConfiguredService();
@@ -128,7 +129,7 @@ class WhatsAppServiceTest extends TestCase
         $this->assertEquals('+2250712345678', $service->normalizePhone('2250712345678'));
     }
 
-    /** @test */
+    #[Test]
     public function it_keeps_international_format_phone()
     {
         $service = $this->getConfiguredService();
@@ -136,7 +137,7 @@ class WhatsAppServiceTest extends TestCase
         $this->assertEquals('+2250712345678', $service->normalizePhone('+2250712345678'));
     }
 
-    /** @test */
+    #[Test]
     public function it_removes_spaces_and_dashes_from_phone()
     {
         $service = $this->getConfiguredService();
@@ -144,7 +145,7 @@ class WhatsAppServiceTest extends TestCase
         $this->assertEquals('+2250712345678', $service->normalizePhone('+225 07 12 34 56 78'));
     }
 
-    /** @test */
+    #[Test]
     public function it_sends_text_message_successfully()
     {
         $service = $this->getConfiguredService([
@@ -161,7 +162,7 @@ class WhatsAppServiceTest extends TestCase
         $this->assertEquals('Bonjour!', $body['content']['text']);
     }
 
-    /** @test */
+    #[Test]
     public function it_sends_template_message_successfully()
     {
         $service = $this->getConfiguredService([
@@ -184,7 +185,7 @@ class WhatsAppServiceTest extends TestCase
         $this->assertEquals(['Jean', 'CMD-001', 'Pharmacie du Plateau'], $message['content']['templateData']['body']['placeholders']);
     }
 
-    /** @test */
+    #[Test]
     public function it_sends_template_with_header_and_buttons()
     {
         $service = $this->getConfiguredService([
@@ -206,7 +207,7 @@ class WhatsAppServiceTest extends TestCase
         $this->assertArrayHasKey('buttons', $tplData);
     }
 
-    /** @test */
+    #[Test]
     public function it_sends_image_message_successfully()
     {
         $service = $this->getConfiguredService([
@@ -225,7 +226,7 @@ class WhatsAppServiceTest extends TestCase
         $this->assertEquals('Votre ordonnance', $body['content']['caption']);
     }
 
-    /** @test */
+    #[Test]
     public function it_sends_document_message_successfully()
     {
         $service = $this->getConfiguredService([
@@ -245,7 +246,7 @@ class WhatsAppServiceTest extends TestCase
         $this->assertEquals('facture_CMD001.pdf', $body['content']['filename']);
     }
 
-    /** @test */
+    #[Test]
     public function it_sends_location_message_successfully()
     {
         $service = $this->getConfiguredService([
@@ -267,7 +268,7 @@ class WhatsAppServiceTest extends TestCase
         $this->assertEquals('Pharmacie du Plateau', $body['content']['name']);
     }
 
-    /** @test */
+    #[Test]
     public function it_sends_order_status_message_successfully()
     {
         $service = $this->getConfiguredService();
@@ -294,7 +295,7 @@ class WhatsAppServiceTest extends TestCase
         });
     }
 
-    /** @test */
+    #[Test]
     public function it_maps_order_statuses_correctly()
     {
         $service = $this->getConfiguredService();
@@ -330,7 +331,7 @@ class WhatsAppServiceTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_api_error_on_text_message()
     {
         $service = $this->getConfiguredService([
@@ -349,7 +350,7 @@ class WhatsAppServiceTest extends TestCase
         $this->assertFalse($result);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_network_exception()
     {
         $service = $this->getConfiguredService([
@@ -364,7 +365,7 @@ class WhatsAppServiceTest extends TestCase
         $this->assertFalse($result);
     }
 
-    /** @test */
+    #[Test]
     public function it_falls_back_to_log_when_not_configured()
     {
         config([
@@ -382,7 +383,7 @@ class WhatsAppServiceTest extends TestCase
         $this->assertTrue($result);
     }
 
-    /** @test */
+    #[Test]
     public function it_includes_sms_failover_when_configured()
     {
         config([

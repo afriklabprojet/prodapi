@@ -10,6 +10,7 @@ use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class WhatsAppChannelTest extends TestCase
 {
@@ -25,7 +26,7 @@ class WhatsAppChannelTest extends TestCase
         $this->channel = new WhatsAppChannel($this->service);
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_send_if_notification_has_no_toWhatsApp_method()
     {
         $user = User::factory()->create(['phone' => '+2250700000000']);
@@ -38,7 +39,7 @@ class WhatsAppChannelTest extends TestCase
         Http::assertNothingSent();
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_send_if_toWhatsApp_returns_null()
     {
         $user = User::factory()->create(['phone' => '+2250700000000']);
@@ -51,7 +52,7 @@ class WhatsAppChannelTest extends TestCase
         Http::assertNothingSent();
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_send_if_user_has_no_phone()
     {
         Log::shouldReceive('warning')
@@ -68,7 +69,7 @@ class WhatsAppChannelTest extends TestCase
         Http::assertNothingSent();
     }
 
-    /** @test */
+    #[Test]
     public function it_logs_text_message_when_not_configured()
     {
         config(['whatsapp.enabled' => false]);
@@ -82,7 +83,7 @@ class WhatsAppChannelTest extends TestCase
         $this->channel->send($user, $notification);
     }
 
-    /** @test */
+    #[Test]
     public function it_sends_text_message_via_infobip()
     {
         // Mock WhatsAppService to verify text message is sent
@@ -104,7 +105,7 @@ class WhatsAppChannelTest extends TestCase
         $channel->send($user, $notification);
     }
 
-    /** @test */
+    #[Test]
     public function it_sends_template_message_via_infobip()
     {
         // Mock WhatsAppService to verify template message is sent
@@ -130,7 +131,7 @@ class WhatsAppChannelTest extends TestCase
         $channel->send($user, $notification);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_api_error_gracefully()
     {
         // Mock WhatsAppService to simulate failure
@@ -152,7 +153,7 @@ class WhatsAppChannelTest extends TestCase
         $channel->send($user, $notification);
     }
 
-    /** @test */
+    #[Test]
     public function it_sends_image_message()
     {
         // Mock WhatsAppService to verify image message is sent
@@ -174,7 +175,7 @@ class WhatsAppChannelTest extends TestCase
         $channel->send($user, $notification);
     }
 
-    /** @test */
+    #[Test]
     public function it_sends_document_message()
     {
         // Mock WhatsAppService to verify document message is sent

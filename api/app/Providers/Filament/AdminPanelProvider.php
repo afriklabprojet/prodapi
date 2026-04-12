@@ -61,6 +61,8 @@ class AdminPanelProvider extends PanelProvider
                 // Stats principales
                 \App\Filament\Widgets\StatsOverview::class,
                 \App\Filament\Widgets\FinanceOverviewWidget::class,
+                // Livreurs disponibles
+                \App\Filament\Widgets\AvailableCouriersWidget::class,
                 // Graphiques
                 \App\Filament\Widgets\DeliveryPerformanceChart::class,
                 // KYC & Prescriptions

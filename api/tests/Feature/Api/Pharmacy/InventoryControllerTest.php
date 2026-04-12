@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class InventoryControllerTest extends TestCase
 {
@@ -39,7 +40,7 @@ class InventoryControllerTest extends TestCase
         $this->token = $this->pharmacyUser->createToken('test-token')->plainTextToken;
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_list_products()
     {
         Product::factory()->count(5)->create([
@@ -56,7 +57,7 @@ class InventoryControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_create_product()
     {
         $category = Category::factory()->create();
@@ -83,7 +84,7 @@ class InventoryControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_update_product()
     {
         $product = Product::factory()->create([
@@ -104,7 +105,7 @@ class InventoryControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_delete_product()
     {
         $product = Product::factory()->create([
@@ -121,7 +122,7 @@ class InventoryControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_cannot_access_other_pharmacy_products()
     {
         $otherPharmacy = Pharmacy::factory()->create();
@@ -137,7 +138,7 @@ class InventoryControllerTest extends TestCase
         $response->assertStatus(404);
     }
 
-    /** @test */
+    #[Test]
     public function unapproved_pharmacy_cannot_access_inventory()
     {
         $this->pharmacy->update(['status' => 'pending']);
@@ -148,7 +149,7 @@ class InventoryControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function product_requires_name()
     {
         $category = Category::factory()->create();
@@ -165,7 +166,7 @@ class InventoryControllerTest extends TestCase
             ->assertJsonValidationErrors(['name']);
     }
 
-    /** @test */
+    #[Test]
     public function product_requires_valid_category()
     {
         $response = $this->withHeader('Authorization', "Bearer {$this->token}")
@@ -181,7 +182,7 @@ class InventoryControllerTest extends TestCase
             ->assertJsonValidationErrors(['category_id']);
     }
 
-    /** @test */
+    #[Test]
     public function product_price_must_be_positive()
     {
         $category = Category::factory()->create();
@@ -199,7 +200,7 @@ class InventoryControllerTest extends TestCase
             ->assertJsonValidationErrors(['price']);
     }
 
-    /** @test */
+    #[Test]
     public function can_upload_product_image()
     {
         $category = Category::factory()->create();
@@ -218,7 +219,7 @@ class InventoryControllerTest extends TestCase
         $response->assertStatus(201);
     }
 
-    /** @test */
+    #[Test]
     public function can_update_stock_quantity()
     {
         $product = Product::factory()->create([

@@ -41,15 +41,19 @@ class NewChatMessageNotification extends Notification implements ShouldQueue
             default => 'Utilisateur',
         };
 
+        $fcmConfig = \App\Services\NotificationSettingsService::getFcmConfig('chat_message');
+
         return [
             'title' => "💬 Nouveau message - {$senderLabel}",
             'body' => "{$this->senderName}: " . substr($this->message, 0, 100) . (strlen($this->message) > 100 ? '...' : ''),
-            'data' => [
+            'data' => array_merge($fcmConfig['data'], [
                 'type' => 'chat_message',
                 'delivery_id' => (string) $this->delivery->id,
                 'sender_type' => $this->senderType,
                 'sender_name' => $this->senderName,
-            ],
+            ]),
+            'android' => $fcmConfig['android'],
+            'apns' => $fcmConfig['apns'],
         ];
     }
 

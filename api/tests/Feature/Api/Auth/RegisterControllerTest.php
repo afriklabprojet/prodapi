@@ -7,6 +7,7 @@ use App\Services\OtpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 use Mockery;
+use PHPUnit\Framework\Attributes\Test;
 
 class RegisterControllerTest extends TestCase
 {
@@ -23,7 +24,7 @@ class RegisterControllerTest extends TestCase
         });
     }
 
-    /** @test */
+    #[Test]
     public function customer_can_register()
     {
         $response = $this->postJson('/api/auth/register', [
@@ -51,7 +52,7 @@ class RegisterControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function registration_requires_name()
     {
         $response = $this->postJson('/api/auth/register', [
@@ -65,7 +66,7 @@ class RegisterControllerTest extends TestCase
             ->assertJsonValidationErrors(['name']);
     }
 
-    /** @test */
+    #[Test]
     public function registration_requires_valid_email()
     {
         $response = $this->postJson('/api/auth/register', [
@@ -80,7 +81,7 @@ class RegisterControllerTest extends TestCase
             ->assertJsonValidationErrors(['email']);
     }
 
-    /** @test */
+    #[Test]
     public function registration_requires_unique_email()
     {
         User::factory()->create(['email' => 'existing@example.com']);
@@ -97,7 +98,7 @@ class RegisterControllerTest extends TestCase
             ->assertJsonValidationErrors(['email']);
     }
 
-    /** @test */
+    #[Test]
     public function registration_requires_unique_phone()
     {
         User::factory()->create(['phone' => '+22507000001']);
@@ -114,7 +115,7 @@ class RegisterControllerTest extends TestCase
             ->assertJsonValidationErrors(['phone']);
     }
 
-    /** @test */
+    #[Test]
     public function registration_requires_password_confirmation()
     {
         $response = $this->postJson('/api/auth/register', [
@@ -128,7 +129,7 @@ class RegisterControllerTest extends TestCase
             ->assertJsonValidationErrors(['password']);
     }
 
-    /** @test */
+    #[Test]
     public function registration_requires_minimum_password_length()
     {
         $response = $this->postJson('/api/auth/register', [
@@ -143,7 +144,7 @@ class RegisterControllerTest extends TestCase
             ->assertJsonValidationErrors(['password']);
     }
 
-    /** @test */
+    #[Test]
     public function email_is_normalized_to_lowercase()
     {
         $response = $this->postJson('/api/auth/register', [
@@ -161,7 +162,7 @@ class RegisterControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function new_user_has_customer_role()
     {
         $response = $this->postJson('/api/auth/register', [
@@ -180,7 +181,7 @@ class RegisterControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function registration_returns_token()
     {
         $response = $this->postJson('/api/auth/register', [

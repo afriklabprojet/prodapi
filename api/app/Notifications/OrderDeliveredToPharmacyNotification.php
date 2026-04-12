@@ -60,10 +60,12 @@ class OrderDeliveredToPharmacyNotification extends Notification implements Shoul
         $customer = $this->order->customer;
         $courier = $this->delivery->courier;
         
+        $fcmConfig = \App\Services\NotificationSettingsService::getFcmConfig('order_delivered');
+
         return [
             'title' => '✅ Livraison Confirmée !',
             'body' => "Commande #{$this->order->reference} livrée à {$customer->name} par {$courier->user->name}",
-            'data' => [
+            'data' => array_merge($fcmConfig['data'], [
                 'type' => 'order_delivered',
                 'order_id' => (string) $this->order->id,
                 'order_reference' => $this->order->reference,
@@ -72,7 +74,9 @@ class OrderDeliveredToPharmacyNotification extends Notification implements Shoul
                 'courier_name' => $courier->user->name,
                 'delivered_at' => now()->toIso8601String(),
                 'click_action' => 'ORDER_DETAIL',
-            ],
+            ]),
+            'android' => $fcmConfig['android'],
+            'apns' => $fcmConfig['apns'],
         ];
     }
 

@@ -28,7 +28,7 @@ info:
 servers:
   - url: http://localhost:8000/api
     description: Local development server
-  - url: https://api.drlpharma.com/api
+  - url: https://api.drlpharma.pro/api
     description: Production server
 
 tags:

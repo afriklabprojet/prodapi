@@ -11,6 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('delivery_zones')) { return; }
+
         Schema::create('delivery_zones', function (Blueprint $table) {
             $table->id();
             $table->foreignId('pharmacy_id')->unique()->constrained()->cascadeOnDelete();

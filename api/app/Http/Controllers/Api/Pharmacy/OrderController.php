@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\Pharmacy;
 use App\Services\WaitingFeeService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
@@ -30,6 +31,7 @@ class OrderController extends Controller
         }
 
         $status = $request->query('status');
+        $perPage = min($request->input('per_page', 20), 50);
 
         $query = $pharmacy->orders()->with(['customer:id,name,phone', 'items']);
 
@@ -37,14 +39,16 @@ class OrderController extends Controller
             $query->where('status', $status);
         }
 
-        $orders = $query->latest()->get()->map(function ($order) {
+        $orders = $query->latest()->paginate($perPage);
+
+        $formattedOrders = $orders->getCollection()->map(function ($order) {
             return [
                 'id' => (int) $order->id,
                 'reference' => $order->reference,
                 'customer' => [
                     'id' => $order->customer?->id,
-                    'name' => $order->customer->name ?? 'Client supprimé',
-                    'phone' => $order->customer->phone ?? '',
+                    'name' => $order->customer?->name ?? 'Client supprimé',
+                    'phone' => $order->customer?->phone ?? '',
                 ],
                 'status' => $order->status,
                 'payment_status' => $order->payment_status ?? 'pending',
@@ -60,7 +64,13 @@ class OrderController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $orders,
+            'data' => $formattedOrders,
+            'meta' => [
+                'current_page' => $orders->currentPage(),
+                'last_page' => $orders->lastPage(),
+                'per_page' => $orders->perPage(),
+                'total' => $orders->total(),
+            ],
         ]);
     }
 
@@ -89,8 +99,8 @@ class OrderController extends Controller
                 'payment_status' => $order->payment_status ?? 'pending',
                 'customer' => [
                     'id' => $order->customer?->id,
-                    'name' => $order->customer->name ?? 'Client supprimé',
-                    'phone' => $order->customer->phone ?? '',
+                    'name' => $order->customer?->name ?? 'Client supprimé',
+                    'phone' => $order->customer?->phone ?? '',
                 ],
                 'items' => $order->items->map(fn($item) => [
                     'name' => $item->product_name ?? $item->name ?? 'Produit',
@@ -339,11 +349,38 @@ class OrderController extends Controller
             ], 400);
         }
 
-        $order->update([
-            'status' => 'cancelled',
-            'cancellation_reason' => $request->reason,
-            'cancelled_at' => now(),
-        ]);
+        DB::transaction(function () use ($order, $request) {
+            $order->update([
+                'status' => 'cancelled',
+                'cancellation_reason' => $request->reason,
+                'cancelled_at' => now(),
+            ]);
+
+            // Annuler la livraison associée si elle existe
+            if ($order->delivery) {
+                $order->delivery->update([
+                    'status' => 'cancelled',
+                    'cancelled_at' => now(),
+                ]);
+            }
+
+            // Restaurer le stock
+            foreach ($order->items as $item) {
+                if ($item->product_id) {
+                    \App\Models\Product::where('id', $item->product_id)
+                        ->increment('stock_quantity', $item->quantity);
+                }
+            }
+        });
+
+        // Notifier le client
+        if ($order->customer) {
+            try {
+                $order->customer->notify(new \App\Notifications\OrderCancelledNotification($order, 'pharmacy'));
+            } catch (\Throwable $e) {
+                \Log::warning('Notification rejet commande échouée', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+            }
+        }
 
         return response()->json([
             'success' => true,

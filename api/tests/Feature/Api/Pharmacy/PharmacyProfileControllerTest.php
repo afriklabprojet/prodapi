@@ -9,6 +9,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class PharmacyProfileControllerTest extends TestCase
 {
@@ -34,7 +35,7 @@ class PharmacyProfileControllerTest extends TestCase
         $this->pharmacy->users()->attach($this->user->id);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_list_their_pharmacies()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -55,7 +56,7 @@ class PharmacyProfileControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_update_pharmacy_profile()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -77,7 +78,7 @@ class PharmacyProfileControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function update_validates_required_fields()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -87,7 +88,7 @@ class PharmacyProfileControllerTest extends TestCase
             ->assertJsonValidationErrors(['name', 'phone', 'address', 'city']);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_update_duty_zone()
     {
         $newZone = DutyZone::factory()->create(['name' => 'Abidjan Sud']);
@@ -109,7 +110,7 @@ class PharmacyProfileControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_upload_license_document()
     {
         $file = UploadedFile::fake()->create('license.pdf', 100, 'application/pdf');
@@ -132,7 +133,7 @@ class PharmacyProfileControllerTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function user_can_upload_id_card_document()
     {
         $file = UploadedFile::fake()->image('id_card.jpg', 100, 100);
@@ -149,7 +150,7 @@ class PharmacyProfileControllerTest extends TestCase
         $response->assertOk();
     }
 
-    /** @test */
+    #[Test]
     public function document_upload_rejects_invalid_mime_types()
     {
         $file = UploadedFile::fake()->create('document.exe', 100, 'application/x-msdownload');
@@ -167,7 +168,7 @@ class PharmacyProfileControllerTest extends TestCase
             ->assertJsonValidationErrors(['license_document']);
     }
 
-    /** @test */
+    #[Test]
     public function document_upload_rejects_large_files()
     {
         $file = UploadedFile::fake()->create('large.pdf', 6000, 'application/pdf'); // 6MB
@@ -185,7 +186,7 @@ class PharmacyProfileControllerTest extends TestCase
             ->assertJsonValidationErrors(['license_document']);
     }
 
-    /** @test */
+    #[Test]
     public function user_cannot_access_other_pharmacy_profile()
     {
         $otherPharmacy = Pharmacy::factory()->create(['status' => 'approved']);
@@ -201,7 +202,7 @@ class PharmacyProfileControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_download_own_documents()
     {
         // Create a fake document
@@ -215,7 +216,7 @@ class PharmacyProfileControllerTest extends TestCase
         $this->assertContains($response->getStatusCode(), [200, 404]);
     }
 
-    /** @test */
+    #[Test]
     public function user_without_pharmacy_cannot_access_profile()
     {
         $userNoPharmacy = User::factory()->create(['role' => 'pharmacy']);
@@ -227,7 +228,7 @@ class PharmacyProfileControllerTest extends TestCase
             ->assertJsonPath('data', []);
     }
 
-    /** @test */
+    #[Test]
     public function unauthenticated_user_cannot_access_profile()
     {
         $response = $this->getJson('/api/pharmacy/profile');
@@ -235,7 +236,7 @@ class PharmacyProfileControllerTest extends TestCase
         $response->assertUnauthorized();
     }
 
-    /** @test */
+    #[Test]
     public function email_must_be_valid_format()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -251,7 +252,7 @@ class PharmacyProfileControllerTest extends TestCase
             ->assertJsonValidationErrors(['email']);
     }
 
-    /** @test */
+    #[Test]
     public function duty_zone_id_must_exist()
     {
         $response = $this->actingAs($this->user, 'sanctum')

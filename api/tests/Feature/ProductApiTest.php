@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\Pharmacy;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
 
 class ProductApiTest extends TestCase
 {
@@ -26,7 +27,7 @@ class ProductApiTest extends TestCase
         $this->pharmacy->users()->attach($this->user->id, ['role' => 'owner']);
     }
 
-    /** @test */
+    #[Test]
     public function can_list_products_without_authentication()
     {
         Product::factory()->count(5)->create([
@@ -56,7 +57,7 @@ class ProductApiTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function can_search_products()
     {
         Product::factory()->create([
@@ -78,10 +79,10 @@ class ProductApiTest extends TestCase
             ->assertJsonFragment(['name' => 'Paracetamol 500mg']);
     }
 
-    /** @test */
+    #[Test]
     public function can_filter_by_category()
     {
-        Product::factory()->create([
+        $analgesic = Product::factory()->create([
             'pharmacy_id' => $this->pharmacy->id,
             'category' => 'analgesics',
             'is_available' => true,
@@ -97,10 +98,10 @@ class ProductApiTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data.products')
-            ->assertJsonFragment(['category' => 'analgesics']);
+            ->assertJsonPath('data.products.0.id', $analgesic->id);
     }
 
-    /** @test */
+    #[Test]
     public function can_get_all_categories()
     {
         Product::factory()->create([
@@ -119,7 +120,7 @@ class ProductApiTest extends TestCase
             ->assertJsonCount(2);
     }
 
-    /** @test */
+    #[Test]
     public function can_get_featured_products()
     {
         Product::factory()->create([
@@ -140,7 +141,7 @@ class ProductApiTest extends TestCase
             ->assertJsonCount(1, 'data');
     }
 
-    /** @test */
+    #[Test]
     public function can_get_product_by_id()
     {
         $product = Product::factory()->create([
@@ -167,7 +168,7 @@ class ProductApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function can_get_product_by_slug()
     {
         $product = Product::factory()->create([
@@ -188,7 +189,7 @@ class ProductApiTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function product_not_found_returns_404()
     {
         $response = $this->getJson('/api/products/99999');
@@ -196,7 +197,7 @@ class ProductApiTest extends TestCase
         $response->assertStatus(404);
     }
 
-    /** @test */
+    #[Test]
     public function can_filter_by_pharmacy()
     {
         $otherPharmacy = Pharmacy::factory()->create();
@@ -219,7 +220,7 @@ class ProductApiTest extends TestCase
             ->assertJsonCount(1, 'data.products');
     }
 
-    /** @test */
+    #[Test]
     public function can_filter_by_price_range()
     {
         Product::factory()->create([
@@ -240,7 +241,7 @@ class ProductApiTest extends TestCase
             ->assertJsonCount(1, 'data.products');
     }
 
-    /** @test */
+    #[Test]
     public function can_filter_by_prescription_requirement()
     {
         Product::factory()->create([
@@ -261,7 +262,7 @@ class ProductApiTest extends TestCase
             ->assertJsonCount(1, 'data.products');
     }
 
-    /** @test */
+    #[Test]
     public function unavailable_products_are_not_listed()
     {
         Product::factory()->create([
@@ -275,7 +276,7 @@ class ProductApiTest extends TestCase
             ->assertJsonCount(0, 'data.products');
     }
 
-    /** @test */
+    #[Test]
     public function out_of_stock_products_show_correct_status()
     {
         $product = Product::factory()->create([
@@ -296,7 +297,7 @@ class ProductApiTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function products_can_be_sorted()
     {
         Product::factory()->create([
@@ -326,7 +327,7 @@ class ProductApiTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function discount_price_is_correctly_calculated()
     {
         $product = Product::factory()->create([
@@ -351,7 +352,7 @@ class ProductApiTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function expired_products_show_warning()
     {
         $product = Product::factory()->create([

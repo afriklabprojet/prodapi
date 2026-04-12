@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\BusinessEventService;
 use App\Services\FirebaseTokenService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -106,19 +107,12 @@ class LoginController extends Controller
                 if ($courier->kyc_status === 'incomplete') {
                     // On laisse passer avec un flag, l'app affichera l'écran de resoumission
                 }
-                if ($courier->status === 'pending_approval') {
-                    throw ValidationException::withMessages([
-                        'email' => ['Votre compte est en attente d\'approbation par l\'administrateur. Vous recevrez une notification une fois approuvé.'],
-                    ]);
-                }
+                // pending_approval et rejected : on laisse se connecter
+                // L'app gère l'affichage des écrans appropriés (KYC → Pending → Dashboard)
+                // via le middleware EnsureCourierProfile sur les routes protégées.
                 if ($courier->status === 'suspended') {
                     throw ValidationException::withMessages([
                         'email' => ['Votre compte a été suspendu. Veuillez contacter le support.'],
-                    ]);
-                }
-                if ($courier->status === 'rejected') {
-                    throw ValidationException::withMessages([
-                        'email' => ['Votre demande d\'inscription a été refusée. Veuillez contacter le support pour plus d\'informations.'],
                     ]);
                 }
             }
@@ -175,6 +169,8 @@ class LoginController extends Controller
             'phone' => $user->phone,
             'role' => $user->role,
             'avatar' => $user->avatar,
+            'phone_verified_at' => $user->phone_verified_at,
+            'email_verified_at' => $user->email_verified_at,
         ];
 
         if ($user->role === 'pharmacy') {
@@ -206,6 +202,12 @@ class LoginController extends Controller
                 'error' => $e->getMessage(),
             ]);
         }
+
+        // Track login event
+        BusinessEventService::login($user->id, $user->role, [
+            'device' => $request->device_name ?? 'unknown',
+            'login_method' => $fieldType,
+        ]);
 
         return response()->json([
             'success' => true,
@@ -244,6 +246,8 @@ class LoginController extends Controller
             'phone' => $user->phone,
             'role' => $user->role,
             'avatar' => $user->avatar,
+            'phone_verified_at' => $user->phone_verified_at,
+            'email_verified_at' => $user->email_verified_at,
             'created_at' => $user->created_at,
         ];
 
@@ -253,6 +257,11 @@ class LoginController extends Controller
             $data['default_address'] = $defaultAddress ? $defaultAddress->address : null;
             $data['default_address_id'] = $defaultAddress?->id;
             $data['addresses_count'] = $user->addresses()->count();
+            // Order statistics
+            $orders = $user->orders()->whereNotIn('status', ['cancelled', 'refunded']);
+            $data['total_orders'] = $orders->count();
+            $data['completed_orders'] = (clone $orders)->where('status', 'delivered')->count();
+            $data['total_spent'] = (clone $orders)->where('payment_status', 'paid')->sum('total_amount');
         } elseif ($user->role === 'pharmacy') {
             $data['pharmacies'] = $user->pharmacies;
             // Wallet est sur le modèle Pharmacy, pas User
@@ -286,7 +295,11 @@ class LoginController extends Controller
             $data['name'] = $request->name;
         }
         if ($request->has('phone') && $request->phone) {
-            $data['phone'] = $request->phone;
+            // Si le téléphone change, invalider la vérification
+            if ($user->phone !== $request->phone) {
+                $data['phone'] = $request->phone;
+                $data['phone_verified_at'] = null;
+            }
         }
         
         if (empty($data)) {
@@ -301,7 +314,15 @@ class LoginController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Profil mis à jour avec succès',
-            'data' => $user,
+            'data' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'role' => $user->role,
+                'avatar' => $user->avatar,
+                'phone_verified_at' => $user->phone_verified_at,
+            ],
         ]);
     }
 

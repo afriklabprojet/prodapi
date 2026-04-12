@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Commission;
 use App\Models\Order;
+use App\Models\Payment;
+use App\Models\Setting;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use Illuminate\Support\Facades\DB;
@@ -23,10 +25,19 @@ class CommissionService
                 $delivery = $order->delivery;
                 $courier = $delivery?->courier;
 
-                // Rates (default or from pharmacy)
-                $ratePlatform = $this->normalizeRate($pharmacy->commission_rate_platform ?? 10);
-                $ratePharmacy = $this->normalizeRate($pharmacy->commission_rate_pharmacy ?? 85);
-                $rateCourier = $this->normalizeRate($pharmacy->commission_rate_courier ?? 5);
+                // Rates from pharmacy, fallback to global Settings
+                $ratePlatform = $this->normalizeRate(
+                    $pharmacy->commission_rate_platform
+                    ?? Setting::get('default_commission_rate_platform', 10)
+                );
+                $ratePharmacy = $this->normalizeRate(
+                    $pharmacy->commission_rate_pharmacy
+                    ?? Setting::get('default_commission_rate_pharmacy', 85)
+                );
+                $rateCourier = $this->normalizeRate(
+                    $pharmacy->commission_rate_courier
+                    ?? Setting::get('default_commission_rate_courier', 5)
+                );
 
                 $total = $order->total_amount;
                 
@@ -101,10 +112,22 @@ class CommissionService
         );
     }
 
+    /**
+     * Distribuer les commissions pour un paiement confirmé
+     */
+    public function distributeForPayment(Payment $payment): void
+    {
+        $order = $payment->order;
+        if ($order) {
+            $this->calculateAndDistribute($order);
+        }
+    }
+
     private function normalizeRate($rate)
     {
         // If rate is > 1 (e.g. 10, 85), treat as percentage (10%, 85%)
         // If rate is <= 1 (e.g. 0.10, 0.85), treat as decimal
+        $rate = (float) $rate;
         if ($rate > 1) {
             return $rate / 100;
         }

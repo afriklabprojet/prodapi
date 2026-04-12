@@ -42,6 +42,11 @@ class LivenessService
     public const CHALLENGE_TURN_LEFT = 'turn_left';
     public const CHALLENGE_TURN_RIGHT = 'turn_right';
     public const CHALLENGE_SMILE = 'smile';
+    public const CHALLENGE_NOD = 'nod'; // Nouveau: hocher la tête
+    
+    // Rate limiting
+    private const MAX_SESSIONS_PER_HOUR = 10;
+    private const MAX_VALIDATIONS_PER_SESSION = 15;
 
     public function __construct()
     {
@@ -165,6 +170,12 @@ class LivenessService
      */
     public function startSession(string $userId): array
     {
+        // Vérifier le rate limiting
+        if (!$this->checkRateLimit($userId)) {
+            Log::warning('Liveness rate limit exceeded', ['user_id' => $userId]);
+            throw new \RuntimeException('Trop de tentatives. Veuillez réessayer dans 1 heure.');
+        }
+        
         // Vérifier si le service Vision est disponible
         if (!$this->enabled || !$this->client) {
             Log::warning('Liveness session requested but Vision API not available', [
@@ -183,10 +194,11 @@ class LivenessService
             self::CHALLENGE_TURN_LEFT,
             self::CHALLENGE_TURN_RIGHT,
             self::CHALLENGE_SMILE,
+            self::CHALLENGE_NOD,
         ];
         
         shuffle($allChallenges);
-        $challenges = array_slice($allChallenges, 0, 2); // 2 challenges pour un bon équilibre sécurité/UX
+        $challenges = array_slice($allChallenges, 0, 3); // 3 challenges pour meilleure sécurité
         
         // Stocker la session en cache
         $sessionData = [
@@ -196,6 +208,9 @@ class LivenessService
             'current_index' => 0,
             'started_at' => now()->toIso8601String(),
             'face_reference' => null, // Stockera les données du premier visage détecté
+            'validation_count' => 0,  // Compteur de validations
+            'confidence_scores' => [], // Scores de confiance par challenge
+            'anti_spoof_data' => [],   // Données anti-spoofing
         ];
         
         Cache::put("liveness_session:{$sessionId}", $sessionData, self::SESSION_TTL);
@@ -249,6 +264,13 @@ class LivenessService
                 'icon' => 'sentiment_satisfied',
                 'duration' => 3,
             ],
+            self::CHALLENGE_NOD => [
+                'type' => $challenge,
+                'instruction' => 'Hochez la tête',
+                'description' => 'Inclinez la tête vers le bas puis vers le haut',
+                'icon' => 'swap_vert',
+                'duration' => 4,
+            ],
             default => [
                 'type' => 'unknown',
                 'instruction' => 'Action inconnue',
@@ -278,6 +300,17 @@ class LivenessService
                 'message' => 'Session expirée. Veuillez recommencer.',
             ];
         }
+        
+        // Vérifier le nombre max de validations
+        if (($session['validation_count'] ?? 0) >= self::MAX_VALIDATIONS_PER_SESSION) {
+            return [
+                'success' => false,
+                'error' => 'too_many_attempts',
+                'message' => 'Trop de tentatives. Veuillez recommencer une nouvelle session.',
+            ];
+        }
+        
+        $session['validation_count'] = ($session['validation_count'] ?? 0) + 1;
         
         if ($session['current_index'] >= count($session['challenges'])) {
             return [
@@ -346,8 +379,32 @@ class LivenessService
                 self::CHALLENGE_TURN_LEFT => $this->validateTurnLeft($face),
                 self::CHALLENGE_TURN_RIGHT => $this->validateTurnRight($face),
                 self::CHALLENGE_SMILE => $this->validateSmile($face),
+                self::CHALLENGE_NOD => $this->validateNod($face, $session),
                 default => ['valid' => false, 'reason' => 'Challenge inconnu'],
             };
+            
+            // Vérifications anti-spoofing
+            $antiSpoofResult = $this->checkAntiSpoofing($face, $session);
+            if (!$antiSpoofResult['passed']) {
+                Log::warning('Anti-spoofing check failed', [
+                    'session_id' => $sessionId,
+                    'reason' => $antiSpoofResult['reason'],
+                ]);
+                return [
+                    'success' => false,
+                    'error' => 'anti_spoof_failed',
+                    'message' => $antiSpoofResult['reason'],
+                    'retry' => true,
+                ];
+            }
+            
+            // Stocker le score de confiance
+            $session['confidence_scores'][] = [
+                'challenge' => $currentChallenge,
+                'face_confidence' => $face->getDetectionConfidence(),
+                'timestamp' => now()->toIso8601String(),
+            ];
+            Cache::put("liveness_session:{$sessionId}", $session, self::SESSION_TTL);
             
             if ($validationResult['valid']) {
                 return $this->advanceSession($sessionId, $session, $currentChallenge, true, $validationResult['reason'] ?? 'OK');
@@ -625,5 +682,211 @@ class LivenessService
         // Retirer le préfixe data:image/xxx;base64,
         $parts = explode(',', $base64);
         return base64_decode(end($parts));
+    }
+    
+    /**
+     * Vérifier le rate limiting pour un utilisateur
+     */
+    private function checkRateLimit(string $userId): bool
+    {
+        $key = "liveness_rate:{$userId}";
+        $count = Cache::get($key, 0);
+        
+        if ($count >= self::MAX_SESSIONS_PER_HOUR) {
+            return false;
+        }
+        
+        Cache::put($key, $count + 1, 3600); // 1 heure
+        return true;
+    }
+    
+    /**
+     * VALIDATION: Hocher la tête (nod)
+     * Détecte l'inclinaison verticale de la tête
+     */
+    private function validateNod($face, array $session): array
+    {
+        $tiltAngle = $face->getTiltAngle();
+        
+        // Tilt angle positif/négatif = tête inclinée vers le haut/bas
+        $valid = abs($tiltAngle) > 8; // 8 degrés minimum
+        
+        return [
+            'valid' => $valid,
+            'reason' => $valid 
+                ? 'Hochement de tête détecté' 
+                : sprintf('Inclinez davantage la tête (angle: %.0f°, requis: >8°)', abs($tiltAngle)),
+            'details' => [
+                'tilt_angle' => $tiltAngle,
+                'threshold' => 8,
+            ],
+        ];
+    }
+    
+    /**
+     * Vérifications anti-spoofing
+     * Détecte les tentatives de fraude (photos, vidéos pré-enregistrées)
+     */
+    private function checkAntiSpoofing($face, array $session): array
+    {
+        $confidence = $face->getDetectionConfidence();
+        
+        // Vérification 1: Confiance de détection minimale
+        if ($confidence < 0.7) {
+            return [
+                'passed' => false,
+                'reason' => 'Qualité d\'image insuffisante. Rapprochez-vous de la caméra.',
+            ];
+        }
+        
+        // Vérification 2: Angles du visage cohérents
+        $panAngle = abs($face->getPanAngle());
+        $tiltAngle = abs($face->getTiltAngle());
+        $rollAngle = abs($face->getRollAngle());
+        
+        // Un visage trop parfaitement aligné peut être suspect (photo)
+        // Mais on accepte quand même si les challenges exigent des mouvements
+        
+        // Vérification 3: Présence de flou (indique mouvement naturel)
+        $blurLikelihood = $face->getBlurredLikelihood();
+        // 0=UNKNOWN, 1=VERY_UNLIKELY, 2=UNLIKELY, 3=POSSIBLE, 4=LIKELY, 5=VERY_LIKELY
+        // Un peu de flou est normal pour une vidéo en direct
+        
+        // Vérification 4: Sous-exposition/sur-exposition (écran vs réel)
+        $underExposed = $face->getUnderExposedLikelihood();
+        $headwear = $face->getHeadwearLikelihood();
+        
+        // Vérification 5: Cohérence avec la référence précédente
+        if ($session['face_reference'] !== null) {
+            $refConfidence = $session['face_reference']['detection_confidence'] ?? 0;
+            // La confiance ne devrait pas varier de plus de 30%
+            if (abs($confidence - $refConfidence) > 0.3) {
+                Log::info('Anti-spoof: confidence variance detected', [
+                    'current' => $confidence,
+                    'reference' => $refConfidence,
+                ]);
+                // On ne rejette pas, juste on log pour analyse
+            }
+        }
+        
+        return [
+            'passed' => true,
+            'reason' => 'OK',
+            'metrics' => [
+                'confidence' => $confidence,
+                'blur_likelihood' => $blurLikelihood,
+                'under_exposed' => $underExposed,
+                'pan_angle' => $panAngle,
+                'tilt_angle' => $tiltAngle,
+                'roll_angle' => $rollAngle,
+            ],
+        ];
+    }
+    
+    /**
+     * Calculer le score de confiance global d'une session terminée
+     */
+    public function calculateGlobalConfidenceScore(string $sessionId): array
+    {
+        $session = Cache::get("liveness_session:{$sessionId}");
+        
+        if (!$session) {
+            return [
+                'score' => 0,
+                'level' => 'invalid',
+                'message' => 'Session non trouvée',
+            ];
+        }
+        
+        $scores = $session['confidence_scores'] ?? [];
+        
+        if (empty($scores)) {
+            return [
+                'score' => 0,
+                'level' => 'incomplete',
+                'message' => 'Aucun score de confiance disponible',
+            ];
+        }
+        
+        // Moyenne des scores de confiance faciale
+        $avgConfidence = collect($scores)->avg('face_confidence');
+        
+        // Facteurs de pondération
+        $challengesCompleted = count($session['completed'] ?? []);
+        $totalChallenges = count($session['challenges'] ?? []);
+        $completionRate = $totalChallenges > 0 ? $challengesCompleted / $totalChallenges : 0;
+        
+        // Score global (0-100)
+        $globalScore = round(($avgConfidence * 0.6 + $completionRate * 0.4) * 100);
+        
+        // Niveau de confiance
+        $level = match(true) {
+            $globalScore >= 90 => 'very_high',
+            $globalScore >= 75 => 'high',
+            $globalScore >= 60 => 'medium',
+            $globalScore >= 40 => 'low',
+            default => 'very_low',
+        };
+        
+        return [
+            'score' => $globalScore,
+            'level' => $level,
+            'avg_face_confidence' => round($avgConfidence * 100, 1),
+            'completion_rate' => round($completionRate * 100, 1),
+            'challenges_completed' => $challengesCompleted,
+            'total_challenges' => $totalChallenges,
+            'message' => $this->getConfidenceMessage($level),
+        ];
+    }
+    
+    /**
+     * Message selon le niveau de confiance
+     */
+    private function getConfidenceMessage(string $level): string
+    {
+        return match($level) {
+            'very_high' => 'Vérification de vivacité excellente',
+            'high' => 'Vérification de vivacité réussie',
+            'medium' => 'Vérification acceptable, une vérification supplémentaire peut être demandée',
+            'low' => 'Confiance faible, vérification manuelle recommandée',
+            'very_low' => 'Vérification échouée, nouvelle tentative nécessaire',
+            default => 'Statut inconnu',
+        };
+    }
+    
+    /**
+     * Obtenir l'historique des tentatives d'un utilisateur
+     */
+    public function getUserAttemptHistory(string $userId): array
+    {
+        $key = "liveness_history:{$userId}";
+        return Cache::get($key, []);
+    }
+    
+    /**
+     * Enregistrer une tentative dans l'historique
+     */
+    public function recordAttempt(string $userId, string $sessionId, bool $success, array $metadata = []): void
+    {
+        $key = "liveness_history:{$userId}";
+        $history = Cache::get($key, []);
+        
+        $history[] = [
+            'session_id' => $sessionId,
+            'success' => $success,
+            'timestamp' => now()->toIso8601String(),
+            'metadata' => $metadata,
+        ];
+        
+        // Garder les 10 dernières tentatives
+        $history = array_slice($history, -10);
+        
+        Cache::put($key, $history, 86400 * 30); // 30 jours
+        
+        Log::info('Liveness attempt recorded', [
+            'user_id' => $userId,
+            'session_id' => $sessionId,
+            'success' => $success,
+        ]);
     }
 }

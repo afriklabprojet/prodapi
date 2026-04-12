@@ -10,6 +10,7 @@ use App\Notifications\NewOrderNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class NewOrderNotificationTest extends TestCase
 {
@@ -43,7 +44,7 @@ class NewOrderNotificationTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_be_constructed_with_order()
     {
         $notification = new NewOrderNotification($this->order);
@@ -52,7 +53,7 @@ class NewOrderNotificationTest extends TestCase
         $this->assertEquals($this->order->id, $notification->order->id);
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_database_channel()
     {
         $notification = new NewOrderNotification($this->order);
@@ -61,7 +62,7 @@ class NewOrderNotificationTest extends TestCase
         $this->assertContains('database', $channels);
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_mail_channel_when_email_exists()
     {
         $notification = new NewOrderNotification($this->order);
@@ -70,7 +71,7 @@ class NewOrderNotificationTest extends TestCase
         $this->assertContains('mail', $channels);
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_fcm_channel_when_token_exists()
     {
         $notification = new NewOrderNotification($this->order);
@@ -79,7 +80,7 @@ class NewOrderNotificationTest extends TestCase
         $this->assertContains(\App\Channels\FcmChannel::class, $channels);
     }
 
-    /** @test */
+    #[Test]
     public function it_skips_mail_when_no_email()
     {
         $userNoEmail = User::factory()->create([
@@ -93,7 +94,7 @@ class NewOrderNotificationTest extends TestCase
         $this->assertNotContains('mail', $channels);
     }
 
-    /** @test */
+    #[Test]
     public function to_fcm_returns_correct_structure()
     {
         $notification = new NewOrderNotification($this->order);
@@ -106,7 +107,7 @@ class NewOrderNotificationTest extends TestCase
         $this->assertEquals((string)$this->order->id, $fcm['data']['order_id']);
     }
 
-    /** @test */
+    #[Test]
     public function to_mail_returns_mail_message()
     {
         $notification = new NewOrderNotification($this->order);
@@ -115,7 +116,7 @@ class NewOrderNotificationTest extends TestCase
         $this->assertInstanceOf(\Illuminate\Notifications\Messages\MailMessage::class, $mail);
     }
 
-    /** @test */
+    #[Test]
     public function to_array_returns_database_data()
     {
         $notification = new NewOrderNotification($this->order);
@@ -126,7 +127,7 @@ class NewOrderNotificationTest extends TestCase
         $this->assertEquals($this->order->id, $array['order_id']);
     }
 
-    /** @test */
+    #[Test]
     public function notification_can_be_sent()
     {
         Notification::fake();
@@ -142,7 +143,7 @@ class NewOrderNotificationTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function fcm_title_contains_emoji()
     {
         $notification = new NewOrderNotification($this->order);
@@ -151,7 +152,7 @@ class NewOrderNotificationTest extends TestCase
         $this->assertStringContainsString('🛒', $fcm['title']);
     }
 
-    /** @test */
+    #[Test]
     public function fcm_body_contains_order_reference()
     {
         $notification = new NewOrderNotification($this->order);
@@ -160,7 +161,7 @@ class NewOrderNotificationTest extends TestCase
         $this->assertStringContainsString($this->order->reference, $fcm['body']);
     }
 
-    /** @test */
+    #[Test]
     public function fcm_body_contains_total_amount()
     {
         $notification = new NewOrderNotification($this->order);

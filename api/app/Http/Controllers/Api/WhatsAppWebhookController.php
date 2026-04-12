@@ -167,7 +167,7 @@ class WhatsAppWebhookController extends Controller
         // Mot-clé: AIDE / HELP → message d'aide
         if (in_array($textUpper, ['AIDE', 'HELP', 'BONJOUR', 'HELLO', 'SALUT'])) {
             Log::info("WhatsApp help request", ['from' => $from]);
-            Cache::put("wa_reply:{$from}", "Bonjour ! 👋 DR-PHARMA à votre service.\n\n📦 Envoyez COMMANDE pour le suivi.\n📞 Support: +225 07 00 00 00 00\n📧 support@drlpharma.com\n🌐 https://drlpharma.com", now()->addMinutes(5));
+            Cache::put("wa_reply:{$from}", "Bonjour ! 👋 DR-PHARMA à votre service.\n\n📦 Envoyez COMMANDE pour le suivi.\n📞 Support: +225 07 00 00 00 00\n📧 support@drlpharma.com\n🌐 https://drlpharma.pro", now()->addMinutes(5));
             return;
         }
 

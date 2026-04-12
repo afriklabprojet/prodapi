@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Mockery;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class CalculateOrderCommissionTest extends TestCase
 {
@@ -55,7 +56,7 @@ class CalculateOrderCommissionTest extends TestCase
         parent::tearDown();
     }
 
-    /** @test */
+    #[Test]
     public function it_can_be_constructed_with_action()
     {
         $action = Mockery::mock(CalculateCommissionAction::class);
@@ -64,7 +65,7 @@ class CalculateOrderCommissionTest extends TestCase
         $this->assertInstanceOf(CalculateOrderCommission::class, $listener);
     }
 
-    /** @test */
+    #[Test]
     public function it_implements_should_queue()
     {
         $action = Mockery::mock(CalculateCommissionAction::class);
@@ -73,7 +74,7 @@ class CalculateOrderCommissionTest extends TestCase
         $this->assertInstanceOf(\Illuminate\Contracts\Queue\ShouldQueue::class, $listener);
     }
 
-    /** @test */
+    #[Test]
     public function it_executes_calculate_commission_action()
     {
         $action = Mockery::mock(CalculateCommissionAction::class);
@@ -89,7 +90,7 @@ class CalculateOrderCommissionTest extends TestCase
         $listener->handle($event);
     }
 
-    /** @test */
+    #[Test]
     public function it_logs_commission_calculation_start()
     {
         Log::shouldReceive('info')
@@ -111,7 +112,7 @@ class CalculateOrderCommissionTest extends TestCase
         $listener->handle($event);
     }
 
-    /** @test */
+    #[Test]
     public function it_logs_error_on_failure()
     {
         Log::shouldReceive('info')->once();
@@ -132,7 +133,7 @@ class CalculateOrderCommissionTest extends TestCase
         $listener->handle($event);
     }
 
-    /** @test */
+    #[Test]
     public function it_rethrows_exception_for_queue_retry()
     {
         $action = Mockery::mock(CalculateCommissionAction::class);
@@ -148,7 +149,7 @@ class CalculateOrderCommissionTest extends TestCase
         $listener->handle($event);
     }
 
-    /** @test */
+    #[Test]
     public function listener_is_triggered_by_event()
     {
         Event::fake();

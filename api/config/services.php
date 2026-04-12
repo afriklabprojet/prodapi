@@ -111,6 +111,7 @@ return [
     'google_vision' => [
         'enabled' => env('GOOGLE_VISION_ENABLED', false),
         'credentials_path' => env('GOOGLE_APPLICATION_CREDENTIALS'),
+        'api_key' => env('GOOGLE_VISION_API_KEY', env('GOOGLE_MAPS_API_KEY')),
     ],
 
 ];

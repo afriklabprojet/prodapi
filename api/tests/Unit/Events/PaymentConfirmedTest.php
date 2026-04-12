@@ -11,6 +11,7 @@ use App\Models\Customer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class PaymentConfirmedTest extends TestCase
 {
@@ -41,7 +42,7 @@ class PaymentConfirmedTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_be_constructed_with_payment()
     {
         $event = new PaymentConfirmed($this->payment);
@@ -50,7 +51,7 @@ class PaymentConfirmedTest extends TestCase
         $this->assertEquals($this->payment->id, $event->payment->id);
     }
 
-    /** @test */
+    #[Test]
     public function it_contains_payment_data()
     {
         $event = new PaymentConfirmed($this->payment);
@@ -60,7 +61,7 @@ class PaymentConfirmedTest extends TestCase
         $this->assertEquals('SUCCESS', $event->payment->status);
     }
 
-    /** @test */
+    #[Test]
     public function event_can_be_dispatched()
     {
         Event::fake();
@@ -72,7 +73,7 @@ class PaymentConfirmedTest extends TestCase
         });
     }
 
-    /** @test */
+    #[Test]
     public function event_uses_dispatchable_trait()
     {
         $event = new PaymentConfirmed($this->payment);
@@ -80,7 +81,7 @@ class PaymentConfirmedTest extends TestCase
         $this->assertTrue(method_exists($event, 'dispatch'));
     }
 
-    /** @test */
+    #[Test]
     public function event_serializes_models()
     {
         $event = new PaymentConfirmed($this->payment);

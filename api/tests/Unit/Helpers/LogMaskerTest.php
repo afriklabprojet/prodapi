@@ -4,10 +4,11 @@ namespace Tests\Unit\Helpers;
 
 use App\Helpers\LogMasker;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class LogMaskerTest extends TestCase
 {
-    /** @test */
+    #[Test]
     public function it_masks_email_addresses()
     {
         $data = ['email' => 'john.doe@example.com'];
@@ -18,7 +19,7 @@ class LogMaskerTest extends TestCase
         $this->assertStringContainsString('@', $masked['email']);
     }
 
-    /** @test */
+    #[Test]
     public function it_masks_phone_numbers()
     {
         $data = ['phone' => '+22507123456789'];
@@ -28,7 +29,7 @@ class LogMaskerTest extends TestCase
         $this->assertStringContainsString('***', $masked['phone']);
     }
 
-    /** @test */
+    #[Test]
     public function it_masks_passwords()
     {
         $data = ['password' => 'supersecret123'];
@@ -38,7 +39,7 @@ class LogMaskerTest extends TestCase
         $this->assertStringContainsString('***', $masked['password']);
     }
 
-    /** @test */
+    #[Test]
     public function it_masks_tokens()
     {
         $data = ['token' => 'abc123xyz789verylongtoken'];
@@ -48,7 +49,7 @@ class LogMaskerTest extends TestCase
         $this->assertStringContainsString('***', $masked['token']);
     }
 
-    /** @test */
+    #[Test]
     public function it_masks_api_keys()
     {
         $data = ['api_key' => 'sk_live_abc123xyz'];
@@ -57,7 +58,7 @@ class LogMaskerTest extends TestCase
         $this->assertNotEquals('sk_live_abc123xyz', $masked['api_key']);
     }
 
-    /** @test */
+    #[Test]
     public function it_masks_otp_codes()
     {
         $data = ['otp' => '123456'];
@@ -66,7 +67,7 @@ class LogMaskerTest extends TestCase
         $this->assertNotEquals('123456', $masked['otp']);
     }
 
-    /** @test */
+    #[Test]
     public function it_masks_verification_codes()
     {
         $data = ['verification_code' => '7890'];
@@ -75,7 +76,7 @@ class LogMaskerTest extends TestCase
         $this->assertNotEquals('7890', $masked['verification_code']);
     }
 
-    /** @test */
+    #[Test]
     public function it_preserves_non_sensitive_fields()
     {
         $data = [
@@ -90,7 +91,7 @@ class LogMaskerTest extends TestCase
         $this->assertEquals(5000, $masked['amount']);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_nested_arrays()
     {
         $data = [
@@ -107,7 +108,7 @@ class LogMaskerTest extends TestCase
         $this->assertEquals('Test User', $masked['user']['name']);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_null_values()
     {
         $data = ['email' => null];
@@ -116,7 +117,7 @@ class LogMaskerTest extends TestCase
         $this->assertEquals('[null]', $masked['email']);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_empty_values()
     {
         $data = ['phone' => ''];
@@ -125,7 +126,7 @@ class LogMaskerTest extends TestCase
         $this->assertEquals('[empty]', $masked['phone']);
     }
 
-    /** @test */
+    #[Test]
     public function mask_email_hides_local_and_domain()
     {
         $masked = LogMasker::maskEmail('john@example.com');
@@ -135,7 +136,7 @@ class LogMaskerTest extends TestCase
         $this->assertStringEndsWith('.com', $masked);
     }
 
-    /** @test */
+    #[Test]
     public function mask_email_handles_short_local_part()
     {
         $masked = LogMasker::maskEmail('jo@example.com');
@@ -143,7 +144,7 @@ class LogMaskerTest extends TestCase
         $this->assertStringContainsString('@', $masked);
     }
 
-    /** @test */
+    #[Test]
     public function mask_email_handles_non_email_string()
     {
         $masked = LogMasker::maskEmail('not-an-email');
@@ -151,7 +152,7 @@ class LogMaskerTest extends TestCase
         $this->assertStringContainsString('***', $masked);
     }
 
-    /** @test */
+    #[Test]
     public function mask_phone_preserves_prefix_and_suffix()
     {
         $masked = LogMasker::maskPhone('+22507123456');
@@ -161,7 +162,7 @@ class LogMaskerTest extends TestCase
         $this->assertStringContainsString('***', $masked);
     }
 
-    /** @test */
+    #[Test]
     public function mask_phone_handles_short_numbers()
     {
         $masked = LogMasker::maskPhone('1234');
@@ -169,7 +170,7 @@ class LogMaskerTest extends TestCase
         $this->assertEquals('****', $masked);
     }
 
-    /** @test */
+    #[Test]
     public function it_is_case_insensitive_for_field_names()
     {
         $data = [
@@ -184,7 +185,7 @@ class LogMaskerTest extends TestCase
         $this->assertStringContainsString('***', $masked['PASSWORD']);
     }
 
-    /** @test */
+    #[Test]
     public function it_masks_fields_containing_sensitive_keywords()
     {
         $data = [
@@ -199,7 +200,7 @@ class LogMaskerTest extends TestCase
         $this->assertStringContainsString('***', $masked['api_token']);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_deeply_nested_arrays()
     {
         $data = [

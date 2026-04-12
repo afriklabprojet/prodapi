@@ -34,7 +34,7 @@ class PasswordResetController extends Controller
             return response()->json(['message' => 'Si un compte existe avec cet email, un code a été envoyé.']);
         }
 
-        $otp = $this->otpService->generateOtp($user->email);
+        $otp = $this->otpService->generateOtp($user->email, length: 6);
         $this->otpService->sendOtp($user->email, $otp);
 
         return response()->json(['message' => 'Code de réinitialisation envoyé']);
@@ -47,7 +47,7 @@ class PasswordResetController extends Controller
     {
         $request->validate([
             'email' => 'required|email',
-            'otp' => 'required|string|size:4',
+            'otp' => 'required|string|size:6',
         ]);
 
         if ($this->otpService->checkOtp($request->email, $request->otp)) {
@@ -64,7 +64,7 @@ class PasswordResetController extends Controller
     {
         $request->validate([
             'email' => 'required|email',
-            'otp' => 'required|string|size:4',
+            'otp' => 'required|string|size:6',
             'password' => ['required', 'confirmed', Password::defaults()],
         ]);
 

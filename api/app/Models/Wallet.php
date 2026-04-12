@@ -61,12 +61,30 @@ class Wallet extends Model
     }
 
     /**
-     * Créditer le wallet (thread-safe avec lock)
+     * Créditer le wallet (thread-safe avec lock + idempotent)
      */
     public function credit(float $amount, string $reference, string $description, ?array $metadata = null): WalletTransaction
     {
+        if ($amount <= 0) {
+            throw new \InvalidArgumentException('Le montant du crédit doit être positif');
+        }
+
         return \DB::transaction(function () use ($amount, $reference, $description, $metadata) {
             $wallet = self::where('id', $this->id)->lockForUpdate()->first();
+
+            if (!$wallet) {
+                throw new \RuntimeException('Wallet introuvable');
+            }
+
+            // Idempotency: vérifier si cette référence existe déjà
+            $existing = $wallet->transactions()->where('reference', $reference)->first();
+            if ($existing) {
+                \Illuminate\Support\Facades\Log::info('Wallet credit: duplicate reference (idempotent)', [
+                    'wallet_id' => $wallet->id,
+                    'reference' => $reference,
+                ]);
+                return $existing;
+            }
 
             $transaction = $wallet->transactions()->create([
                 'type' => 'CREDIT',
@@ -85,29 +103,61 @@ class Wallet extends Model
     }
 
     /**
-     * Débiter le wallet (thread-safe avec lock)
+     * Débiter le wallet (thread-safe avec lock + protection solde négatif)
      */
     public function debit(float $amount, string $reference, string $description, ?array $metadata = null): WalletTransaction
     {
+        if ($amount <= 0) {
+            throw new \InvalidArgumentException('Le montant du débit doit être positif');
+        }
+
         return \DB::transaction(function () use ($amount, $reference, $description, $metadata) {
             $wallet = self::where('id', $this->id)->lockForUpdate()->first();
 
-            if ($wallet->balance < $amount) {
-                throw new \Exception('Insufficient balance');
+            if (!$wallet) {
+                throw new \RuntimeException('Wallet introuvable');
             }
+
+            if ($wallet->balance < $amount) {
+                throw new \App\Exceptions\InsufficientBalanceException(
+                    "Solde insuffisant: {$wallet->balance} < {$amount}"
+                );
+            }
+
+            // Idempotency: vérifier si cette référence existe déjà
+            $existing = $wallet->transactions()->where('reference', $reference)->first();
+            if ($existing) {
+                \Illuminate\Support\Facades\Log::info('Wallet debit: duplicate reference (idempotent)', [
+                    'wallet_id' => $wallet->id,
+                    'reference' => $reference,
+                ]);
+                return $existing;
+            }
+
+            $newBalance = $wallet->balance - $amount;
 
             $transaction = $wallet->transactions()->create([
                 'type' => 'DEBIT',
                 'amount' => $amount,
-                'balance_after' => $wallet->balance - $amount,
+                'balance_after' => $newBalance,
                 'reference' => $reference,
                 'description' => $description,
                 'metadata' => $metadata,
             ]);
 
-            $wallet->decrement('balance', $amount);
-            $this->refresh();
+            // Utiliser WHERE balance >= amount pour empêcher physiquement le négatif
+            // SECURITY H-4: Eloquent decrement génère un binding paramétré (pas d'interpolation SQL)
+            $affected = self::where('id', $wallet->id)
+                ->where('balance', '>=', $amount)
+                ->decrement('balance', abs($amount));
 
+            if ($affected === 0) {
+                throw new \App\Exceptions\InsufficientBalanceException(
+                    'Race condition détectée: solde insuffisant au moment du débit'
+                );
+            }
+
+            $this->refresh();
             return $transaction;
         });
     }

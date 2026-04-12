@@ -19,12 +19,12 @@ class SupportSettingsController extends Controller
                 'support_phone' => Setting::get('support_phone', '+225 07 01 159 572'),
                 'support_email' => Setting::get('support_email', 'support@drlpharma.com'),
                 'support_whatsapp' => Setting::get('support_whatsapp', '+225 07 01 159 572'),
-                'website_url' => Setting::get('website_url', 'https://drlpharma.com'),
-                'tutorials_url' => Setting::get('tutorials_url', 'https://www.youtube.com/@drlpharma'),
-                'guide_url' => Setting::get('guide_url', 'https://drlpharma.com/guide'),
-                'faq_url' => Setting::get('faq_url', 'https://drlpharma.com/faq'),
-                'terms_url' => Setting::get('terms_url', 'https://drlpharma.com/terms'),
-                'privacy_url' => Setting::get('privacy_url', 'https://drlpharma.com/privacy'),
+                'website_url' => Setting::get('website_url', 'https://drlpharma.pro'),
+                'tutorials_url' => Setting::get('tutorials_url', url('/tutoriels')),
+                'guide_url' => Setting::get('guide_url', url('/guide')),
+                'faq_url' => Setting::get('faq_url', url('/faq')),
+                'terms_url' => Setting::get('terms_url', url('/cgu')),
+                'privacy_url' => Setting::get('privacy_url', url('/confidentialite')),
             ],
         ]);
     }

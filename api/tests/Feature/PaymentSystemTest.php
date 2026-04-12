@@ -14,6 +14,7 @@ use App\Models\CommissionLine;
 use App\Models\Wallet;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
+use PHPUnit\Framework\Attributes\Test;
 
 class PaymentSystemTest extends TestCase
 {
@@ -52,7 +53,7 @@ class PaymentSystemTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function payment_intent_is_created_on_initiate()
     {
         $paymentIntent = PaymentIntent::create([
@@ -72,7 +73,7 @@ class PaymentSystemTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function commission_is_calculated_correctly()
     {
         $orderAmount = 10000;
@@ -87,7 +88,7 @@ class PaymentSystemTest extends TestCase
         $this->assertEquals(500, $expectedCourier);
     }
 
-    /** @test */
+    #[Test]
     public function payment_success_creates_commission_records()
     {
         $paymentIntent = PaymentIntent::factory()->create([
@@ -113,7 +114,7 @@ class PaymentSystemTest extends TestCase
         CommissionLine::create([
             'commission_id' => $commission->id,
             'actor_type' => 'platform',
-            'actor_id' => null,
+            'actor_id' => 0,
             'rate' => 0.10,
             'amount' => 1000,
         ]);
@@ -142,7 +143,7 @@ class PaymentSystemTest extends TestCase
         $this->assertDatabaseCount('commission_lines', 3);
     }
 
-    /** @test */
+    #[Test]
     public function wallets_are_credited_after_payment()
     {
         // Ensure wallets exist
@@ -164,7 +165,7 @@ class PaymentSystemTest extends TestCase
         $this->assertEquals(500, $courierWallet->fresh()->balance);
     }
 
-    /** @test */
+    #[Test]
     public function wallet_transactions_are_recorded()
     {
         $wallet = Wallet::firstOrCreate(
@@ -175,7 +176,8 @@ class PaymentSystemTest extends TestCase
         $transaction = $wallet->transactions()->create([
             'type' => 'CREDIT',
             'amount' => 8500,
-            'description' => 'Commission from order #' . $this->order->order_number,
+            'reference' => 'COMMISSION-' . $this->order->id,
+            'description' => 'Commission from order #' . $this->order->reference,
             'balance_after' => 8500,
         ]);
 
@@ -186,7 +188,7 @@ class PaymentSystemTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function jeko_webhook_signature_is_verified()
     {
         Config::set('services.jeko.secret_key', 'test_secret_key');
@@ -203,7 +205,7 @@ class PaymentSystemTest extends TestCase
         $this->assertNotEmpty($signature);
     }
 
-    /** @test */
+    #[Test]
     public function payment_failure_does_not_create_commission()
     {
         $paymentIntent = PaymentIntent::factory()->create([
@@ -223,7 +225,7 @@ class PaymentSystemTest extends TestCase
         $this->assertEquals(0, $commissionCount);
     }
 
-    /** @test */
+    #[Test]
     public function order_status_updates_after_payment()
     {
         $paymentIntent = PaymentIntent::factory()->create([
@@ -246,7 +248,7 @@ class PaymentSystemTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function multiple_payments_for_same_order_are_tracked()
     {
         $paymentIntent = PaymentIntent::factory()->create([
@@ -277,7 +279,7 @@ class PaymentSystemTest extends TestCase
         $this->assertEquals(1, $successfulPayments);
     }
 
-    /** @test */
+    #[Test]
     public function commission_breakdown_sums_to_total()
     {
         $payment = Payment::factory()->create([
@@ -295,7 +297,7 @@ class PaymentSystemTest extends TestCase
         $line1 = CommissionLine::create([
             'commission_id' => $commission->id,
             'actor_type' => 'platform',
-            'actor_id' => null,
+            'actor_id' => 0,
             'rate' => 0.10,
             'amount' => 1000,
         ]);
@@ -321,7 +323,7 @@ class PaymentSystemTest extends TestCase
         $this->assertEquals($commission->total_amount, $total);
     }
 
-    /** @test */
+    #[Test]
     public function wallet_balance_cannot_be_negative()
     {
         $wallet = Wallet::factory()->create([
@@ -340,7 +342,7 @@ class PaymentSystemTest extends TestCase
         $wallet->decrement('balance', 2000);
     }
 
-    /** @test */
+    #[Test]
     public function payment_intent_expires_after_timeout()
     {
         $paymentIntent = PaymentIntent::factory()->create([
@@ -355,7 +357,7 @@ class PaymentSystemTest extends TestCase
         $this->assertTrue($isExpired);
     }
 
-    /** @test */
+    #[Test]
     public function refund_reverses_commission()
     {
         $payment = Payment::factory()->create([
@@ -384,7 +386,7 @@ class PaymentSystemTest extends TestCase
         $this->assertEquals(0, $pharmacyWallet->fresh()->balance);
     }
 
-    /** @test */
+    #[Test]
     public function commission_is_only_created_once_per_payment()
     {
         $payment = Payment::factory()->create([

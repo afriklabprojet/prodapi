@@ -16,7 +16,8 @@ use Illuminate\Support\Facades\Storage;
 
 class KycValidationService
 {
-    private ?ImageAnnotatorClient $client = null;
+    /** @var ImageAnnotatorClient|null */
+    private mixed $client = null;
     private bool $enabled = false;
 
     // Seuils de détection de fraude

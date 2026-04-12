@@ -18,12 +18,12 @@ class PharmacyController extends Controller
         $request->validate([
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
-            'radius' => 'nullable|numeric|min:1|max:100',
+            'radius' => 'nullable|numeric|min:1|max:50',
         ]);
 
         $latitude = $request->latitude;
         $longitude = $request->longitude;
-        $radius = $request->radius ?? 25; // Default 25km
+        $radius = $request->radius ?? 10; // Default 10km
 
         $mapPharmacy = function ($pharmacy, $latitude, $longitude) {
             $isOnDuty = $pharmacy->onCalls()
@@ -87,7 +87,7 @@ class PharmacyController extends Controller
             ->map(fn($p) => $mapPharmacy($p, $latitude, $longitude));
 
         // Combiner: d'abord les plus proches, puis celles sans GPS
-        $allPharmacies = $geoPharmacies->values()->merge($noGpsPharmacies->values());
+        $allPharmacies = collect($geoPharmacies->values()->all())->concat($noGpsPharmacies->values());
 
         return response()->json([
             'success' => true,

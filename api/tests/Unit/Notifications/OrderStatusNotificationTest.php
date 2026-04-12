@@ -10,6 +10,7 @@ use App\Notifications\OrderStatusNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class OrderStatusNotificationTest extends TestCase
 {
@@ -40,7 +41,7 @@ class OrderStatusNotificationTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_be_constructed_with_order_and_status()
     {
         $notification = new OrderStatusNotification($this->order, 'confirmed');
@@ -50,7 +51,7 @@ class OrderStatusNotificationTest extends TestCase
         $this->assertEquals('confirmed', $notification->status);
     }
 
-    /** @test */
+    #[Test]
     public function it_accepts_additional_message()
     {
         $notification = new OrderStatusNotification(
@@ -62,7 +63,7 @@ class OrderStatusNotificationTest extends TestCase
         $this->assertEquals('Produit non disponible', $notification->additionalMessage);
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_database_channel()
     {
         $notification = new OrderStatusNotification($this->order, 'confirmed');
@@ -71,7 +72,7 @@ class OrderStatusNotificationTest extends TestCase
         $this->assertContains('database', $channels);
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_mail_channel_when_email_exists()
     {
         $notification = new OrderStatusNotification($this->order, 'confirmed');
@@ -80,7 +81,7 @@ class OrderStatusNotificationTest extends TestCase
         $this->assertContains('mail', $channels);
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_sms_for_important_statuses()
     {
         $importantStatuses = ['confirmed', 'assigned', 'delivered'];
@@ -97,7 +98,7 @@ class OrderStatusNotificationTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_use_sms_for_minor_statuses()
     {
         $minorStatuses = ['preparing', 'ready_for_pickup'];
@@ -114,7 +115,7 @@ class OrderStatusNotificationTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_fcm_channel_when_token_exists()
     {
         $notification = new OrderStatusNotification($this->order, 'confirmed');
@@ -123,7 +124,7 @@ class OrderStatusNotificationTest extends TestCase
         $this->assertContains(\App\Channels\FcmChannel::class, $channels);
     }
 
-    /** @test */
+    #[Test]
     public function to_fcm_returns_correct_structure_for_confirmed()
     {
         $notification = new OrderStatusNotification($this->order, 'confirmed');
@@ -135,7 +136,7 @@ class OrderStatusNotificationTest extends TestCase
         $this->assertStringContainsString('✅', $fcm['title']);
     }
 
-    /** @test */
+    #[Test]
     public function to_fcm_returns_correct_title_for_each_status()
     {
         $statusEmojis = [
@@ -160,7 +161,7 @@ class OrderStatusNotificationTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function to_mail_returns_mail_message()
     {
         $notification = new OrderStatusNotification($this->order, 'confirmed');
@@ -169,7 +170,7 @@ class OrderStatusNotificationTest extends TestCase
         $this->assertInstanceOf(\Illuminate\Notifications\Messages\MailMessage::class, $mail);
     }
 
-    /** @test */
+    #[Test]
     public function to_array_returns_database_data()
     {
         $notification = new OrderStatusNotification($this->order, 'confirmed');
@@ -182,7 +183,7 @@ class OrderStatusNotificationTest extends TestCase
         $this->assertEquals('confirmed', $array['status']);
     }
 
-    /** @test */
+    #[Test]
     public function notification_can_be_sent()
     {
         Notification::fake();
@@ -199,7 +200,7 @@ class OrderStatusNotificationTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function fcm_data_contains_order_id_and_status()
     {
         $notification = new OrderStatusNotification($this->order, 'delivered');

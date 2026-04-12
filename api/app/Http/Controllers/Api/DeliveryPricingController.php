@@ -108,7 +108,7 @@ class DeliveryPricingController extends Controller
 
             if ($pharmacyLat && $pharmacyLng && $deliveryLat && $deliveryLng) {
                 // Essayer d'abord Distance Matrix API (distance route réelle)
-                $mapsService = new GoogleMapsService();
+                $mapsService = app(GoogleMapsService::class);
                 $matrixResult = $mapsService->getDistanceMatrix(
                     (float) $pharmacyLat,
                     (float) $pharmacyLng,

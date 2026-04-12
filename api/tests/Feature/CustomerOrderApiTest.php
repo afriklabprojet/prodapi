@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use PHPUnit\Framework\Attributes\Test;
 
 class CustomerOrderApiTest extends TestCase
 {
@@ -42,7 +43,7 @@ class CustomerOrderApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function customer_can_create_order()
     {
         $response = $this->actingAs($this->customer, 'sanctum')
@@ -86,7 +87,7 @@ class CustomerOrderApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function order_creation_requires_valid_data()
     {
         $response = $this->actingAs($this->customer, 'sanctum')
@@ -100,7 +101,7 @@ class CustomerOrderApiTest extends TestCase
             ->assertJsonValidationErrors(['pharmacy_id', 'delivery_address', 'items']);
     }
 
-    /** @test */
+    #[Test]
     public function order_requires_at_least_one_item()
     {
         $response = $this->actingAs($this->customer, 'sanctum')
@@ -114,7 +115,7 @@ class CustomerOrderApiTest extends TestCase
             ->assertJsonValidationErrors(['items']);
     }
 
-    /** @test */
+    #[Test]
     public function cannot_order_unavailable_product()
     {
         $unavailableProduct = Product::factory()->create([
@@ -141,7 +142,7 @@ class CustomerOrderApiTest extends TestCase
         $response->assertStatus(422);
     }
 
-    /** @test */
+    #[Test]
     public function cannot_order_out_of_stock_product()
     {
         $product = Product::factory()->create([
@@ -169,7 +170,7 @@ class CustomerOrderApiTest extends TestCase
         $response->assertStatus(422);
     }
 
-    /** @test */
+    #[Test]
     public function cannot_order_quantity_exceeding_stock()
     {
         $response = $this->actingAs($this->customer, 'sanctum')
@@ -191,7 +192,7 @@ class CustomerOrderApiTest extends TestCase
         $response->assertStatus(422);
     }
 
-    /** @test */
+    #[Test]
     public function customer_can_view_own_orders()
     {
         $order = Order::factory()->create([
@@ -216,7 +217,7 @@ class CustomerOrderApiTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function customer_cannot_view_other_customer_orders()
     {
         $otherCustomer = User::factory()->create(['role' => 'customer']);
@@ -232,7 +233,7 @@ class CustomerOrderApiTest extends TestCase
             ->assertJsonCount(0, 'data');
     }
 
-    /** @test */
+    #[Test]
     public function customer_can_view_order_details()
     {
         $order = Order::factory()->create([
@@ -264,7 +265,7 @@ class CustomerOrderApiTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function customer_cannot_view_other_customer_order_details()
     {
         $otherCustomer = User::factory()->create(['role' => 'customer']);
@@ -279,7 +280,7 @@ class CustomerOrderApiTest extends TestCase
         $response->assertStatus(404);
     }
 
-    /** @test */
+    #[Test]
     public function customer_can_initiate_payment()
     {
         $order = Order::factory()->create([
@@ -289,35 +290,36 @@ class CustomerOrderApiTest extends TestCase
             'total_amount' => 10000,
         ]);
 
-        // Mock payment gateway
-        $this->mock(\App\Services\PaymentService::class, function ($mock) {
-            $paymentIntent = new \App\Models\PaymentIntent();
-            $paymentIntent->provider_payment_url = 'https://payment-gateway.com/pay/12345';
-            $paymentIntent->provider = 'jeko';
-            $paymentIntent->amount = 10000;
-            $paymentIntent->reference = 'ref_123';
-            $paymentIntent->status = 'PENDING';
+        $this->mock(\App\Services\JekoPaymentService::class, function ($mock) {
+            $payment = new \App\Models\JekoPayment();
+            $payment->reference = 'ref_123';
+            $payment->redirect_url = 'https://payment-gateway.com/pay/12345';
+            $payment->amount_cents = 1000000;
+            $payment->currency = 'XOF';
+            $payment->payment_method = \App\Enums\JekoPaymentMethod::WAVE;
 
-            $mock->shouldReceive('initiatePayment')
+            $mock->shouldReceive('createRedirectPayment')
                 ->once()
-                ->andReturn($paymentIntent);
+                ->andReturn($payment);
         });
 
         $response = $this->actingAs($this->customer, 'sanctum')
             ->postJson("/api/customer/orders/{$order->id}/payment/initiate", [
                 'provider' => 'jeko',
+                'payment_method' => 'wave',
             ]);
 
         $response->assertStatus(200)
             ->assertJsonStructure([
                 'data' => [
                     'payment_url',
-                    'provider',
+                    'payment_method',
+                    'reference',
                 ]
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function customer_can_cancel_pending_order()
     {
         $order = Order::factory()->create([
@@ -339,8 +341,8 @@ class CustomerOrderApiTest extends TestCase
         ]);
     }
 
-    /** @test */
-    public function customer_cannot_cancel_confirmed_order()
+    #[Test]
+    public function customer_can_cancel_confirmed_order_before_preparation()
     {
         $order = Order::factory()->create([
             'customer_id' => $this->customer->id,
@@ -353,10 +355,15 @@ class CustomerOrderApiTest extends TestCase
                 'reason' => 'Too late',
             ]);
 
-        $response->assertStatus(400);
+        $response->assertStatus(200);
+
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'status' => 'cancelled',
+        ]);
     }
 
-    /** @test */
+    #[Test]
     public function customer_cannot_cancel_delivered_order()
     {
         $order = Order::factory()->create([
@@ -370,11 +377,10 @@ class CustomerOrderApiTest extends TestCase
                 'reason' => 'Too late',
             ]);
 
-        // 403 from policy (not authorized to cancel delivered orders)
-        $response->assertStatus(403);
+        $response->assertStatus(400);
     }
 
-    /** @test */
+    #[Test]
     public function unauthenticated_user_cannot_create_order()
     {
         $response = $this->postJson('/api/customer/orders', [
@@ -392,7 +398,7 @@ class CustomerOrderApiTest extends TestCase
         $response->assertStatus(401);
     }
 
-    /** @test */
+    #[Test]
     public function order_total_is_calculated_correctly()
     {
         $product1 = Product::factory()->create([

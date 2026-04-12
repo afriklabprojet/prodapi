@@ -19,8 +19,8 @@ class SmsService
 {
     protected string $provider;
     protected string $sender;
-    protected ?SmsApi $smsApi = null;
-    protected ?TfaApi $tfaApi = null;
+    protected mixed $smsApi = null;
+    protected mixed $tfaApi = null;
     protected InfobipClientFactory $clientFactory;
 
     public function __construct(?InfobipClientFactory $clientFactory = null)
@@ -88,22 +88,51 @@ class SmsService
 
             if (!empty($messages)) {
                 $firstMsg = $messages[0];
-                $status = $firstMsg->getStatus()?->getGroupName() ?? 'UNKNOWN';
-                $messageId = $firstMsg->getMessageId();
+                $statusGroupName = $firstMsg->getStatus()?->getGroupName() ?? 'UNKNOWN';
+                $statusName      = $firstMsg->getStatus()?->getName() ?? 'UNKNOWN';
+                $statusDesc      = $firstMsg->getStatus()?->getDescription() ?? '';
+                $messageId       = $firstMsg->getMessageId();
+
+                // Statuts de rejet immédiats — l'API accepte la requête mais le SMS ne partira pas
+                $rejectedGroups = ['REJECTED', 'UNDELIVERABLE'];
+                $isRejected = in_array($statusGroupName, $rejectedGroups)
+                    || str_starts_with($statusName, 'REJECTED_');
+
+                if ($isRejected) {
+                    Log::error('Infobip SMS rejeté', [
+                        'phone'       => $phone,
+                        'messageId'   => $messageId,
+                        'bulkId'      => $bulkId,
+                        'status'      => $statusName,
+                        'description' => $statusDesc,
+                    ]);
+                    return false;
+                }
 
                 Log::info('SMS envoyé via Infobip SDK', [
-                    'phone' => $phone,
+                    'phone'     => $phone,
                     'messageId' => $messageId,
-                    'bulkId' => $bulkId,
-                    'status' => $status,
+                    'bulkId'    => $bulkId,
+                    'status'    => $statusGroupName,
                 ]);
 
                 if ($messageId) {
                     Cache::put("sms_msg_{$messageId}", [
-                        'phone' => $phone,
-                        'sent_at' => now()->toIso8601String(),
-                        'status' => $status,
+                        'phone'    => $phone,
+                        'sent_at'  => now()->toIso8601String(),
+                        'status'   => $statusGroupName,
                     ], now()->addHours(48));
+
+                    // Verify delivery report after a short delay
+                    // Infobip may accept (PENDING) then reject async (NOT_ENOUGH_CREDITS)
+                    usleep(1500000); // 1.5 seconds
+                    if ($this->isMessageRejected($messageId)) {
+                        Log::error('Infobip SMS rejected after delivery check', [
+                            'phone' => $phone,
+                            'messageId' => $messageId,
+                        ]);
+                        return false;
+                    }
                 }
 
                 return true;
@@ -124,6 +153,44 @@ class SmsService
             Log::error('Exception Infobip SMS SDK', ['phone' => $phone, 'error' => $e->getMessage()]);
             return false;
         }
+    }
+
+    /**
+     * Check delivery report to detect async rejections (e.g. NOT_ENOUGH_CREDITS).
+     * Returns true if message was rejected.
+     */
+    protected function isMessageRejected(string $messageId): bool
+    {
+        try {
+            $baseUrl = config('sms.infobip.base_url');
+            $apiKey = config('sms.infobip.api_key');
+
+            $response = Http::withHeaders([
+                'Authorization' => "App {$apiKey}",
+            ])->get("{$baseUrl}/sms/1/reports", [
+                'messageId' => $messageId,
+                'limit' => 1,
+            ]);
+
+            if ($response->ok()) {
+                $results = $response->json('results', []);
+                if (!empty($results)) {
+                    $statusGroup = $results[0]['status']['groupName'] ?? '';
+                    if (in_array($statusGroup, ['REJECTED', 'UNDELIVERABLE'])) {
+                        Log::warning('Infobip delivery report: rejected', [
+                            'messageId' => $messageId,
+                            'status' => $results[0]['status']['name'] ?? 'unknown',
+                            'description' => $results[0]['status']['description'] ?? '',
+                        ]);
+                        return true;
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to check Infobip delivery report', ['error' => $e->getMessage()]);
+        }
+
+        return false;
     }
 
     public function sendBulk(array $phones, string $message, array $options = []): array
@@ -149,24 +216,49 @@ class SmsService
 
             $bulkId = $smsResponse->getBulkId();
             $responseMessages = $smsResponse->getMessages() ?? [];
-            $sent = count(array_filter($responseMessages, function ($m) {
-                return ($m->getStatus()?->getGroupName() ?? '') === 'PENDING';
-            }));
+
+            $rejectedGroups = ['REJECTED', 'UNDELIVERABLE'];
+            $sent = 0;
+            $rejections = [];
+            foreach ($responseMessages as $m) {
+                $groupName  = $m->getStatus()?->getGroupName() ?? 'UNKNOWN';
+                $statusName = $m->getStatus()?->getName() ?? 'UNKNOWN';
+                $isRejected = in_array($groupName, $rejectedGroups) || str_starts_with($statusName, 'REJECTED_');
+                if ($isRejected) {
+                    $rejections[] = [
+                        'messageId'   => $m->getMessageId(),
+                        'status'      => $statusName,
+                        'description' => $m->getStatus()?->getDescription() ?? '',
+                    ];
+                } else {
+                    $sent++;
+                }
+            }
+
+            if (!empty($rejections)) {
+                Log::error('Infobip bulk SMS — rejets détectés', [
+                    'bulkId'     => $bulkId,
+                    'total'      => count($phones),
+                    'sent'       => $sent,
+                    'rejected'   => count($rejections),
+                    'rejections' => $rejections,
+                ]);
+            }
 
             Log::info('SMS bulk envoyé via Infobip SDK', [
-                'total' => count($phones),
-                'sent' => $sent,
+                'total'  => count($phones),
+                'sent'   => $sent,
                 'bulkId' => $bulkId,
             ]);
 
             return [
-                'success' => true,
-                'bulkId' => $bulkId,
-                'sent' => $sent,
-                'failed' => count($phones) - $sent,
+                'success'  => true,
+                'bulkId'   => $bulkId,
+                'sent'     => $sent,
+                'failed'   => count($phones) - $sent,
                 'messages' => array_map(fn($m) => [
                     'messageId' => $m->getMessageId(),
-                    'status' => $m->getStatus()?->getGroupName(),
+                    'status'    => $m->getStatus()?->getGroupName(),
                 ], $responseMessages),
             ];
 
@@ -755,8 +847,9 @@ class SmsService
         $phone = preg_replace('/[^\d+]/', '', $phone);
         $countryCode = config('sms.default_country_code', '+225');
 
-        if (str_starts_with($phone, '0')) {
-            $phone = $countryCode . substr($phone, 1);
+        // Numéros CI: 10 chiffres commençant par 0 — le 0 fait partie du numéro
+        if (str_starts_with($phone, '0') && strlen($phone) == 10) {
+            $phone = $countryCode . $phone;
         }
 
         if (!str_starts_with($phone, '+')) {

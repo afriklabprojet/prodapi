@@ -283,9 +283,14 @@ class LivenessController extends Controller
     public function diagnostics(Request $request): JsonResponse
     {
         // Sécurité : uniquement en local, ou avec le bon header secret
-        $secret = config('services.google_vision.diagnostic_secret', 'dr-pharma-diag-2024');
-        if (!app()->isLocal() && $request->header('X-Diagnostic-Secret') !== $secret) {
-            return response()->json(['error' => 'Unauthorized'], 403);
+        $secret = config('services.google_vision.diagnostic_secret');
+        if (!app()->isLocal()) {
+            if (empty($secret)) {
+                return response()->json(['error' => 'Diagnostic endpoint not configured'], 503);
+            }
+            if (!hash_equals($secret, (string) $request->header('X-Diagnostic-Secret'))) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
         }
 
         return response()->json([
@@ -297,6 +302,83 @@ class LivenessController extends Controller
                 'grpc_loaded' => extension_loaded('grpc'),
                 'base_path' => base_path(),
                 'os' => PHP_OS,
+            ],
+        ]);
+    }
+
+    /**
+     * Obtenir le score de confiance global d'une session complétée
+     * 
+     * @OA\Get(
+     *     path="/api/liveness/score/{sessionId}",
+     *     summary="Score de confiance d'une session",
+     *     tags={"Liveness"},
+     *     @OA\Parameter(
+     *         name="sessionId",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Score de confiance global",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="score", type="integer"),
+     *             @OA\Property(property="level", type="string"),
+     *             @OA\Property(property="message", type="string")
+     *         )
+     *     )
+     * )
+     */
+    public function score(string $sessionId): JsonResponse
+    {
+        if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $sessionId)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'ID de session invalide',
+            ], 400);
+        }
+        
+        $scoreData = $this->livenessService->calculateGlobalConfidenceScore($sessionId);
+        
+        return response()->json([
+            'success' => true,
+            'data' => $scoreData,
+        ]);
+    }
+
+    /**
+     * Historique des tentatives de l'utilisateur authentifié
+     * 
+     * @OA\Get(
+     *     path="/api/liveness/history",
+     *     summary="Historique des tentatives liveness",
+     *     tags={"Liveness"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Response(
+     *         response=200,
+     *         description="Historique des tentatives"
+     *     )
+     * )
+     */
+    public function history(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Authentification requise',
+            ], 401);
+        }
+        
+        $history = $this->livenessService->getUserAttemptHistory($user->id);
+        
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'attempts' => $history,
+                'total' => count($history),
             ],
         ]);
     }

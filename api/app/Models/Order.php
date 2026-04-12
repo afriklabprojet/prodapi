@@ -35,11 +35,14 @@ class Order extends Model
         'delivery_latitude',
         'delivery_longitude',
         'customer_phone',
+        'promo_code_id',
+        'promo_discount',
         'confirmed_at',
         'paid_at',
         'delivered_at',
         'cancelled_at',
         'cancellation_reason',
+        'payment_reference',
     ];
 
     protected $casts = [
@@ -62,7 +65,7 @@ class Order extends Model
 
         static::creating(function ($order) {
             if (empty($order->delivery_code)) {
-                $order->delivery_code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+                $order->delivery_code = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
             }
         });
     }
@@ -84,11 +87,31 @@ class Order extends Model
     }
 
     /**
+     * Alias for customer relationship (used by DeliveryController)
+     */
+    public function user(): BelongsTo
+    {
+        return $this->customer();
+    }
+
+    /**
      * Articles de la commande
      */
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    /**
+     * Marquer la commande comme payée
+     */
+    public function markAsPaid(string $paymentReference): self
+    {
+        $this->update([
+            'payment_status' => 'paid',
+            'paid_at' => now(),
+        ]);
+        return $this;
     }
 
     /**
@@ -136,11 +159,13 @@ class Order extends Model
      */
     public function scopePaid($query)
     {
-        return $query->where(function ($q) {
-            $q->where('payment_status', 'paid')
-              ->orWhereNotNull('paid_at')
-              ->orWhere('payment_mode', 'cash');
-        });
+        return $query->whereIn('status', [
+            'confirmed',
+            'preparing',
+            'ready_for_pickup',
+            'on_the_way',
+            'delivered',
+        ]);
     }
 
     /**

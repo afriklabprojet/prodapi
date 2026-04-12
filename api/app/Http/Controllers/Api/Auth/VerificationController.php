@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\OtpService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class VerificationController extends Controller
 {
@@ -59,14 +60,22 @@ class VerificationController extends Controller
 
     /**
      * Resend OTP
+     * 
+     * Priority: Firebase Phone Auth (client-side) > Infobip SMS > Email
+     * 
+     * - Default (no force_fallback): returns channel='firebase', the app uses Firebase Phone Auth SDK
+     * - With force_fallback=true: Firebase has failed client-side, server sends via Infobip SMS
+     * - If Infobip SMS fails: automatic fallback to email
      */
     public function resend(Request $request)
     {
         $request->validate([
             'identifier' => 'required|string',
+            'force_fallback' => 'sometimes|boolean',
         ]);
 
         $identifier = $request->identifier;
+        $forceFallback = $request->boolean('force_fallback', false);
         
         // Check if user exists
         $user = User::where('email', $identifier)
@@ -80,17 +89,15 @@ class VerificationController extends Controller
         // Generate 6-digit OTP (compatible with Firebase UX)
         $otp = $this->otpService->generateOtp($identifier, length: 6);
         
-        // Send OTP with email as fallback if identifier is phone
+        // Send OTP with Firebase priority, fallback to Infobip SMS, then email
         $fallbackEmail = filter_var($identifier, FILTER_VALIDATE_EMAIL) ? null : $user->email;
-        $channel = $this->otpService->sendOtp($identifier, $otp, 'verification', $fallbackEmail);
+        $channel = $this->otpService->sendOtp($identifier, $otp, 'verification', $fallbackEmail, $forceFallback);
 
         // Determine message based on channel used
         $message = match($channel) {
+            'firebase' => 'Vérification via Firebase. Utilisez l\'app pour recevoir le code.',
             'email' => 'Code envoyé par email',
             'sms' => 'Code envoyé par SMS',
-            'whatsapp' => 'Code envoyé par WhatsApp',
-            'whatsapp_fallback_sms' => 'WhatsApp indisponible, code envoyé par SMS',
-            'whatsapp_fallback_email' => 'WhatsApp et SMS indisponibles, code envoyé par email à ' . $this->maskEmail($user->email),
             'sms_fallback_email' => 'SMS indisponible, code envoyé par email à ' . $this->maskEmail($user->email),
             default => 'Nouveau code envoyé',
         };
@@ -98,6 +105,7 @@ class VerificationController extends Controller
         return response()->json([
             'message' => $message,
             'channel' => $channel,
+            'force_fallback_available' => $channel === 'firebase',
         ]);
     }
 
@@ -140,7 +148,7 @@ class VerificationController extends Controller
                 }
             }
         } catch (\Exception $e) {
-            \Log::warning('Firebase token verification failed', [
+            Log::warning('Firebase token verification failed', [
                 'error' => $e->getMessage(),
                 'phone' => $phone,
             ]);

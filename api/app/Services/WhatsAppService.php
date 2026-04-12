@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\Log;
 
 class WhatsAppService
 {
-    protected WhatsAppApi $whatsAppApi;
+    protected mixed $whatsAppApi;
     protected InfobipClientFactory $factory;
     protected string $senderNumber;
     protected bool $enabled;
@@ -38,7 +38,9 @@ class WhatsAppService
     public function __construct(InfobipClientFactory $factory)
     {
         $this->factory = $factory;
-        $this->whatsAppApi = $factory->whatsAppApi();
+        if ($factory->isWhatsAppConfigured()) {
+            $this->whatsAppApi = $factory->whatsAppApi();
+        }
         $this->senderNumber = config('whatsapp.sender_number', '');
         $this->enabled = config('whatsapp.enabled', false);
     }
@@ -632,8 +634,8 @@ class WhatsAppService
 
         $countryCode = config('whatsapp.default_country_code', '+225');
 
-        // Local number starting with 0
-        if (str_starts_with($phone, '0')) {
+        // Numéros CI: 10 chiffres commençant par 0 — retirer le 0 et ajouter le code pays
+        if (str_starts_with($phone, '0') && strlen($phone) == 10) {
             $phone = $countryCode . substr($phone, 1);
         }
 

@@ -9,6 +9,7 @@ use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class CourierTest extends TestCase
 {
@@ -30,14 +31,14 @@ class CourierTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_belongs_to_a_user()
     {
         $this->assertInstanceOf(User::class, $this->courier->user);
         $this->assertEquals($this->user->id, $this->courier->user->id);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_many_deliveries()
     {
         Delivery::factory()->count(3)->create([
@@ -47,7 +48,7 @@ class CourierTest extends TestCase
         $this->assertCount(3, $this->courier->deliveries);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_wallet_relationship()
     {
         $wallet = Wallet::factory()->create([
@@ -59,7 +60,7 @@ class CourierTest extends TestCase
         $this->assertEquals($wallet->id, $this->courier->wallet->id);
     }
 
-    /** @test */
+    #[Test]
     public function it_updates_location()
     {
         $this->courier->updateLocation(5.3700, -4.0100);
@@ -70,7 +71,7 @@ class CourierTest extends TestCase
         $this->assertEquals(-4.0100, $this->courier->longitude);
     }
 
-    /** @test */
+    #[Test]
     public function it_tracks_status()
     {
         $this->assertEquals('available', $this->courier->status);
@@ -80,7 +81,7 @@ class CourierTest extends TestCase
         $this->assertEquals('offline', $this->courier->fresh()->status);
     }
 
-    /** @test */
+    #[Test]
     public function it_tracks_is_available()
     {
         $this->courier->update(['status' => 'available']);
@@ -90,7 +91,7 @@ class CourierTest extends TestCase
         $this->assertFalse($this->courier->fresh()->status === 'available');
     }
 
-    /** @test */
+    #[Test]
     public function it_has_fillable_attributes()
     {
         $courier = new Courier();
@@ -101,7 +102,7 @@ class CourierTest extends TestCase
         $this->assertContains('longitude', $courier->getFillable());
     }
 
-    /** @test */
+    #[Test]
     public function it_soft_deletes()
     {
         $this->courier->delete();
@@ -111,7 +112,7 @@ class CourierTest extends TestCase
         $this->assertNotNull(Courier::withTrashed()->find($this->courier->id));
     }
 
-    /** @test */
+    #[Test]
     public function scope_available_returns_available_couriers()
     {
         Courier::factory()->create([
@@ -125,7 +126,7 @@ class CourierTest extends TestCase
         $this->assertEquals('available', $available->first()->status);
     }
 
-    /** @test */
+    #[Test]
     public function it_stores_vehicle_info()
     {
         $courier = Courier::factory()->create([
@@ -138,7 +139,7 @@ class CourierTest extends TestCase
         $this->assertEquals('ABC-1234', $courier->vehicle_number);
     }
 
-    /** @test */
+    #[Test]
     public function it_counts_completed_deliveries()
     {
         Delivery::factory()->count(5)->create([
@@ -158,7 +159,7 @@ class CourierTest extends TestCase
         $this->assertEquals(5, $completed);
     }
 
-    /** @test */
+    #[Test]
     public function it_gets_active_deliveries()
     {
         Delivery::factory()->create([
@@ -183,7 +184,7 @@ class CourierTest extends TestCase
         $this->assertCount(2, $active);
     }
 
-    /** @test */
+    #[Test]
     public function it_casts_coordinates_correctly()
     {
         $this->assertIsFloat($this->courier->latitude);

@@ -684,6 +684,9 @@
                     <h4>Support</h4>
                     <ul>
                         <li><a href="/aide">Centre d'aide</a></li>
+                        <li><a href="/guide">Guide d'utilisation</a></li>
+                        <li><a href="/faq">FAQ</a></li>
+                        <li><a href="/tutoriels">Tutoriels vidéo</a></li>
                         <li><a href="/contact">Contact</a></li>
                         <li><a href="/confidentialite">Confidentialité</a></li>
                         <li><a href="/cgu">CGU</a></li>

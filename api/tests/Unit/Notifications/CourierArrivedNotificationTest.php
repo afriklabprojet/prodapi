@@ -14,6 +14,7 @@ use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class CourierArrivedNotificationTest extends TestCase
 {
@@ -67,7 +68,7 @@ class CourierArrivedNotificationTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_be_constructed_with_all_parameters()
     {
         $notification = new CourierArrivedNotification(
@@ -86,7 +87,7 @@ class CourierArrivedNotificationTest extends TestCase
         $this->assertEquals('customer', $notification->recipientType);
     }
 
-    /** @test */
+    #[Test]
     public function via_returns_database_and_fcm_channels()
     {
         $notification = new CourierArrivedNotification($this->delivery, 30, 10, 100, 'customer');
@@ -96,7 +97,7 @@ class CourierArrivedNotificationTest extends TestCase
         $this->assertContains(FcmChannel::class, $channels);
     }
 
-    /** @test */
+    #[Test]
     public function to_array_returns_correct_structure_for_customer()
     {
         $notification = new CourierArrivedNotification($this->delivery, 30, 10, 100, 'customer');
@@ -113,7 +114,7 @@ class CourierArrivedNotificationTest extends TestCase
         $this->assertEquals('customer', $array['recipient_type']);
     }
 
-    /** @test */
+    #[Test]
     public function customer_message_contains_warning_about_fees()
     {
         $notification = new CourierArrivedNotification($this->delivery, 30, 10, 100, 'customer');
@@ -125,7 +126,7 @@ class CourierArrivedNotificationTest extends TestCase
         $this->assertStringContainsString('100 FCFA/min', $array['message']);
     }
 
-    /** @test */
+    #[Test]
     public function courier_message_contains_waiting_info()
     {
         $notification = new CourierArrivedNotification($this->delivery, 30, 10, 100, 'courier');
@@ -135,7 +136,7 @@ class CourierArrivedNotificationTest extends TestCase
         $this->assertStringContainsString('30 minutes', $array['message']);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_message_contains_relevant_info()
     {
         $notification = new CourierArrivedNotification($this->delivery, 30, 10, 100, 'pharmacy');
@@ -145,7 +146,7 @@ class CourierArrivedNotificationTest extends TestCase
         $this->assertStringContainsString('30 minutes', $array['message']);
     }
 
-    /** @test */
+    #[Test]
     public function to_fcm_returns_correct_structure()
     {
         $notification = new CourierArrivedNotification($this->delivery, 30, 10, 100, 'customer');
@@ -156,7 +157,7 @@ class CourierArrivedNotificationTest extends TestCase
         $this->assertArrayHasKey('data', $fcm);
     }
 
-    /** @test */
+    #[Test]
     public function to_fcm_data_contains_countdown_info()
     {
         $notification = new CourierArrivedNotification($this->delivery, 30, 10, 100, 'customer');
@@ -171,7 +172,7 @@ class CourierArrivedNotificationTest extends TestCase
         $this->assertEquals('1800', $fcm['data']['countdown_seconds']); // 30 * 60
     }
 
-    /** @test */
+    #[Test]
     public function notification_can_be_sent_to_customer()
     {
         Notification::fake();
@@ -181,7 +182,7 @@ class CourierArrivedNotificationTest extends TestCase
         Notification::assertSentTo($this->customerUser, CourierArrivedNotification::class);
     }
 
-    /** @test */
+    #[Test]
     public function notification_can_be_sent_to_courier()
     {
         Notification::fake();
@@ -191,7 +192,7 @@ class CourierArrivedNotificationTest extends TestCase
         Notification::assertSentTo($this->courierUser, CourierArrivedNotification::class);
     }
 
-    /** @test */
+    #[Test]
     public function notification_can_be_sent_to_pharmacy()
     {
         Notification::fake();
@@ -201,7 +202,7 @@ class CourierArrivedNotificationTest extends TestCase
         Notification::assertSentTo($this->pharmacyUser, CourierArrivedNotification::class);
     }
 
-    /** @test */
+    #[Test]
     public function default_recipient_type_returns_generic_message()
     {
         $notification = new CourierArrivedNotification($this->delivery, 30, 10, 100, 'unknown');

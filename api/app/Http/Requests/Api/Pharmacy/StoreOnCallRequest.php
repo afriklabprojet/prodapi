@@ -16,7 +16,7 @@ class StoreOnCallRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'start_at' => ['required', 'date'],
+            'start_at' => ['required', 'date', 'after:now'],
             'end_at'   => ['required', 'date', 'after:start_at'],
             'type'     => ['required', 'in:night,weekend,holiday,emergency'],
         ];
@@ -27,6 +27,7 @@ class StoreOnCallRequest extends FormRequest
         return [
             'start_at.required' => 'La date de début est obligatoire.',
             'start_at.date'     => 'La date de début n\'est pas valide.',
+            'start_at.after'    => 'La date de début doit être dans le futur.',
             'end_at.required'   => 'La date de fin est obligatoire.',
             'end_at.date'       => 'La date de fin n\'est pas valide.',
             'end_at.after'      => 'La date de fin doit être après la date de début.',

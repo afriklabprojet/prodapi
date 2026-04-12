@@ -400,7 +400,7 @@ class SmsWebhookController extends Controller
                 . '📞 Appelez: +225 07 00 00 00 00\n'
                 . '💬 WhatsApp: +225 07 00 00 00 00\n'
                 . '📧 Email: support@drlpharma.com\n'
-                . '🌐 Site: https://drlpharma.com/aide'
+                . '🌐 Site: https://drlpharma.pro/aide'
             );
         } catch (\Exception $e) {
             Log::warning('Failed to send help SMS', ['phone' => $phone, 'error' => $e->getMessage()]);
