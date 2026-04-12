@@ -8,6 +8,7 @@ use App\Filament\Widgets\CourierShiftsWidget;
 use App\Filament\Widgets\AvailableCouriersWidget;
 use App\Filament\Widgets\LiveDeliveryMapWidget;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\Auth;
 
 class LiveDispatchDashboard extends Page
 {
@@ -27,7 +28,10 @@ class LiveDispatchDashboard extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        return $user?->isAdmin() ?? false;
     }
     
     protected function getHeaderWidgets(): array
