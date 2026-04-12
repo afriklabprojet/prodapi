@@ -142,10 +142,10 @@ class DeliveryTrackingService
                 if (!$position) {
                     // Fallback sur la position du livreur
                     $courier = $delivery->courier;
-                    if ($courier && $courier->last_latitude && $courier->last_longitude) {
+                    if ($courier && $courier->latitude && $courier->longitude) {
                         $position = [
-                            'latitude' => $courier->last_latitude,
-                            'longitude' => $courier->last_longitude,
+                            'latitude' => $courier->latitude,
+                            'longitude' => $courier->longitude,
                             'speed' => null,
                             'heading' => null,
                             'accuracy' => null,

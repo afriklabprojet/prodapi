@@ -25,8 +25,8 @@ class LiveDeliveryMapWidget extends Widget
     public function getAvailableCouriers(): array
     {
         return Courier::available()
-            ->whereNotNull('last_latitude')
-            ->whereNotNull('last_longitude')
+            ->whereNotNull('latitude')
+            ->whereNotNull('longitude')
             ->whereNotNull('last_location_update')
             ->where('last_location_update', '>=', now()->subMinutes(15))
             ->with('user')
@@ -34,8 +34,8 @@ class LiveDeliveryMapWidget extends Widget
             ->map(fn ($courier) => [
                 'id' => $courier->id,
                 'name' => $courier->user?->name ?? 'N/A',
-                'latitude' => $courier->last_latitude,
-                'longitude' => $courier->last_longitude,
+                'latitude' => $courier->latitude,
+                'longitude' => $courier->longitude,
                 'is_stale' => $courier->last_location_update->diffInMinutes(now()) > 5,
                 'updated_at' => $courier->last_location_update->diffForHumans(),
             ])
