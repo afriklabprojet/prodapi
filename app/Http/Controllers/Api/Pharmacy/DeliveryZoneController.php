@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Pharmacy;
 
 use App\Http\Controllers\Controller;
 use App\Models\DeliveryZone;
+use App\Rules\ValidGeoJsonPolygon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -20,7 +21,7 @@ class DeliveryZoneController extends Controller
      */
     public function show(Request $request)
     {
-        $pharmacy = $request->user()->pharmacy;
+        $pharmacy = $request->user()->pharmacies()->first();
 
         if (!$pharmacy) {
             return response()->json([
@@ -59,7 +60,7 @@ class DeliveryZoneController extends Controller
      */
     public function store(Request $request)
     {
-        $pharmacy = $request->user()->pharmacy;
+        $pharmacy = $request->user()->pharmacies()->first();
 
         if (!$pharmacy) {
             return response()->json([
@@ -70,19 +71,22 @@ class DeliveryZoneController extends Controller
 
         $validated = $request->validate([
             'name' => 'nullable|string|max:100',
-            'polygon' => 'required|array|min:3',
+            'polygon' => ['required', 'array', 'min:3', new ValidGeoJsonPolygon(minPoints: 3, maxPoints: 500)],
             'polygon.*.lat' => 'required|numeric|between:-90,90',
             'polygon.*.lng' => 'required|numeric|between:-180,180',
             'radius_km' => 'nullable|numeric|min:0.5|max:50',
             'is_active' => 'nullable|boolean',
         ]);
 
+        // Ensure polygon is closed (first point == last point)
+        $polygon = ValidGeoJsonPolygon::ensureClosed($validated['polygon']);
+
         try {
             $zone = DeliveryZone::updateOrCreate(
                 ['pharmacy_id' => $pharmacy->id],
                 [
                     'name' => $validated['name'] ?? 'Zone de livraison',
-                    'polygon' => $validated['polygon'],
+                    'polygon' => $polygon,
                     'radius_km' => $validated['radius_km'] ?? null,
                     'is_active' => $validated['is_active'] ?? true,
                 ]
@@ -119,7 +123,7 @@ class DeliveryZoneController extends Controller
      */
     public function destroy(Request $request)
     {
-        $pharmacy = $request->user()->pharmacy;
+        $pharmacy = $request->user()->pharmacies()->first();
 
         if (!$pharmacy) {
             return response()->json([

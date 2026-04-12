@@ -568,12 +568,20 @@ class WalletService
             ->get()
             ->keyBy('category');
 
+        // Gains du jour (livraisons créditées aujourd'hui)
+        $todayEarnings = (float) $wallet->transactions()
+            ->where('category', 'delivery_earning')
+            ->where('type', 'CREDIT')
+            ->whereDate('created_at', now()->toDateString())
+            ->sum('amount');
+
         return [
             'total_topups' => (float) ($stats->get('topup')->total_credits ?? 0),
             'total_delivery_earnings' => (float) ($stats->get('delivery_earning')->total_credits ?? 0),
             'total_commissions' => (float) ($stats->get('commission')->total_debits ?? 0),
             'total_withdrawals' => (float) ($stats->get('withdrawal')->total_debits ?? 0),
             'deliveries_count' => (int) ($stats->get('commission')->count ?? 0),
+            'today_earnings' => $todayEarnings,
         ];
     }
 }

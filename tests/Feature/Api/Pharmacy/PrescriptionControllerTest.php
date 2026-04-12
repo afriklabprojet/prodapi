@@ -8,6 +8,7 @@ use App\Models\Prescription;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class PrescriptionControllerTest extends TestCase
 {
@@ -35,7 +36,7 @@ class PrescriptionControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_list_prescriptions()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -54,7 +55,7 @@ class PrescriptionControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_view_prescription_details()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -71,7 +72,7 @@ class PrescriptionControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function returns_404_for_non_existent_prescription()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -82,7 +83,7 @@ class PrescriptionControllerTest extends TestCase
             ->assertJsonPath('message', 'Prescription not found');
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_validate_prescription()
     {
         Notification::fake();
@@ -103,7 +104,7 @@ class PrescriptionControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_reject_prescription()
     {
         Notification::fake();
@@ -123,7 +124,7 @@ class PrescriptionControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_quote_prescription()
     {
         Notification::fake();
@@ -145,7 +146,7 @@ class PrescriptionControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function status_update_validates_required_fields()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -155,7 +156,7 @@ class PrescriptionControllerTest extends TestCase
             ->assertJsonValidationErrors(['status']);
     }
 
-    /** @test */
+    #[Test]
     public function status_update_validates_status_values()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -167,7 +168,7 @@ class PrescriptionControllerTest extends TestCase
             ->assertJsonValidationErrors(['status']);
     }
 
-    /** @test */
+    #[Test]
     public function status_update_validates_quote_amount()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -180,7 +181,7 @@ class PrescriptionControllerTest extends TestCase
             ->assertJsonValidationErrors(['quote_amount']);
     }
 
-    /** @test */
+    #[Test]
     public function validation_sets_validated_at_timestamp()
     {
         Notification::fake();
@@ -194,7 +195,7 @@ class PrescriptionControllerTest extends TestCase
         $this->assertNotNull($this->prescription->validated_at);
     }
 
-    /** @test */
+    #[Test]
     public function validation_sets_validated_by_user()
     {
         Notification::fake();
@@ -208,7 +209,7 @@ class PrescriptionControllerTest extends TestCase
         $this->assertEquals($this->user->id, $this->prescription->validated_by);
     }
 
-    /** @test */
+    #[Test]
     public function customer_is_notified_on_status_change()
     {
         Notification::fake();
@@ -224,7 +225,7 @@ class PrescriptionControllerTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function unauthenticated_user_cannot_access_prescriptions()
     {
         $response = $this->getJson('/api/pharmacy/prescriptions');

@@ -13,6 +13,7 @@ use App\Channels\FcmChannel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class DeliveryTimeoutCancelledNotificationTest extends TestCase
 {
@@ -64,7 +65,7 @@ class DeliveryTimeoutCancelledNotificationTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_be_constructed_with_all_parameters()
     {
         $notification = new DeliveryTimeoutCancelledNotification(
@@ -81,7 +82,7 @@ class DeliveryTimeoutCancelledNotificationTest extends TestCase
         $this->assertEquals('customer', $notification->recipientType);
     }
 
-    /** @test */
+    #[Test]
     public function via_returns_database_and_fcm_channels()
     {
         $notification = new DeliveryTimeoutCancelledNotification($this->delivery, 25, 1500, 'customer');
@@ -91,7 +92,7 @@ class DeliveryTimeoutCancelledNotificationTest extends TestCase
         $this->assertContains(FcmChannel::class, $channels);
     }
 
-    /** @test */
+    #[Test]
     public function customer_receives_correct_message()
     {
         $notification = new DeliveryTimeoutCancelledNotification($this->delivery, 25, 1500, 'customer');
@@ -102,7 +103,7 @@ class DeliveryTimeoutCancelledNotificationTest extends TestCase
         $this->assertStringContainsString('1500 FCFA', $array['message']);
     }
 
-    /** @test */
+    #[Test]
     public function courier_receives_correct_message()
     {
         $notification = new DeliveryTimeoutCancelledNotification($this->delivery, 25, 1500, 'courier');
@@ -113,7 +114,7 @@ class DeliveryTimeoutCancelledNotificationTest extends TestCase
         $this->assertStringContainsString('nouvelles livraisons', $array['message']);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_receives_correct_message()
     {
         $notification = new DeliveryTimeoutCancelledNotification($this->delivery, 25, 1500, 'pharmacy');
@@ -124,7 +125,7 @@ class DeliveryTimeoutCancelledNotificationTest extends TestCase
         $this->assertStringContainsString('25 minutes', $array['message']);
     }
 
-    /** @test */
+    #[Test]
     public function default_recipient_returns_generic_message()
     {
         $notification = new DeliveryTimeoutCancelledNotification($this->delivery, 25, 1500, 'unknown');
@@ -134,7 +135,7 @@ class DeliveryTimeoutCancelledNotificationTest extends TestCase
         $this->assertEquals('Livraison annulée pour timeout', $array['message']);
     }
 
-    /** @test */
+    #[Test]
     public function to_array_contains_required_data()
     {
         $notification = new DeliveryTimeoutCancelledNotification($this->delivery, 25, 1500, 'customer');
@@ -147,7 +148,7 @@ class DeliveryTimeoutCancelledNotificationTest extends TestCase
         $this->assertEquals(1500, $array['waiting_fee']);
     }
 
-    /** @test */
+    #[Test]
     public function to_fcm_returns_correct_structure()
     {
         $notification = new DeliveryTimeoutCancelledNotification($this->delivery, 25, 1500, 'customer');
@@ -158,7 +159,7 @@ class DeliveryTimeoutCancelledNotificationTest extends TestCase
         $this->assertArrayHasKey('data', $fcm);
     }
 
-    /** @test */
+    #[Test]
     public function to_fcm_data_contains_delivery_info()
     {
         $notification = new DeliveryTimeoutCancelledNotification($this->delivery, 25, 1500, 'customer');
@@ -171,7 +172,7 @@ class DeliveryTimeoutCancelledNotificationTest extends TestCase
         $this->assertEquals('1500', $fcm['data']['waiting_fee']);
     }
 
-    /** @test */
+    #[Test]
     public function notification_can_be_sent_to_customer()
     {
         Notification::fake();
@@ -181,7 +182,7 @@ class DeliveryTimeoutCancelledNotificationTest extends TestCase
         Notification::assertSentTo($this->customerUser, DeliveryTimeoutCancelledNotification::class);
     }
 
-    /** @test */
+    #[Test]
     public function notification_can_be_sent_to_courier()
     {
         Notification::fake();
@@ -191,7 +192,7 @@ class DeliveryTimeoutCancelledNotificationTest extends TestCase
         Notification::assertSentTo($this->courierUser, DeliveryTimeoutCancelledNotification::class);
     }
 
-    /** @test */
+    #[Test]
     public function notification_can_be_sent_to_pharmacy()
     {
         Notification::fake();

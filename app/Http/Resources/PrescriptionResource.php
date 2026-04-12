@@ -43,6 +43,36 @@ class PrescriptionResource extends JsonResource
                     'phone' => $this->customer->phone,
                 ];
             }),
+
+            // OCR Analysis fields
+            'analysis_status'        => $this->analysis_status,
+            'analysis_error'         => $this->analysis_error,
+            'analyzed_at'            => $this->analyzed_at?->toIso8601String() ?? $this->analyzed_at,
+            'ocr_confidence'         => $this->ocr_confidence !== null ? (float) $this->ocr_confidence : null,
+            'ocr_raw_text'           => $this->ocr_raw_text,
+            'extracted_medications'  => $this->extracted_medications,
+            'matched_products'       => $this->matched_products,
+            'unmatched_medications'  => $this->unmatched_medications,
+
+            // Dispensing / anti-reuse fields
+            'fulfillment_status'    => $this->fulfillment_status ?? 'none',
+            'dispensing_count'      => (int) ($this->dispensing_count ?? 0),
+            'first_dispensed_at'    => $this->first_dispensed_at?->toIso8601String(),
+            'image_hash'            => $this->image_hash,
+            'dispensings'           => $this->whenLoaded('dispensings', function () {
+                return $this->dispensings->map(function ($d) {
+                    return [
+                        'id' => $d->id,
+                        'medication_name' => $d->medication_name,
+                        'product_id' => $d->product_id,
+                        'quantity_prescribed' => (int) $d->quantity_prescribed,
+                        'quantity_dispensed' => (int) $d->quantity_dispensed,
+                        'dispensed_at' => $d->dispensed_at?->toIso8601String(),
+                        'dispensed_by' => $d->dispensedBy?->name ?? 'Inconnu',
+                        'pharmacy_id' => (int) $d->pharmacy_id,
+                    ];
+                });
+            }),
         ];
     }
 }

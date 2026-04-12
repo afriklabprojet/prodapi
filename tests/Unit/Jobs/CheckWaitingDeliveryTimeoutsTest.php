@@ -15,6 +15,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class CheckWaitingDeliveryTimeoutsTest extends TestCase
 {
@@ -63,7 +64,7 @@ class CheckWaitingDeliveryTimeoutsTest extends TestCase
         Setting::set('waiting_free_minutes', 2);
     }
 
-    /** @test */
+    #[Test]
     public function job_can_be_queued()
     {
         Queue::fake();
@@ -73,7 +74,7 @@ class CheckWaitingDeliveryTimeoutsTest extends TestCase
         Queue::assertPushed(CheckWaitingDeliveryTimeouts::class);
     }
 
-    /** @test */
+    #[Test]
     public function it_cancels_deliveries_that_exceeded_timeout()
     {
         // Set waiting started 15 minutes ago (exceeds 10 min timeout)
@@ -90,7 +91,7 @@ class CheckWaitingDeliveryTimeoutsTest extends TestCase
         $this->assertNotNull($this->delivery->auto_cancelled_at);
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_cancel_deliveries_within_timeout()
     {
         // Set waiting started 5 minutes ago (within 10 min timeout)
@@ -107,7 +108,7 @@ class CheckWaitingDeliveryTimeoutsTest extends TestCase
         $this->assertNull($this->delivery->auto_cancelled_at);
     }
 
-    /** @test */
+    #[Test]
     public function it_calculates_waiting_fee_correctly()
     {
         // Freeze time to avoid timing issues (use startOfMinute to avoid microsecond drift)
@@ -130,7 +131,7 @@ class CheckWaitingDeliveryTimeoutsTest extends TestCase
         Carbon::setTestNow(); // Reset
     }
 
-    /** @test */
+    #[Test]
     public function it_respects_free_minutes_in_fee_calculation()
     {
         Setting::set('waiting_free_minutes', 5);
@@ -155,7 +156,7 @@ class CheckWaitingDeliveryTimeoutsTest extends TestCase
         Carbon::setTestNow(); // Reset
     }
 
-    /** @test */
+    #[Test]
     public function it_updates_order_status_when_cancelled()
     {
         $this->delivery->update([
@@ -170,7 +171,7 @@ class CheckWaitingDeliveryTimeoutsTest extends TestCase
         $this->assertEquals('cancelled', $this->order->status);
     }
 
-    /** @test */
+    #[Test]
     public function it_skips_deliveries_without_waiting_started()
     {
         // No waiting_started_at set
@@ -186,7 +187,7 @@ class CheckWaitingDeliveryTimeoutsTest extends TestCase
         $this->assertEquals('in_transit', $this->delivery->status);
     }
 
-    /** @test */
+    #[Test]
     public function it_skips_already_cancelled_deliveries()
     {
         $this->delivery->update([
@@ -203,7 +204,7 @@ class CheckWaitingDeliveryTimeoutsTest extends TestCase
         $this->assertEquals('in_transit', $this->delivery->status);
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_configurable_timeout_setting()
     {
         Setting::set('waiting_timeout_minutes', 20);
@@ -222,7 +223,7 @@ class CheckWaitingDeliveryTimeoutsTest extends TestCase
         $this->assertEquals('in_transit', $this->delivery->status);
     }
 
-    /** @test */
+    #[Test]
     public function it_sets_cancellation_reason()
     {
         $this->delivery->update([
@@ -238,7 +239,7 @@ class CheckWaitingDeliveryTimeoutsTest extends TestCase
         $this->assertStringContainsString('non disponible', $this->delivery->cancellation_reason);
     }
 
-    /** @test */
+    #[Test]
     public function it_only_processes_in_transit_deliveries()
     {
         $this->delivery->update([

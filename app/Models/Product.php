@@ -23,6 +23,7 @@ class Product extends Model
         'brand',
         'price',
         'discount_price',
+        'promotion_end_date',
         'stock_quantity',
         'low_stock_threshold',
         'sku',
@@ -50,6 +51,7 @@ class Product extends Model
     protected $casts = [
         'price' => 'float',
         'discount_price' => 'float',
+        'promotion_end_date' => 'date',
         'requires_prescription' => 'boolean',
         'is_available' => 'boolean',
         'is_featured' => 'boolean',
@@ -65,6 +67,7 @@ class Product extends Model
         'is_low_stock',
         'is_out_of_stock',
         'is_expired',
+        'category_name',
     ];
 
     /**
@@ -150,6 +153,14 @@ class Product extends Model
     public function getFinalPriceAttribute(): float
     {
         return $this->discount_price ?? $this->price;
+    }
+
+    /**
+     * Get the current price (alias for final_price).
+     */
+    public function getCurrentPrice(): float
+    {
+        return $this->final_price;
     }
 
     /**

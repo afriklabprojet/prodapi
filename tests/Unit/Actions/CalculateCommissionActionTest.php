@@ -15,6 +15,7 @@ use App\Models\Wallet;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class CalculateCommissionActionTest extends TestCase
 {
@@ -64,7 +65,7 @@ class CalculateCommissionActionTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_creates_commission_for_order()
     {
         $commission = $this->action->execute($this->order);
@@ -74,7 +75,7 @@ class CalculateCommissionActionTest extends TestCase
         $this->assertEquals(10000, $commission->total_amount);
     }
 
-    /** @test */
+    #[Test]
     public function it_creates_commission_lines_for_platform_and_pharmacy()
     {
         $commission = $this->action->execute($this->order);
@@ -87,7 +88,7 @@ class CalculateCommissionActionTest extends TestCase
         $this->assertContains('App\Models\Pharmacy', $actorTypes);
     }
 
-    /** @test */
+    #[Test]
     public function it_calculates_platform_commission_correctly()
     {
         \App\Models\Setting::set('service_fee_percentage', 10);
@@ -99,7 +100,7 @@ class CalculateCommissionActionTest extends TestCase
         $this->assertEquals(1000, $platformLine->amount); // 10% of 10000
     }
 
-    /** @test */
+    #[Test]
     public function it_calculates_pharmacy_commission_correctly()
     {
         $commission = $this->action->execute($this->order);
@@ -110,7 +111,7 @@ class CalculateCommissionActionTest extends TestCase
         $this->assertEquals($this->pharmacy->id, $pharmacyLine->actor_id);
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_create_courier_commission_line()
     {
         $commission = $this->action->execute($this->order);
@@ -119,7 +120,7 @@ class CalculateCommissionActionTest extends TestCase
         $this->assertNull($courierLine);
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_duplicate_commission_if_already_exists()
     {
         $firstCommission = $this->action->execute($this->order);
@@ -129,7 +130,7 @@ class CalculateCommissionActionTest extends TestCase
         $this->assertEquals(1, Commission::where('order_id', $this->order->id)->count());
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_full_subtotal_for_pharmacy()
     {
         $this->order = $this->order->fresh();
@@ -141,7 +142,7 @@ class CalculateCommissionActionTest extends TestCase
         $this->assertEquals(10000, $pharmacyLine->amount);
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_default_service_fee_when_not_configured()
     {
         $this->order = $this->order->fresh();
@@ -153,7 +154,7 @@ class CalculateCommissionActionTest extends TestCase
         $this->assertEquals(0.02, $platformLine->rate);
     }
 
-    /** @test */
+    #[Test]
     public function it_sets_calculated_at_timestamp()
     {
         $commission = $this->action->execute($this->order);
@@ -161,7 +162,7 @@ class CalculateCommissionActionTest extends TestCase
         $this->assertNotNull($commission->calculated_at);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_order_without_delivery()
     {
         $this->delivery->delete();
@@ -174,7 +175,7 @@ class CalculateCommissionActionTest extends TestCase
         $this->assertCount(2, $commission->lines);
     }
 
-    /** @test */
+    #[Test]
     public function it_runs_in_transaction()
     {
         // Verify atomicity - if something fails, nothing should be saved

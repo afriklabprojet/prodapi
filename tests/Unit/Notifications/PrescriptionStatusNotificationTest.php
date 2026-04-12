@@ -11,6 +11,7 @@ use App\Channels\FcmChannel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class PrescriptionStatusNotificationTest extends TestCase
 {
@@ -38,7 +39,7 @@ class PrescriptionStatusNotificationTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_be_constructed_with_prescription_and_status()
     {
         $notification = new PrescriptionStatusNotification($this->prescription, 'quoted');
@@ -46,7 +47,7 @@ class PrescriptionStatusNotificationTest extends TestCase
         $this->assertInstanceOf(PrescriptionStatusNotification::class, $notification);
     }
 
-    /** @test */
+    #[Test]
     public function via_includes_database_channel()
     {
         $notification = new PrescriptionStatusNotification($this->prescription, 'quoted');
@@ -55,7 +56,7 @@ class PrescriptionStatusNotificationTest extends TestCase
         $this->assertContains('database', $channels);
     }
 
-    /** @test */
+    #[Test]
     public function via_includes_fcm_when_user_has_token()
     {
         $notification = new PrescriptionStatusNotification($this->prescription, 'quoted');
@@ -64,7 +65,7 @@ class PrescriptionStatusNotificationTest extends TestCase
         $this->assertContains(FcmChannel::class, $channels);
     }
 
-    /** @test */
+    #[Test]
     public function via_excludes_fcm_when_user_has_no_token()
     {
         $userWithoutToken = User::factory()->create(['fcm_token' => null]);
@@ -75,7 +76,7 @@ class PrescriptionStatusNotificationTest extends TestCase
         $this->assertNotContains(FcmChannel::class, $channels);
     }
 
-    /** @test */
+    #[Test]
     public function to_array_returns_correct_structure()
     {
         $notification = new PrescriptionStatusNotification($this->prescription, 'quoted');
@@ -88,7 +89,7 @@ class PrescriptionStatusNotificationTest extends TestCase
         $this->assertEquals('prescription_status', $array['type']);
     }
 
-    /** @test */
+    #[Test]
     public function quoted_status_returns_correct_message()
     {
         $notification = new PrescriptionStatusNotification($this->prescription, 'quoted');
@@ -97,7 +98,7 @@ class PrescriptionStatusNotificationTest extends TestCase
         $this->assertStringContainsString('devis', $array['body']);
     }
 
-    /** @test */
+    #[Test]
     public function validated_status_returns_correct_message()
     {
         $notification = new PrescriptionStatusNotification($this->prescription, 'validated');
@@ -106,7 +107,7 @@ class PrescriptionStatusNotificationTest extends TestCase
         $this->assertStringContainsString('validée', $array['body']);
     }
 
-    /** @test */
+    #[Test]
     public function rejected_status_returns_correct_message()
     {
         $notification = new PrescriptionStatusNotification($this->prescription, 'rejected');
@@ -115,7 +116,7 @@ class PrescriptionStatusNotificationTest extends TestCase
         $this->assertStringContainsString('refusée', $array['body']);
     }
 
-    /** @test */
+    #[Test]
     public function unknown_status_returns_generic_message()
     {
         $notification = new PrescriptionStatusNotification($this->prescription, 'unknown_status');
@@ -124,7 +125,7 @@ class PrescriptionStatusNotificationTest extends TestCase
         $this->assertStringContainsString('unknown_status', $array['body']);
     }
 
-    /** @test */
+    #[Test]
     public function to_fcm_returns_correct_structure()
     {
         $notification = new PrescriptionStatusNotification($this->prescription, 'quoted');
@@ -136,7 +137,7 @@ class PrescriptionStatusNotificationTest extends TestCase
         $this->assertEquals('Mise à jour Ordonnance', $fcm['title']);
     }
 
-    /** @test */
+    #[Test]
     public function to_fcm_data_contains_prescription_info()
     {
         $notification = new PrescriptionStatusNotification($this->prescription, 'validated');
@@ -147,7 +148,7 @@ class PrescriptionStatusNotificationTest extends TestCase
         $this->assertEquals('validated', $fcm['data']['status']);
     }
 
-    /** @test */
+    #[Test]
     public function notification_can_be_sent()
     {
         Notification::fake();
@@ -157,7 +158,7 @@ class PrescriptionStatusNotificationTest extends TestCase
         Notification::assertSentTo($this->customerUser, PrescriptionStatusNotification::class);
     }
 
-    /** @test */
+    #[Test]
     public function notification_can_be_sent_for_different_statuses()
     {
         Notification::fake();

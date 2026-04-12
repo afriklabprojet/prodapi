@@ -11,6 +11,7 @@ use Kreait\Firebase\Contract\Messaging;
 use Kreait\Firebase\Messaging\CloudMessage;
 use Mockery;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class FcmChannelTest extends TestCase
 {
@@ -36,7 +37,7 @@ class FcmChannelTest extends TestCase
         parent::tearDown();
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_send_if_notification_has_no_toFcm_method()
     {
         $user = User::factory()->create(['fcm_token' => 'test_token']);
@@ -47,7 +48,7 @@ class FcmChannelTest extends TestCase
         $this->channel->send($user, $notification);
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_send_if_user_has_no_fcm_token()
     {
         $user = User::factory()->create(['fcm_token' => null]);
@@ -58,7 +59,7 @@ class FcmChannelTest extends TestCase
         $this->channel->send($user, $notification);
     }
 
-    /** @test */
+    #[Test]
     public function it_sends_notification_with_correct_data()
     {
         $user = User::factory()->create(['fcm_token' => 'valid_token']);
@@ -73,7 +74,7 @@ class FcmChannelTest extends TestCase
         $this->channel->send($user, $notification);
     }
 
-    /** @test */
+    #[Test]
     public function it_logs_successful_send()
     {
         Log::shouldReceive('info')
@@ -88,7 +89,7 @@ class FcmChannelTest extends TestCase
         $this->channel->send($user, $notification);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_messaging_exception()
     {
         Log::shouldReceive('error')
@@ -106,7 +107,7 @@ class FcmChannelTest extends TestCase
         $this->channel->send($user, $notification);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_general_exception()
     {
         Log::shouldReceive('error')
@@ -124,7 +125,7 @@ class FcmChannelTest extends TestCase
         $this->channel->send($user, $notification);
     }
 
-    /** @test */
+    #[Test]
     public function it_includes_android_config_when_provided()
     {
         $user = User::factory()->create(['fcm_token' => 'valid_token']);
@@ -139,7 +140,7 @@ class FcmChannelTest extends TestCase
         $this->channel->send($user, $notification);
     }
 
-    /** @test */
+    #[Test]
     public function it_includes_apns_config_when_provided()
     {
         $user = User::factory()->create(['fcm_token' => 'valid_token']);

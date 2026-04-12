@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\CustomerAddress;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class AddressControllerTest extends TestCase
 {
@@ -26,7 +27,7 @@ class AddressControllerTest extends TestCase
         $this->token = $this->user->createToken('test-token')->plainTextToken;
     }
 
-    /** @test */
+    #[Test]
     public function user_can_list_their_addresses()
     {
         CustomerAddress::factory()->count(3)->create([
@@ -45,7 +46,7 @@ class AddressControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_create_address()
     {
         $addressData = [
@@ -73,7 +74,7 @@ class AddressControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function first_address_is_set_as_default()
     {
         $addressData = [
@@ -93,7 +94,7 @@ class AddressControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_show_specific_address()
     {
         $address = CustomerAddress::factory()->create([
@@ -109,7 +110,7 @@ class AddressControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_cannot_see_other_users_address()
     {
         $otherUser = User::factory()->create();
@@ -123,7 +124,7 @@ class AddressControllerTest extends TestCase
         $response->assertStatus(404);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_update_address()
     {
         $address = CustomerAddress::factory()->create([
@@ -144,7 +145,7 @@ class AddressControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_delete_address()
     {
         $address = CustomerAddress::factory()->create([
@@ -161,7 +162,7 @@ class AddressControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_set_default_address()
     {
         $address1 = CustomerAddress::factory()->create([
@@ -185,7 +186,7 @@ class AddressControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function address_requires_valid_label()
     {
         $response = $this->withHeader('Authorization', "Bearer {$this->token}")
@@ -197,7 +198,7 @@ class AddressControllerTest extends TestCase
         $response->assertStatus(422);
     }
 
-    /** @test */
+    #[Test]
     public function address_requires_address_field()
     {
         $response = $this->withHeader('Authorization', "Bearer {$this->token}")
@@ -208,7 +209,7 @@ class AddressControllerTest extends TestCase
         $response->assertStatus(422);
     }
 
-    /** @test */
+    #[Test]
     public function label_is_normalized_to_proper_case()
     {
         $response = $this->withHeader('Authorization', "Bearer {$this->token}")

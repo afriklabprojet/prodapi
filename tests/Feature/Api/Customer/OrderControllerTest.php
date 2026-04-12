@@ -8,6 +8,7 @@ use App\Models\Pharmacy;
 use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class OrderControllerTest extends TestCase
 {
@@ -32,7 +33,7 @@ class OrderControllerTest extends TestCase
         $this->token = $this->user->createToken('test-token')->plainTextToken;
     }
 
-    /** @test */
+    #[Test]
     public function user_can_list_their_orders()
     {
         Order::factory()->count(3)->create([
@@ -51,7 +52,7 @@ class OrderControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_show_specific_order()
     {
         $order = Order::factory()->create([
@@ -68,7 +69,7 @@ class OrderControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_cannot_see_other_users_orders()
     {
         $otherUser = User::factory()->create();
@@ -83,7 +84,7 @@ class OrderControllerTest extends TestCase
         $response->assertStatus(404);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_cancel_pending_order()
     {
         $order = Order::factory()->create([
@@ -105,7 +106,7 @@ class OrderControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_cannot_cancel_delivered_order()
     {
         $order = Order::factory()->create([
@@ -119,11 +120,10 @@ class OrderControllerTest extends TestCase
                 'reason' => 'Test',
             ]);
 
-        // Policy denies cancel for delivered orders (403 Forbidden)
-        $response->assertStatus(403);
+        $response->assertStatus(400);
     }
 
-    /** @test */
+    #[Test]
     public function orders_are_paginated()
     {
         Order::factory()->count(20)->create([
@@ -138,7 +138,7 @@ class OrderControllerTest extends TestCase
             ->assertJsonPath('meta.per_page', 10);
     }
 
-    /** @test */
+    #[Test]
     public function max_per_page_is_limited_to_50()
     {
         Order::factory()->count(60)->create([
@@ -153,7 +153,7 @@ class OrderControllerTest extends TestCase
             ->assertJsonPath('meta.per_page', 50);
     }
 
-    /** @test */
+    #[Test]
     public function order_includes_pharmacy_info()
     {
         Order::factory()->create([

@@ -8,6 +8,7 @@ use App\Services\ChallengeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 use Mockery;
+use PHPUnit\Framework\Attributes\Test;
 
 class ChallengeControllerTest extends TestCase
 {
@@ -27,7 +28,7 @@ class ChallengeControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_list_challenges()
     {
         $this->mock(ChallengeService::class, function ($mock) {
@@ -94,7 +95,7 @@ class ChallengeControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_claim_challenge_reward()
     {
         $this->mock(ChallengeService::class, function ($mock) {
@@ -116,7 +117,7 @@ class ChallengeControllerTest extends TestCase
             ->assertJsonPath('data.transaction_id', 123);
     }
 
-    /** @test */
+    #[Test]
     public function cannot_claim_incomplete_challenge()
     {
         $this->mock(ChallengeService::class, function ($mock) {
@@ -132,7 +133,7 @@ class ChallengeControllerTest extends TestCase
             ->assertJsonPath('message', 'Challenge pas encore complété');
     }
 
-    /** @test */
+    #[Test]
     public function cannot_claim_already_claimed_reward()
     {
         $this->mock(ChallengeService::class, function ($mock) {
@@ -148,7 +149,7 @@ class ChallengeControllerTest extends TestCase
             ->assertJsonPath('message', 'Récompense déjà réclamée');
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_get_active_bonuses()
     {
         $this->mock(ChallengeService::class, function ($mock) {
@@ -175,7 +176,7 @@ class ChallengeControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function non_courier_cannot_access_challenges()
     {
         $customer = User::factory()->create(['role' => 'customer']);
@@ -186,7 +187,7 @@ class ChallengeControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function unauthenticated_user_cannot_access_challenges()
     {
         $response = $this->getJson('/api/courier/challenges');
@@ -194,7 +195,7 @@ class ChallengeControllerTest extends TestCase
         $response->assertUnauthorized();
     }
 
-    /** @test */
+    #[Test]
     public function challenges_include_stats()
     {
         $this->mock(ChallengeService::class, function ($mock) {

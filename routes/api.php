@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\CourierAssignmentController;
 use App\Http\Controllers\Api\Auth\LoginController;
 use App\Http\Controllers\Api\Auth\RegisterController;
+use App\Http\Controllers\Api\Auth\SocialAuthController;
 use App\Http\Controllers\Api\Customer\OrderController as CustomerOrderController;
 use App\Http\Controllers\Api\Customer\PharmacyController;
 use App\Http\Controllers\Api\Customer\PrescriptionController;
@@ -103,6 +104,7 @@ Route::prefix('auth')->group(function () {
         Route::post('/register/courier', [RegisterController::class, 'registerCourier']);
         Route::post('/register/pharmacy', [RegisterController::class, 'registerPharmacy']);
         Route::post('/login', [LoginController::class, 'login']);
+        Route::post('/social-google', [SocialAuthController::class, 'loginWithGoogle']);
     });
     
     // OTP verification - very strict (3 attempts per minute)
@@ -413,6 +415,21 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         // Statistics
         Route::get('/statistics', [\App\Http\Controllers\Api\Courier\StatisticsController::class, 'index']);
         Route::get('/statistics/leaderboard', [\App\Http\Controllers\Api\Courier\StatisticsController::class, 'leaderboard']);
+
+        // === BROADCAST DISPATCH (Phase 1) - Offres de livraison ===
+        Route::get('/offers', [\App\Http\Controllers\Api\Courier\DeliveryOfferController::class, 'index']);
+        Route::get('/offers/{id}', [\App\Http\Controllers\Api\Courier\DeliveryOfferController::class, 'show']);
+        Route::post('/offers/{id}/accept', [\App\Http\Controllers\Api\Courier\DeliveryOfferController::class, 'accept']);
+        Route::post('/offers/{id}/reject', [\App\Http\Controllers\Api\Courier\DeliveryOfferController::class, 'reject']);
+
+        // === SHIFT MANAGEMENT (Phase 6) - Réservation de créneaux ===
+        Route::get('/shifts', [\App\Http\Controllers\Api\Courier\ShiftController::class, 'index']);
+        Route::get('/shifts/active', [\App\Http\Controllers\Api\Courier\ShiftController::class, 'active']);
+        Route::get('/shifts/slots', [\App\Http\Controllers\Api\Courier\ShiftController::class, 'availableSlots']);
+        Route::post('/shifts/book', [\App\Http\Controllers\Api\Courier\ShiftController::class, 'book']);
+        Route::post('/shifts/{id}/cancel', [\App\Http\Controllers\Api\Courier\ShiftController::class, 'cancel']);
+        Route::post('/shifts/{id}/start', [\App\Http\Controllers\Api\Courier\ShiftController::class, 'start']);
+        Route::post('/shifts/{id}/end', [\App\Http\Controllers\Api\Courier\ShiftController::class, 'end']);
 
         // Challenges & Bonuses
         Route::get('/challenges', [\App\Http\Controllers\Api\Courier\ChallengeController::class, 'index']);

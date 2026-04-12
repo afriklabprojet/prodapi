@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Pharmacy\StoreOnCallRequest;
 use App\Http\Resources\OnCallResource;
 use App\Models\PharmacyOnCall;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -14,12 +15,23 @@ use Illuminate\Validation\Rule;
 
 class OnCallController extends Controller
 {
+    private function getAuthenticatedUser(): User
+    {
+        $user = Auth::user();
+
+        if (! $user instanceof User) {
+            abort(401, 'Unauthenticated.');
+        }
+
+        return $user;
+    }
+
     /**
      * List on-call shifts for the authenticated pharmacy.
      */
     public function index(Request $request): JsonResponse
     {
-        $user = Auth::user();
+        $user = $this->getAuthenticatedUser();
         
         // Assuming the user is linked to a pharmacy somehow. 
         // Based on PharmacyResource, there is a pharmacy_user table.
@@ -51,6 +63,7 @@ class OnCallController extends Controller
         $paginated = $query->paginate(20);
 
         return response()->json([
+            'success' => true,
             'status' => 'success',
             'data' => $paginated->items(),
             'meta' => [
@@ -67,7 +80,7 @@ class OnCallController extends Controller
      */
     public function store(StoreOnCallRequest $request): JsonResponse
     {
-        $user = Auth::user();
+        $user = $this->getAuthenticatedUser();
         $pharmacy = $user->pharmacies()->first();
 
         if (!$pharmacy) {
@@ -75,6 +88,14 @@ class OnCallController extends Controller
                 'success' => false,
                 'message' => 'Vous n\'êtes pas associé à une pharmacie.',
             ], 403);
+        }
+
+        if (!$pharmacy->duty_zone_id) {
+            return response()->json([
+                'success' => false,
+                'status' => 'error',
+                'message' => 'Veuillez configurer une zone de garde avant de programmer une garde.',
+            ], 422);
         }
 
         $startAt = Carbon::parse($request->start_at);
@@ -122,6 +143,7 @@ class OnCallController extends Controller
 
         return response()->json([
             'success' => true,
+            'status' => 'success',
             'message' => 'Garde programmée avec succès.',
             'data'    => new OnCallResource($onCall),
         ], 201);
@@ -132,11 +154,12 @@ class OnCallController extends Controller
      */
     public function update(Request $request, $id): JsonResponse
     {
-        $user = Auth::user();
+        $user = $this->getAuthenticatedUser();
         $pharmacy = $user->pharmacies()->first();
 
         if (!$pharmacy) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'User is not associated with any pharmacy.'
             ], 403);
@@ -155,6 +178,7 @@ class OnCallController extends Controller
         $onCall->update($validated);
 
         return response()->json([
+            'success' => true,
             'status' => 'success',
             'message' => 'On-call shift updated successfully.',
             'data' => $onCall
@@ -166,11 +190,12 @@ class OnCallController extends Controller
      */
     public function destroy($id): JsonResponse
     {
-        $user = Auth::user();
+        $user = $this->getAuthenticatedUser();
         $pharmacy = $user->pharmacies()->first();
 
         if (!$pharmacy) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'User is not associated with any pharmacy.'
             ], 403);
@@ -180,6 +205,7 @@ class OnCallController extends Controller
         $onCall->delete();
 
         return response()->json([
+            'success' => true,
             'status' => 'success',
             'message' => 'On-call shift cancelled successfully.'
         ]);

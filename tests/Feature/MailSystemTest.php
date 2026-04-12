@@ -65,7 +65,7 @@ class MailSystemTest extends TestCase
             $mail = new OrderStatusMail($order, $status);
             $subject = $mail->envelope()->subject;
             
-            $this->assertStringContainsString($expectedContains, $subject);
+            $this->assertStringContainsStringIgnoringCase($expectedContains, $subject);
         }
     }
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Pharmacy;
 
 use App\Http\Controllers\Controller;
 use App\Models\Pharmacy;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -11,12 +12,23 @@ use Illuminate\Validation\Rule;
 
 class PharmacyProfileController extends Controller
 {
+    private function getAuthenticatedUser(): User
+    {
+        $user = Auth::user();
+
+        if (! $user instanceof User) {
+            abort(401, 'Unauthenticated.');
+        }
+
+        return $user;
+    }
+
     /**
      * Get the pharmacy profile(s) for the logged in user.
      */
     public function index()
     {
-        $user = Auth::user();
+        $user = $this->getAuthenticatedUser();
         return response()->json([
             'success' => true,
             'data' => $user->pharmacies,
@@ -28,7 +40,7 @@ class PharmacyProfileController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $user = Auth::user();
+        $user = $this->getAuthenticatedUser();
         
         // Ensure the user owns this pharmacy
         $pharmacy = $user->pharmacies()->where('pharmacies.id', $id)->first();
@@ -95,7 +107,7 @@ class PharmacyProfileController extends Controller
      */
     public function downloadDocument(Request $request, $id, $type)
     {
-        $user = Auth::user();
+        $user = $this->getAuthenticatedUser();
         
         // Vérifier propriétaire ou admin
         $pharmacy = $user->pharmacies()->where('pharmacies.id', $id)->first();
@@ -124,6 +136,9 @@ class PharmacyProfileController extends Controller
             ], 404);
         }
 
-        return Storage::disk('private')->download($documentPath);
+        return response()->download(
+            Storage::disk('private')->path($documentPath),
+            basename($documentPath)
+        );
     }
 }

@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api\Pharmacy;
 
 use App\Http\Controllers\Controller;
 use App\Models\Prescription;
+use App\Models\PrescriptionDispensing;
 use App\Http\Resources\PrescriptionResource;
 use App\Services\PrescriptionOcrService;
 use App\Services\ProductMatchingService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 
@@ -18,14 +20,34 @@ class PrescriptionController extends Controller
      */
     public function index(Request $request)
     {
-        // For MVP, show all prescriptions. In real app, maybe filter by location or assignment.
-        $prescriptions = Prescription::with('customer')
+        $prescriptions = Prescription::with(['customer', 'dispensings', 'dispensings.dispensedBy'])
             ->latest()
             ->get();
 
+        // Collecter tous les image_hash non-null pour détecter les doublons en un seul query
+        $hashes = $prescriptions->pluck('image_hash')->filter()->unique()->values()->all();
+        $duplicateHashes = [];
+        if (!empty($hashes)) {
+            $duplicateHashes = Prescription::whereIn('image_hash', $hashes)
+                ->where('fulfillment_status', '!=', 'none')
+                ->pluck('image_hash')
+                ->unique()
+                ->all();
+        }
+
+        // Ajouter le flag is_duplicate à chaque prescription
+        $data = PrescriptionResource::collection($prescriptions)->resolve();
+        foreach ($data as &$item) {
+            $prescription = $prescriptions->firstWhere('id', $item['id'] ?? null);
+            $item['is_duplicate'] = $prescription
+                && $prescription->image_hash
+                && in_array($prescription->image_hash, $duplicateHashes)
+                && $prescription->fulfillment_status === 'none';
+        }
+
         return response()->json([
             'status' => 'success',
-            'data' => PrescriptionResource::collection($prescriptions)
+            'data' => $data,
         ]);
     }
 
@@ -34,18 +56,42 @@ class PrescriptionController extends Controller
      */
     public function show($id)
     {
-        $prescription = Prescription::with('customer')->find($id);
+        $prescription = Prescription::with(['customer', 'dispensings', 'dispensings.dispensedBy'])->find($id);
 
         if (!$prescription) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Prescription not found'
             ], 404);
         }
 
+        // Vérifier si c'est un doublon (même image_hash sur une autre prescription)
+        $duplicateInfo = null;
+        if ($prescription->image_hash) {
+            $duplicate = Prescription::where('image_hash', $prescription->image_hash)
+                ->where('id', '!=', $prescription->id)
+                ->where('fulfillment_status', '!=', 'none')
+                ->with('dispensings')
+                ->first();
+
+            if ($duplicate) {
+                $duplicateInfo = [
+                    'prescription_id' => $duplicate->id,
+                    'status' => $duplicate->status,
+                    'fulfillment_status' => $duplicate->fulfillment_status,
+                    'first_dispensed_at' => $duplicate->first_dispensed_at?->toIso8601String(),
+                    'dispensing_count' => $duplicate->dispensing_count,
+                    'created_at' => $duplicate->created_at?->toIso8601String(),
+                ];
+            }
+        }
+
         return response()->json([
+            'success' => true,
             'status' => 'success',
-            'data' => new PrescriptionResource($prescription)
+            'data' => new PrescriptionResource($prescription),
+            'duplicate_info' => $duplicateInfo,
         ]);
     }
 
@@ -65,6 +111,7 @@ class PrescriptionController extends Controller
 
         if (!$prescription) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Prescription not found'
             ], 404);
@@ -97,6 +144,7 @@ class PrescriptionController extends Controller
         }
 
         return response()->json([
+            'success' => true,
             'status' => 'success',
             'message' => 'Prescription status updated successfully',
             'data' => new PrescriptionResource($prescription)
@@ -108,10 +156,11 @@ class PrescriptionController extends Controller
      */
     public function analyze(Request $request, $id)
     {
-        $prescription = Prescription::with('pharmacy')->find($id);
+        $prescription = Prescription::with('customer')->find($id);
 
         if (!$prescription) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Ordonnance non trouvée'
             ], 404);
@@ -120,6 +169,7 @@ class PrescriptionController extends Controller
         // Vérifier si déjà analysée
         if ($prescription->analysis_status === 'completed' && !$request->boolean('force')) {
             return response()->json([
+                'success' => true,
                 'status' => 'success',
                 'message' => 'Ordonnance déjà analysée',
                 'data' => [
@@ -137,69 +187,63 @@ class PrescriptionController extends Controller
         $prescription->save();
 
         try {
-            // Récupérer les images de l'ordonnance
-            $images = $prescription->images ?? [];
-            if (empty($images)) {
-                throw new \Exception('Aucune image d\'ordonnance à analyser');
+            // Récupérer les chemins bruts des images (sans transformation URL)
+            $rawImages = $prescription->getRawImages();
+            if (empty($rawImages)) {
+                $prescription->analysis_status = 'failed';
+                $prescription->analysis_error = 'Aucune image d\'ordonnance à analyser';
+                $prescription->save();
+
+                return response()->json([
+                    'success' => false,
+                    'status' => 'error',
+                    'message' => 'Aucune image d\'ordonnance à analyser',
+                ], 422);
             }
 
-            // Utiliser la première image pour l'OCR
-            $imagePath = is_array($images) ? $images[0] : $images;
-            
-            // Vérifier si c'est une URL ou un chemin de fichier local
-            if (filter_var($imagePath, FILTER_VALIDATE_URL)) {
-                $imageUrl = $imagePath;
-            } else {
-                // Construire l'URL complète pour l'image stockée
-                $imageUrl = Storage::disk('public')->url($imagePath);
-            }
+            // Utiliser la première image pour l'OCR (chemin brut dans le storage)
+            $imagePath = $rawImages[0];
 
             // Analyser avec le service OCR
-            $ocrService = new PrescriptionOcrService();
-            $ocrResult = $ocrService->analyzeImage($imageUrl);
+            $ocrService = app(PrescriptionOcrService::class);
+            $ocrResult = $ocrService->analyzeImage($imagePath);
 
             if (!$ocrResult['success']) {
-                throw new \Exception($ocrResult['error'] ?? 'Échec de l\'analyse OCR');
+                $errorMsg = $ocrResult['error'] ?? 'Échec de l\'analyse OCR';
+                $prescription->analysis_status = 'failed';
+                $prescription->analysis_error = $errorMsg;
+                $prescription->save();
+
+                return response()->json([
+                    'success' => false,
+                    'status' => 'error',
+                    'message' => 'Échec de l\'analyse: ' . $errorMsg,
+                ], 502);
             }
 
             // Extraire les médicaments
             $medications = $ocrResult['medications'] ?? [];
             
-            if (empty($medications)) {
-                // Aucun médicament détecté, marquer pour révision manuelle
-                $prescription->analysis_status = 'manual_review';
-                $prescription->analysis_error = 'Aucun médicament détecté dans l\'ordonnance';
-                $prescription->ocr_raw_text = $ocrResult['raw_text'] ?? '';
-                $prescription->analyzed_at = now();
-                $prescription->save();
-
-                return response()->json([
-                    'status' => 'warning',
-                    'message' => 'Aucun médicament détecté - révision manuelle requise',
-                    'data' => [
-                        'prescription' => new PrescriptionResource($prescription),
-                        'raw_text' => $ocrResult['raw_text'] ?? '',
-                        'is_prescription' => $ocrResult['is_prescription'] ?? false,
-                    ]
-                ]);
-            }
-
-            // Matcher avec le stock
-            $pharmacyId = $prescription->pharmacy_id;
-            $matchingService = new ProductMatchingService();
-            $matchResult = $matchingService->matchMedications($medications, $pharmacyId);
-
-            // Mettre à jour l'ordonnance
-            $prescription->extracted_medications = $medications;
-            $prescription->matched_products = $matchResult['matched'];
-            $prescription->unmatched_medications = array_merge(
-                $matchResult['not_found'], 
-                $matchResult['out_of_stock']
-            );
+            // Sauvegarder les données OCR brutes
+            $prescription->ocr_raw_text = $ocrResult['raw_text'] ?? '';
             $prescription->ocr_confidence = $ocrResult['confidence'] ?? 0;
             $prescription->analyzed_at = now();
-            $prescription->analysis_status = 'completed';
-            $prescription->ocr_raw_text = $ocrResult['raw_text'] ?? '';
+            $prescription->extracted_medications = $medications;
+
+            // Matcher avec le stock si pharmacy_id existe et medications trouvées
+            $matchResult = ['matched' => [], 'not_found' => [], 'out_of_stock' => [], 'alternatives' => [], 'stats' => [], 'total_estimated_price' => 0];
+            
+            if (!empty($medications) && $prescription->pharmacy_id) {
+                $matchingService = app(ProductMatchingService::class);
+                $matchResult = $matchingService->matchMedications($medications, $prescription->pharmacy_id);
+            }
+
+            $prescription->matched_products = $matchResult['matched'];
+            $prescription->unmatched_medications = array_merge(
+                $matchResult['not_found'] ?? [], 
+                $matchResult['out_of_stock'] ?? []
+            );
+            $prescription->analysis_status = empty($medications) ? 'manual_review' : 'completed';
             $prescription->save();
 
             // Calculer les alertes
@@ -222,6 +266,7 @@ class PrescriptionController extends Controller
             }
 
             return response()->json([
+                'success' => true,
                 'status' => 'success',
                 'message' => 'Ordonnance analysée avec succès',
                 'data' => [
@@ -233,6 +278,7 @@ class PrescriptionController extends Controller
                     'stats' => $matchResult['stats'],
                     'estimated_total' => $matchResult['total_estimated_price'],
                     'confidence' => $ocrResult['confidence'] ?? 0,
+                    'raw_text' => $ocrResult['raw_text'] ?? '',
                     'alerts' => $alerts,
                 ]
             ]);
@@ -248,6 +294,7 @@ class PrescriptionController extends Controller
             $prescription->save();
 
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Échec de l\'analyse: ' . $e->getMessage()
             ], 500);
@@ -259,7 +306,7 @@ class PrescriptionController extends Controller
      */
     public function analysisStats(Request $request)
     {
-        $pharmacyId = $request->user()->pharmacy_id;
+        $pharmacyId = $request->user()->pharmacies()->first()?->id;
 
         $stats = Prescription::query()
             ->when($pharmacyId, fn($q) => $q->where('pharmacy_id', $pharmacyId))
@@ -276,6 +323,170 @@ class PrescriptionController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $stats
+        ]);
+    }
+
+    /**
+     * Dispenser des médicaments d'une ordonnance.
+     * Crée les lignes de dispensation et met à jour le fulfillment_status.
+     */
+    public function dispense(Request $request, $id)
+    {
+        $request->validate([
+            'medications' => 'required|array|min:1',
+            'medications.*.medication_name' => 'required|string|max:255',
+            'medications.*.product_id' => 'nullable|integer|exists:products,id',
+            'medications.*.quantity_prescribed' => 'required|integer|min:1',
+            'medications.*.quantity_dispensed' => 'required|integer|min:1',
+        ]);
+
+        $prescription = Prescription::with('dispensings')->find($id);
+
+        if (!$prescription) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ordonnance non trouvée',
+            ], 404);
+        }
+
+        // Vérifier si déjà entièrement délivrée
+        if ($prescription->fulfillment_status === 'full') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cette ordonnance a déjà été entièrement délivrée.',
+                'fulfillment_status' => 'full',
+            ], 409);
+        }
+
+        $pharmacyUser = $request->user();
+        $pharmacy = $pharmacyUser->pharmacies()->first();
+
+        if (!$pharmacy) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pharmacie non trouvée',
+            ], 403);
+        }
+
+        DB::beginTransaction();
+        try {
+            $dispensings = [];
+
+            foreach ($request->medications as $med) {
+                // Vérifier si ce médicament a déjà été dispensé pour cette ordonnance
+                $existingQty = PrescriptionDispensing::where('prescription_id', $prescription->id)
+                    ->where('medication_name', $med['medication_name'])
+                    ->sum('quantity_dispensed');
+
+                $remainingQty = $med['quantity_prescribed'] - $existingQty;
+
+                if ($remainingQty <= 0) {
+                    continue; // Déjà entièrement dispensé
+                }
+
+                $qtyToDispense = min($med['quantity_dispensed'], $remainingQty);
+
+                $dispensing = PrescriptionDispensing::create([
+                    'prescription_id' => $prescription->id,
+                    'pharmacy_id' => $pharmacy->id,
+                    'order_id' => $prescription->order_id,
+                    'medication_name' => $med['medication_name'],
+                    'product_id' => $med['product_id'] ?? null,
+                    'quantity_prescribed' => $med['quantity_prescribed'],
+                    'quantity_dispensed' => $qtyToDispense,
+                    'dispensed_at' => now(),
+                    'dispensed_by' => $pharmacyUser->id,
+                ]);
+
+                $dispensings[] = $dispensing;
+            }
+
+            // Recalculate fulfillment
+            $prescription->recalculateFulfillment();
+
+            DB::commit();
+
+            // Reload with dispensings
+            $prescription->load(['dispensings', 'dispensings.dispensedBy', 'customer']);
+
+            return response()->json([
+                'success' => true,
+                'message' => $prescription->fulfillment_status === 'full'
+                    ? 'Ordonnance entièrement délivrée.'
+                    : 'Médicaments dispensés avec succès.',
+                'data' => new PrescriptionResource($prescription),
+                'dispensed_count' => count($dispensings),
+                'fulfillment_status' => $prescription->fulfillment_status,
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Prescription dispensing failed', [
+                'prescription_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la dispensation: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Obtenir l'historique de dispensation d'une ordonnance.
+     */
+    public function dispensingHistory($id)
+    {
+        $prescription = Prescription::find($id);
+
+        if (!$prescription) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ordonnance non trouvée',
+            ], 404);
+        }
+
+        $dispensings = PrescriptionDispensing::where('prescription_id', $id)
+            ->with(['dispensedBy:id,name', 'pharmacy:id,name'])
+            ->orderBy('dispensed_at', 'desc')
+            ->get()
+            ->map(function ($d) {
+                return [
+                    'id' => $d->id,
+                    'medication_name' => $d->medication_name,
+                    'product_id' => $d->product_id,
+                    'quantity_prescribed' => $d->quantity_prescribed,
+                    'quantity_dispensed' => $d->quantity_dispensed,
+                    'dispensed_at' => $d->dispensed_at->toIso8601String(),
+                    'dispensed_by' => $d->dispensedBy?->name,
+                    'pharmacy_name' => $d->pharmacy?->name,
+                ];
+            });
+
+        // Résumé par médicament
+        $summary = PrescriptionDispensing::where('prescription_id', $id)
+            ->selectRaw('medication_name, SUM(quantity_dispensed) as total_dispensed, MAX(quantity_prescribed) as quantity_prescribed')
+            ->groupBy('medication_name')
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'medication_name' => $row->medication_name,
+                    'quantity_prescribed' => (int) $row->quantity_prescribed,
+                    'total_dispensed' => (int) $row->total_dispensed,
+                    'remaining' => max(0, (int) $row->quantity_prescribed - (int) $row->total_dispensed),
+                    'fully_dispensed' => (int) $row->total_dispensed >= (int) $row->quantity_prescribed,
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'fulfillment_status' => $prescription->fulfillment_status,
+                'dispensing_count' => $prescription->dispensing_count,
+                'first_dispensed_at' => $prescription->first_dispensed_at?->toIso8601String(),
+                'summary' => $summary,
+                'history' => $dispensings,
+            ],
         ]);
     }
 }

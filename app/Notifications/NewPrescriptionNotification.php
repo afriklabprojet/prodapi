@@ -66,13 +66,17 @@ class NewPrescriptionNotification extends Notification implements ShouldQueue
      */
     public function toFcm(object $notifiable): array
     {
+        $fcmConfig = \App\Services\NotificationSettingsService::getFcmConfig('new_prescription');
+
         return [
             'title' => 'Nouvelle Ordonnance',
             'body' => 'Une nouvelle ordonnance a été reçue.',
-            'data' => [
+            'data' => array_merge($fcmConfig['data'], [
                 'type' => 'new_prescription',
                 'prescription_id' => (string) $this->prescription->id,
-            ],
+            ]),
+            'android' => $fcmConfig['android'],
+            'apns' => $fcmConfig['apns'],
         ];
     }
 

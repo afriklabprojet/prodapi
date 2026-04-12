@@ -13,6 +13,7 @@ use App\Channels\FcmChannel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class DeliveryAssignedNotificationTest extends TestCase
 {
@@ -61,7 +62,7 @@ class DeliveryAssignedNotificationTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_be_constructed_with_delivery()
     {
         $notification = new DeliveryAssignedNotification($this->delivery);
@@ -70,7 +71,7 @@ class DeliveryAssignedNotificationTest extends TestCase
         $this->assertEquals($this->delivery->id, $notification->delivery->id);
     }
 
-    /** @test */
+    #[Test]
     public function via_returns_database_channel()
     {
         $notification = new DeliveryAssignedNotification($this->delivery);
@@ -79,7 +80,7 @@ class DeliveryAssignedNotificationTest extends TestCase
         $this->assertContains('database', $channels);
     }
 
-    /** @test */
+    #[Test]
     public function via_includes_mail_when_user_has_email()
     {
         $notification = new DeliveryAssignedNotification($this->delivery);
@@ -88,7 +89,7 @@ class DeliveryAssignedNotificationTest extends TestCase
         $this->assertContains('mail', $channels);
     }
 
-    /** @test */
+    #[Test]
     public function via_excludes_mail_when_user_has_no_email()
     {
         $userWithoutEmail = User::factory()->create([
@@ -102,7 +103,7 @@ class DeliveryAssignedNotificationTest extends TestCase
         $this->assertNotContains('mail', $channels);
     }
 
-    /** @test */
+    #[Test]
     public function via_includes_fcm_when_user_has_fcm_token()
     {
         $notification = new DeliveryAssignedNotification($this->delivery);
@@ -111,7 +112,7 @@ class DeliveryAssignedNotificationTest extends TestCase
         $this->assertContains(FcmChannel::class, $channels);
     }
 
-    /** @test */
+    #[Test]
     public function via_excludes_fcm_when_user_has_no_fcm_token()
     {
         $userWithoutFcm = User::factory()->create([
@@ -125,7 +126,7 @@ class DeliveryAssignedNotificationTest extends TestCase
         $this->assertNotContains(FcmChannel::class, $channels);
     }
 
-    /** @test */
+    #[Test]
     public function to_fcm_returns_correct_structure()
     {
         $notification = new DeliveryAssignedNotification($this->delivery);
@@ -137,7 +138,7 @@ class DeliveryAssignedNotificationTest extends TestCase
         $this->assertStringContainsString('NOUVELLE LIVRAISON', $fcm['title']);
     }
 
-    /** @test */
+    #[Test]
     public function to_fcm_contains_delivery_data()
     {
         $notification = new DeliveryAssignedNotification($this->delivery);
@@ -150,7 +151,7 @@ class DeliveryAssignedNotificationTest extends TestCase
         $this->assertEquals((string) $this->delivery->delivery_fee, $fcm['data']['delivery_fee']);
     }
 
-    /** @test */
+    #[Test]
     public function to_mail_returns_mail_message()
     {
         $notification = new DeliveryAssignedNotification($this->delivery);
@@ -159,7 +160,7 @@ class DeliveryAssignedNotificationTest extends TestCase
         $this->assertInstanceOf(\Illuminate\Notifications\Messages\MailMessage::class, $mail);
     }
 
-    /** @test */
+    #[Test]
     public function to_array_returns_correct_structure()
     {
         $notification = new DeliveryAssignedNotification($this->delivery);
@@ -173,7 +174,7 @@ class DeliveryAssignedNotificationTest extends TestCase
         $this->assertArrayHasKey('message', $array);
     }
 
-    /** @test */
+    #[Test]
     public function to_array_contains_delivery_details()
     {
         $notification = new DeliveryAssignedNotification($this->delivery);
@@ -184,7 +185,7 @@ class DeliveryAssignedNotificationTest extends TestCase
         $this->assertEquals($this->delivery->delivery_fee, $array['delivery_data']['delivery_fee']);
     }
 
-    /** @test */
+    #[Test]
     public function notification_can_be_sent()
     {
         Notification::fake();

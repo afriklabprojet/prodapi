@@ -41,6 +41,8 @@ class Pharmacy extends Model
         'withdrawal_threshold',
         'auto_withdraw_enabled',
         'is_open',
+        'pin_attempts',
+        'pin_locked_until',
     ];
 
     /**
@@ -62,6 +64,8 @@ class Pharmacy extends Model
         'withdrawal_threshold' => 'integer',
         'auto_withdraw_enabled' => 'boolean',
         'is_open' => 'boolean',
+        'pin_locked_until' => 'datetime',
+        'pin_set_at' => 'datetime',
     ];
 
     /**
@@ -88,6 +92,22 @@ class Pharmacy extends Model
         return $this->belongsToMany(User::class, 'pharmacy_user')
             ->withPivot('role')
             ->withTimestamps();
+    }
+
+    /**
+     * Primary user (titulaire) - returns first user through the pivot.
+     * Used by DeliveryController for notifications.
+     */
+    public function user(): \Illuminate\Database\Eloquent\Relations\HasOneThrough
+    {
+        return $this->hasOneThrough(
+            User::class,
+            PharmacyUser::class,
+            'pharmacy_id', // FK on pivot
+            'id',          // FK on users
+            'id',          // local key on pharmacies
+            'user_id'      // local key on pivot
+        );
     }
 
     /**
@@ -160,11 +180,11 @@ class Pharmacy extends Model
         $earthRadius = 6371; // km
 
         // Formule de distance Haversine avec bindings paramétrés
-        // Compatible SQLite et MySQL (sans LEAST/GREATEST pour SQLite)
+        // GREATEST/LEAST pour MySQL/MariaDB (clamp acos input to [-1, 1])
         // Note: La formule Haversine standard produit des valeurs dans [-1, 1] pour des coordonnées valides
         $haversineSelect = "*, (
             {$earthRadius} * acos(
-                MAX(-1.0, MIN(1.0,
+                GREATEST(-1.0, LEAST(1.0,
                     cos(radians(?)) * cos(radians(latitude)) *
                     cos(radians(longitude) - radians(?)) +
                     sin(radians(?)) * sin(radians(latitude))
@@ -174,7 +194,7 @@ class Pharmacy extends Model
 
         $haversineWhere = "(
             {$earthRadius} * acos(
-                MAX(-1.0, MIN(1.0,
+                GREATEST(-1.0, LEAST(1.0,
                     cos(radians(?)) * cos(radians(latitude)) *
                     cos(radians(longitude) - radians(?)) +
                     sin(radians(?)) * sin(radians(latitude))
@@ -184,7 +204,7 @@ class Pharmacy extends Model
 
         $haversineOrder = "(
             {$earthRadius} * acos(
-                MAX(-1.0, MIN(1.0,
+                GREATEST(-1.0, LEAST(1.0,
                     cos(radians(?)) * cos(radians(latitude)) *
                     cos(radians(longitude) - radians(?)) +
                     sin(radians(?)) * sin(radians(latitude))
@@ -235,11 +255,11 @@ class Pharmacy extends Model
     }
 
     /**
-     * Demandes de retrait de la pharmacie
+     * Demandes de retrait de la pharmacie (polymorphique)
      */
-    public function withdrawalRequests(): HasMany
+    public function withdrawalRequests(): \Illuminate\Database\Eloquent\Relations\MorphMany
     {
-        return $this->hasMany(WithdrawalRequest::class);
+        return $this->morphMany(WithdrawalRequest::class, 'requestable');
     }
 
     /**
@@ -283,12 +303,12 @@ class Pharmacy extends Model
      */
     public function setWithdrawalPin(string $pin): void
     {
-        $this->update([
+        $this->forceFill([
             'withdrawal_pin' => \Illuminate\Support\Facades\Hash::make($pin),
             'pin_set_at' => now(),
             'pin_attempts' => 0,
             'pin_locked_until' => null,
-        ]);
+        ])->save();
     }
 
     /**
@@ -323,10 +343,10 @@ class Pharmacy extends Model
 
         // Si le verrou a expiré, le réinitialiser
         if ($this->pin_locked_until && $this->pin_locked_until->isPast()) {
-            $this->update([
+            $this->forceFill([
                 'pin_attempts' => 0,
                 'pin_locked_until' => null,
-            ]);
+            ])->save();
         }
 
         return false;
@@ -345,7 +365,7 @@ class Pharmacy extends Model
             $data['pin_locked_until'] = now()->addMinutes(30);
         }
 
-        $this->update($data);
+        $this->forceFill($data)->save();
     }
 
     /**
@@ -354,10 +374,10 @@ class Pharmacy extends Model
     protected function resetPinAttempts(): void
     {
         if ($this->pin_attempts > 0) {
-            $this->update([
+            $this->forceFill([
                 'pin_attempts' => 0,
                 'pin_locked_until' => null,
-            ]);
+            ])->save();
         }
     }
 

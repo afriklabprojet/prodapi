@@ -4,70 +4,71 @@ namespace Tests\Unit\Enums;
 
 use App\Enums\JekoPaymentMethod;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class JekoPaymentMethodTest extends TestCase
 {
-    /** @test */
+    #[Test]
     public function it_has_wave_method()
     {
         $this->assertEquals('wave', JekoPaymentMethod::WAVE->value);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_orange_method()
     {
         $this->assertEquals('orange', JekoPaymentMethod::ORANGE->value);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_mtn_method()
     {
         $this->assertEquals('mtn', JekoPaymentMethod::MTN->value);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_moov_method()
     {
         $this->assertEquals('moov', JekoPaymentMethod::MOOV->value);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_djamo_method()
     {
         $this->assertEquals('djamo', JekoPaymentMethod::DJAMO->value);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_bank_transfer_method()
     {
         $this->assertEquals('bank_transfer', JekoPaymentMethod::BANK_TRANSFER->value);
     }
 
-    /** @test */
+    #[Test]
     public function wave_has_correct_label()
     {
         $this->assertEquals('Wave', JekoPaymentMethod::WAVE->label());
     }
 
-    /** @test */
+    #[Test]
     public function orange_has_correct_label()
     {
         $this->assertEquals('Orange Money', JekoPaymentMethod::ORANGE->label());
     }
 
-    /** @test */
+    #[Test]
     public function mtn_has_correct_label()
     {
         $this->assertEquals('MTN Mobile Money', JekoPaymentMethod::MTN->label());
     }
 
-    /** @test */
+    #[Test]
     public function bank_transfer_has_correct_label()
     {
         $this->assertEquals('Virement Bancaire', JekoPaymentMethod::BANK_TRANSFER->label());
     }
 
-    /** @test */
+    #[Test]
     public function methods_have_icons()
     {
         $this->assertEquals('wave', JekoPaymentMethod::WAVE->icon());
@@ -78,7 +79,7 @@ class JekoPaymentMethodTest extends TestCase
         $this->assertEquals('bank', JekoPaymentMethod::BANK_TRANSFER->icon());
     }
 
-    /** @test */
+    #[Test]
     public function values_returns_all_values()
     {
         $values = JekoPaymentMethod::values();
@@ -91,7 +92,7 @@ class JekoPaymentMethodTest extends TestCase
         $this->assertContains('bank_transfer', $values);
     }
 
-    /** @test */
+    #[Test]
     public function payout_methods_returns_correct_methods()
     {
         $payoutMethods = JekoPaymentMethod::payoutMethods();
@@ -104,7 +105,7 @@ class JekoPaymentMethodTest extends TestCase
         $this->assertContains(JekoPaymentMethod::BANK_TRANSFER, $payoutMethods);
     }
 
-    /** @test */
+    #[Test]
     public function payout_methods_includes_all_payment_methods_plus_bank()
     {
         $payoutMethods = JekoPaymentMethod::payoutMethods();
@@ -116,14 +117,14 @@ class JekoPaymentMethodTest extends TestCase
         $this->assertContains(JekoPaymentMethod::BANK_TRANSFER, $payoutMethods);
     }
 
-    /** @test */
+    #[Test]
     public function can_be_created_from_string()
     {
         $method = JekoPaymentMethod::from('wave');
         $this->assertEquals(JekoPaymentMethod::WAVE, $method);
     }
 
-    /** @test */
+    #[Test]
     public function try_from_returns_null_for_invalid_value()
     {
         $method = JekoPaymentMethod::tryFrom('invalid_method');

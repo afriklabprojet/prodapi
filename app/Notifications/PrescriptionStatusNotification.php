@@ -65,14 +65,18 @@ class PrescriptionStatusNotification extends Notification implements ShouldQueue
      */
     public function toFcm(object $notifiable): array
     {
+        $fcmConfig = \App\Services\NotificationSettingsService::getFcmConfig('prescription_status');
+
         return [
             'title' => 'Mise à jour Ordonnance',
             'body' => $this->getMessage(),
-            'data' => [
+            'data' => array_merge($fcmConfig['data'], [
                 'type' => 'prescription_status',
                 'prescription_id' => (string) $this->prescription->id,
                 'status' => $this->status,
-            ],
+            ]),
+            'android' => $fcmConfig['android'],
+            'apns' => $fcmConfig['apns'],
         ];
     }
 

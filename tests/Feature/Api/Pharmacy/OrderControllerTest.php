@@ -11,6 +11,7 @@ use App\Models\Delivery;
 use App\Services\WaitingFeeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class OrderControllerTest extends TestCase
 {
@@ -40,7 +41,7 @@ class OrderControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_list_orders()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -64,7 +65,7 @@ class OrderControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_filter_orders_by_status()
     {
         // Create orders with different statuses
@@ -83,7 +84,7 @@ class OrderControllerTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_view_order_details()
     {
         // Create order items
@@ -115,9 +116,11 @@ class OrderControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_confirm_pending_order()
     {
+        $this->order->update(['payment_mode' => 'cash']);
+
         $response = $this->actingAs($this->user, 'sanctum')
             ->postJson("/api/pharmacy/orders/{$this->order->id}/confirm");
 
@@ -131,7 +134,7 @@ class OrderControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_cannot_confirm_non_pending_order()
     {
         $this->order->update(['status' => 'confirmed']);
@@ -144,7 +147,7 @@ class OrderControllerTest extends TestCase
             ->assertJsonPath('message', 'Cette commande ne peut pas être confirmée');
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_mark_order_as_ready()
     {
         $this->order->update(['status' => 'confirmed']);
@@ -156,7 +159,7 @@ class OrderControllerTest extends TestCase
             ->assertJsonPath('success', true);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_cancel_order()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -168,7 +171,7 @@ class OrderControllerTest extends TestCase
             ->assertJsonPath('success', true);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_cannot_access_other_pharmacy_orders()
     {
         $otherPharmacy = Pharmacy::factory()->create(['status' => 'approved']);
@@ -183,7 +186,7 @@ class OrderControllerTest extends TestCase
         $response->assertNotFound();
     }
 
-    /** @test */
+    #[Test]
     public function non_pharmacy_user_cannot_access_orders()
     {
         $customer = User::factory()->create(['role' => 'customer']);
@@ -194,7 +197,7 @@ class OrderControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function unauthenticated_user_cannot_access_orders()
     {
         $response = $this->getJson('/api/pharmacy/orders');
@@ -202,7 +205,7 @@ class OrderControllerTest extends TestCase
         $response->assertUnauthorized();
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_get_pending_orders_count()
     {
         // Create more pending orders
@@ -219,7 +222,7 @@ class OrderControllerTest extends TestCase
         $this->assertCount(4, $response->json('data')); // 1 from setUp + 3 new
     }
 
-    /** @test */
+    #[Test]
     public function order_details_include_items()
     {
         OrderItem::factory()->count(3)->create([

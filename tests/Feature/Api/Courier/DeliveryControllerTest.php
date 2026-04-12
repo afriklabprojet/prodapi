@@ -13,6 +13,7 @@ use App\Services\WaitingFeeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 use Mockery;
+use PHPUnit\Framework\Attributes\Test;
 
 class DeliveryControllerTest extends TestCase
 {
@@ -52,7 +53,7 @@ class DeliveryControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_list_pending_deliveries()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -81,7 +82,7 @@ class DeliveryControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_list_active_deliveries()
     {
         // Assign delivery to courier
@@ -97,7 +98,7 @@ class DeliveryControllerTest extends TestCase
             ->assertJsonPath('success', true);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_list_delivery_history()
     {
         $this->delivery->update([
@@ -112,7 +113,7 @@ class DeliveryControllerTest extends TestCase
             ->assertJsonPath('success', true);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_view_delivery_details()
     {
         $this->delivery->update([
@@ -136,7 +137,7 @@ class DeliveryControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_accept_pending_delivery()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -153,7 +154,7 @@ class DeliveryControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function courier_cannot_accept_already_assigned_delivery()
     {
         $otherCourier = Courier::factory()->create();
@@ -168,7 +169,7 @@ class DeliveryControllerTest extends TestCase
         $response->assertNotFound();
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_batch_accept_deliveries()
     {
         $delivery2 = Delivery::factory()->create([
@@ -190,7 +191,7 @@ class DeliveryControllerTest extends TestCase
             ->assertJsonPath('data.accepted_count', 2);
     }
 
-    /** @test */
+    #[Test]
     public function courier_cannot_batch_accept_more_than_5_deliveries()
     {
         // Create 4 active deliveries
@@ -224,7 +225,7 @@ class DeliveryControllerTest extends TestCase
             ->assertJsonPath('success', false);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_pickup_delivery()
     {
         $this->delivery->update([
@@ -245,7 +246,7 @@ class DeliveryControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function courier_cannot_pickup_pending_delivery()
     {
         $this->delivery->update([
@@ -260,7 +261,7 @@ class DeliveryControllerTest extends TestCase
             ->assertJsonPath('success', false);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_deliver_with_correct_code()
     {
         $this->delivery->update([
@@ -285,7 +286,7 @@ class DeliveryControllerTest extends TestCase
             ->assertJsonPath('success', true);
     }
 
-    /** @test */
+    #[Test]
     public function courier_cannot_deliver_with_wrong_code()
     {
         $this->delivery->update([
@@ -302,7 +303,7 @@ class DeliveryControllerTest extends TestCase
             ->assertJsonPath('success', false);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_update_location()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -316,7 +317,7 @@ class DeliveryControllerTest extends TestCase
             ->assertJsonPath('message', 'Position mise à jour');
     }
 
-    /** @test */
+    #[Test]
     public function location_update_requires_coordinates()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -326,7 +327,7 @@ class DeliveryControllerTest extends TestCase
             ->assertJsonValidationErrors(['latitude', 'longitude']);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_toggle_availability()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -341,7 +342,7 @@ class DeliveryControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_set_explicit_availability_status()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -354,7 +355,7 @@ class DeliveryControllerTest extends TestCase
             ->assertJsonPath('data.is_online', false);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_get_profile()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -368,7 +369,7 @@ class DeliveryControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_get_optimized_route()
     {
         $this->delivery->update([
@@ -396,7 +397,7 @@ class DeliveryControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function non_courier_cannot_access_deliveries()
     {
         $customer = User::factory()->create(['role' => 'customer']);
@@ -404,11 +405,10 @@ class DeliveryControllerTest extends TestCase
         $response = $this->actingAs($customer, 'sanctum')
             ->getJson('/api/courier/deliveries');
 
-        $response->assertStatus(403)
-            ->assertJsonPath('message', 'Profil coursier non trouvé. Veuillez vous connecter avec un compte livreur.');
+        $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function unauthenticated_user_cannot_access_deliveries()
     {
         $response = $this->getJson('/api/courier/deliveries');

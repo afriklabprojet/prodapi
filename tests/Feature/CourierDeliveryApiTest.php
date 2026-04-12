@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\Pharmacy;
 use App\Models\Wallet;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
 
 class CourierDeliveryApiTest extends TestCase
 {
@@ -58,7 +59,7 @@ class CourierDeliveryApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_view_assigned_deliveries()
     {
         $response = $this->actingAs($this->courier, 'sanctum')
@@ -78,7 +79,7 @@ class CourierDeliveryApiTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function courier_cannot_view_other_courier_deliveries()
     {
         $otherCourier = User::factory()->create(['role' => 'courier']);
@@ -100,7 +101,7 @@ class CourierDeliveryApiTest extends TestCase
         $this->assertNotContains($otherDelivery->id, $deliveryIds);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_view_delivery_details()
     {
         $response = $this->actingAs($this->courier, 'sanctum')
@@ -120,7 +121,7 @@ class CourierDeliveryApiTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_accept_delivery()
     {
         $response = $this->actingAs($this->courier, 'sanctum')
@@ -134,7 +135,7 @@ class CourierDeliveryApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function courier_cannot_accept_already_accepted_delivery()
     {
         $this->delivery->update(['status' => 'assigned']);
@@ -145,7 +146,7 @@ class CourierDeliveryApiTest extends TestCase
         $response->assertStatus(404);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_mark_delivery_as_picked_up()
     {
         $this->delivery->update(['status' => 'assigned']);
@@ -163,7 +164,7 @@ class CourierDeliveryApiTest extends TestCase
         $this->assertNotNull($this->delivery->fresh()->picked_up_at);
     }
 
-    /** @test */
+    #[Test]
     public function courier_cannot_pickup_non_assigned_delivery()
     {
         $response = $this->actingAs($this->courier, 'sanctum')
@@ -172,7 +173,7 @@ class CourierDeliveryApiTest extends TestCase
         $response->assertStatus(400);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_mark_delivery_as_delivered()
     {
         // Set delivery code on order
@@ -204,7 +205,7 @@ class CourierDeliveryApiTest extends TestCase
         $this->assertNotNull($this->delivery->fresh()->delivered_at);
     }
 
-    /** @test */
+    #[Test]
     public function courier_cannot_deliver_non_picked_up_delivery()
     {
         // Set delivery code on order
@@ -218,7 +219,7 @@ class CourierDeliveryApiTest extends TestCase
         $response->assertStatus(400);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_update_location()
     {
         $response = $this->actingAs($this->courier, 'sanctum')
@@ -238,7 +239,7 @@ class CourierDeliveryApiTest extends TestCase
         $this->assertNotNull($this->courierModel->fresh()->last_location_update);
     }
 
-    /** @test */
+    #[Test]
     public function location_update_requires_valid_coordinates()
     {
         $response = $this->actingAs($this->courier, 'sanctum')
@@ -251,7 +252,7 @@ class CourierDeliveryApiTest extends TestCase
             ->assertJsonValidationErrors(['latitude', 'longitude']);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_toggle_availability()
     {
         $this->assertEquals('available', $this->courierModel->status);
@@ -271,7 +272,7 @@ class CourierDeliveryApiTest extends TestCase
         $this->assertEquals('available', $this->courierModel->fresh()->status);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_filter_deliveries_by_status()
     {
         Delivery::factory()->create([
@@ -297,7 +298,7 @@ class CourierDeliveryApiTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function unauthenticated_user_cannot_access_courier_endpoints()
     {
         $response = $this->getJson('/api/courier/deliveries');
@@ -313,7 +314,7 @@ class CourierDeliveryApiTest extends TestCase
         $response->assertStatus(401);
     }
 
-    /** @test */
+    #[Test]
     public function non_courier_user_cannot_access_courier_endpoints()
     {
         $customer = User::factory()->create(['role' => 'customer']);
@@ -324,7 +325,7 @@ class CourierDeliveryApiTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function delivery_time_tracking_is_accurate()
     {
         // Set delivery code on order
@@ -334,13 +335,13 @@ class CourierDeliveryApiTest extends TestCase
         $this->actingAs($this->courier, 'sanctum')
             ->postJson("/api/courier/deliveries/{$this->delivery->id}/accept");
 
-        sleep(1);
+        $this->travel(1)->seconds();
 
         // Pickup delivery
         $this->actingAs($this->courier, 'sanctum')
             ->postJson("/api/courier/deliveries/{$this->delivery->id}/pickup");
 
-        sleep(1);
+        $this->travel(1)->seconds();
 
         // Deliver with confirmation code
         $this->actingAs($this->courier, 'sanctum')
@@ -355,7 +356,7 @@ class CourierDeliveryApiTest extends TestCase
         $this->assertTrue($delivery->delivered_at->greaterThan($delivery->picked_up_at));
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_view_earnings_from_deliveries()
     {
         // Complete a delivery

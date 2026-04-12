@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\TrustProxies::class,
             \Illuminate\Http\Middleware\HandleCors::class,
             \App\Http\Middleware\EnsureProductionSafe::class, // SECURITY: Vérifier config production
+            \App\Http\Middleware\ApiSecurityHeaders::class, // SECURITY: Headers sécurité API
         ]);
         
         // Configuration de la redirection pour les utilisateurs non authentifiés
@@ -47,11 +48,15 @@ return Application::configure(basePath: dirname(__DIR__))
             'csp' => \App\Http\Middleware\ContentSecurityPolicy::class, // R-003
             'courier' => \App\Http\Middleware\EnsureCourierProfile::class, // Vérifier profil coursier
             'password.changed' => \App\Http\Middleware\EnsurePasswordChanged::class, // I-02: Forcer changement mot de passe
+            'idempotent' => \App\Http\Middleware\IdempotencyMiddleware::class, // Anti double-soumission
+            'audit' => \App\Http\Middleware\AuditTrailMiddleware::class, // Admin audit trail
+            'api.version' => \App\Http\Middleware\ApiVersionMiddleware::class, // API versioning headers
         ]);
         
         // Appliquer le rate limiting par défaut sur l'API
         $middleware->api(append: [
             \Illuminate\Routing\Middleware\ThrottleRequests::class.':api',
+            \App\Http\Middleware\ApiVersionMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

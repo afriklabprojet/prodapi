@@ -32,11 +32,17 @@ class Prescription extends Model
         'analysis_status',
         'analysis_error',
         'ocr_raw_text',
+        // Dispensing fields
+        'fulfillment_status',
+        'dispensing_count',
+        'first_dispensed_at',
+        'image_hash',
     ];
 
     protected $casts = [
         'validated_at' => 'datetime',
         'analyzed_at' => 'datetime',
+        'first_dispensed_at' => 'datetime',
         'extracted_medications' => 'array',
         'matched_products' => 'array',
         'unmatched_medications' => 'array',
@@ -58,13 +64,10 @@ class Prescription extends Model
                 }
 
                 return array_map(function ($path) {
-                    // If already an absolute URL, return as-is
                     if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
                         return $path;
                     }
 
-                    // Build URL via secure document endpoint
-                    // Path format: prescriptions/{user_id}/{filename}
                     return url('/api/documents/' . $path);
                 }, $images);
             },
@@ -176,5 +179,59 @@ class Prescription extends Model
     public function isValidated(): bool
     {
         return $this->status === self::STATUS_VALIDATED;
+    }
+
+    /**
+     * Get all dispensings for this prescription
+     */
+    public function dispensings()
+    {
+        return $this->hasMany(PrescriptionDispensing::class);
+    }
+
+    /**
+     * Check if prescription is fully dispensed
+     */
+    public function isFullyDispensed(): bool
+    {
+        return $this->fulfillment_status === 'full';
+    }
+
+    /**
+     * Check if prescription is partially dispensed
+     */
+    public function isPartiallyDispensed(): bool
+    {
+        return $this->fulfillment_status === 'partial';
+    }
+
+    /**
+     * Recalculate fulfillment status based on dispensings
+     */
+    public function recalculateFulfillment(): void
+    {
+        $dispensings = $this->dispensings()->get();
+        $this->dispensing_count = $dispensings->count();
+
+        if ($dispensings->isEmpty()) {
+            $this->fulfillment_status = 'none';
+        } else {
+            // Check if all prescribed medications have been fully dispensed
+            $medications = $this->extracted_medications ?? [];
+            if (empty($medications)) {
+                // No OCR data — any dispensing means at least partial
+                $this->fulfillment_status = 'partial';
+            } else {
+                $totalPrescribed = count($medications);
+                $dispensedMeds = $dispensings->pluck('medication_name')->unique()->count();
+                $this->fulfillment_status = $dispensedMeds >= $totalPrescribed ? 'full' : 'partial';
+            }
+
+            if (!$this->first_dispensed_at) {
+                $this->first_dispensed_at = $dispensings->min('dispensed_at');
+            }
+        }
+
+        $this->save();
     }
 }

@@ -23,7 +23,11 @@ class CustomerWalletService
      */
     public function getOrCreateWallet(User $user): Wallet
     {
-        $customer = $user->customer ?? Customer::create(['user_id' => $user->id]);
+        $customer = $user->customer()->firstOrCreate([
+            'user_id' => $user->id,
+        ]);
+
+        $user->setRelation('customer', $customer);
 
         return Wallet::firstOrCreate(
             [

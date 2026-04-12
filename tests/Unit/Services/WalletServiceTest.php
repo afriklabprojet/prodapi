@@ -11,6 +11,7 @@ use App\Models\Setting;
 use App\Services\WalletService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class WalletServiceTest extends TestCase
 {
@@ -34,7 +35,7 @@ class WalletServiceTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_default_commission_amount()
     {
         $amount = WalletService::getCommissionAmount();
@@ -42,7 +43,7 @@ class WalletServiceTest extends TestCase
         $this->assertEquals(WalletService::DEFAULT_COMMISSION_AMOUNT, $amount);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_configured_commission_amount()
     {
         Setting::set('courier_commission_amount', 300);
@@ -52,7 +53,7 @@ class WalletServiceTest extends TestCase
         $this->assertEquals(300, $amount);
     }
 
-    /** @test */
+    #[Test]
     public function it_calculates_delivery_fee_correctly()
     {
         // Set pricing
@@ -66,7 +67,7 @@ class WalletServiceTest extends TestCase
         $this->assertEquals(700, $fee);
     }
 
-    /** @test */
+    #[Test]
     public function it_applies_minimum_delivery_fee()
     {
         Setting::set('delivery_fee_base', 200);
@@ -79,7 +80,7 @@ class WalletServiceTest extends TestCase
         $this->assertEquals(500, $fee);
     }
 
-    /** @test */
+    #[Test]
     public function it_applies_maximum_delivery_fee()
     {
         Setting::set('delivery_fee_base', 200);
@@ -92,7 +93,7 @@ class WalletServiceTest extends TestCase
         $this->assertEquals(2000, $fee);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_delivery_pricing_settings()
     {
         Setting::set('delivery_fee_base', 250);
@@ -110,7 +111,7 @@ class WalletServiceTest extends TestCase
         ], $pricing);
     }
 
-    /** @test */
+    #[Test]
     public function it_gets_wallet_balance()
     {
         $balance = $this->walletService->getBalance($this->courier);
@@ -119,7 +120,7 @@ class WalletServiceTest extends TestCase
         $this->assertEquals('XOF', $balance['currency']);
     }
 
-    /** @test */
+    #[Test]
     public function it_checks_if_courier_can_deliver()
     {
         // With 5000 balance and 200 commission, courier can deliver
@@ -130,7 +131,7 @@ class WalletServiceTest extends TestCase
         $this->assertFalse($this->walletService->canCompleteDelivery($this->courier));
     }
 
-    /** @test */
+    #[Test]
     public function it_tops_up_wallet()
     {
         $transaction = $this->walletService->topUp(
@@ -148,7 +149,7 @@ class WalletServiceTest extends TestCase
         $this->assertEquals(6000, $this->wallet->balance);
     }
 
-    /** @test */
+    #[Test]
     public function it_credits_delivery_earning()
     {
         $order = Order::factory()->create(['delivery_fee' => 1000]);
@@ -170,7 +171,7 @@ class WalletServiceTest extends TestCase
         $this->assertEquals(6000, $this->wallet->balance);
     }
 
-    /** @test */
+    #[Test]
     public function it_deducts_commission()
     {
         $order = Order::factory()->create();
@@ -189,7 +190,7 @@ class WalletServiceTest extends TestCase
         $this->assertEquals(5000 - WalletService::getCommissionAmount(), $this->wallet->balance);
     }
 
-    /** @test */
+    #[Test]
     public function it_requests_withdrawal()
     {
         $transaction = $this->walletService->requestWithdrawal(
@@ -204,7 +205,7 @@ class WalletServiceTest extends TestCase
         $this->assertEquals(2000, $transaction->amount);
     }
 
-    /** @test */
+    #[Test]
     public function it_rejects_withdrawal_with_insufficient_balance()
     {
         $this->expectException(\Exception::class);
@@ -217,7 +218,7 @@ class WalletServiceTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function it_gets_statistics()
     {
         // Create some transactions
@@ -237,7 +238,7 @@ class WalletServiceTest extends TestCase
         $this->assertArrayHasKey('deliveries_count', $stats);
     }
 
-    /** @test */
+    #[Test]
     public function it_gets_transaction_history()
     {
         WalletTransaction::factory()->count(10)->create([
@@ -249,7 +250,7 @@ class WalletServiceTest extends TestCase
         $this->assertCount(5, $transactions);
     }
 
-    /** @test */
+    #[Test]
     public function it_checks_service_fee_settings()
     {
         Setting::set('apply_service_fee', true);
@@ -259,7 +260,7 @@ class WalletServiceTest extends TestCase
         $this->assertFalse(WalletService::isServiceFeeEnabled());
     }
 
-    /** @test */
+    #[Test]
     public function it_checks_payment_fee_settings()
     {
         Setting::set('apply_payment_fee', true);
@@ -269,7 +270,7 @@ class WalletServiceTest extends TestCase
         $this->assertFalse(WalletService::isPaymentFeeEnabled());
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_service_fee_configuration()
     {
         Setting::set('service_fee_percentage', 5);

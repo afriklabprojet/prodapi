@@ -13,6 +13,7 @@ use App\Models\Customer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class DistributeCommissionsTest extends TestCase
 {
@@ -52,7 +53,7 @@ class DistributeCommissionsTest extends TestCase
         parent::tearDown();
     }
 
-    /** @test */
+    #[Test]
     public function it_can_be_constructed_with_commission_service()
     {
         $service = Mockery::mock(CommissionService::class);
@@ -61,7 +62,7 @@ class DistributeCommissionsTest extends TestCase
         $this->assertInstanceOf(DistributeCommissions::class, $listener);
     }
 
-    /** @test */
+    #[Test]
     public function it_implements_should_queue()
     {
         $service = Mockery::mock(CommissionService::class);
@@ -70,7 +71,7 @@ class DistributeCommissionsTest extends TestCase
         $this->assertInstanceOf(\Illuminate\Contracts\Queue\ShouldQueue::class, $listener);
     }
 
-    /** @test */
+    #[Test]
     public function it_calls_calculate_and_distribute_on_commission_service()
     {
         $service = Mockery::mock(CommissionService::class);
@@ -86,7 +87,7 @@ class DistributeCommissionsTest extends TestCase
         $listener->handle($event);
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_distribute_if_order_is_null()
     {
         // Create payment without order
@@ -105,7 +106,7 @@ class DistributeCommissionsTest extends TestCase
         $listener->handle($event);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_payment_with_valid_order()
     {
         $service = Mockery::mock(CommissionService::class);
@@ -121,7 +122,7 @@ class DistributeCommissionsTest extends TestCase
         $this->assertTrue(true);
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_interacts_with_queue_trait()
     {
         $service = Mockery::mock(CommissionService::class);

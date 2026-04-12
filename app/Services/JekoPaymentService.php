@@ -270,8 +270,8 @@ class JekoPaymentService
         }
 
         // Trouver le paiement
-        $payment = JekoPayment::byReference($reference)->first()
-            ?? JekoPayment::byJekoId($jekoId)->first();
+        $payment = ($reference ? JekoPayment::byReference($reference)->first() : null)
+            ?? ($jekoId ? JekoPayment::byJekoId($jekoId)->first() : null);
 
         if (!$payment) {
             Log::warning('JEKO Webhook: Paiement non trouvé', [

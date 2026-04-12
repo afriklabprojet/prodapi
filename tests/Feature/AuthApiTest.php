@@ -6,12 +6,13 @@ use Tests\TestCase;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\Test;
 
 class AuthApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function customer_can_register()
     {
         $response = $this->postJson('/api/auth/register', [
@@ -38,7 +39,7 @@ class AuthApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_can_register()
     {
         $response = $this->postJson('/api/auth/register/pharmacy', [
@@ -80,7 +81,7 @@ class AuthApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_register()
     {
         $response = $this->postJson('/api/auth/register/courier', [
@@ -117,7 +118,7 @@ class AuthApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function registration_requires_valid_data()
     {
         $response = $this->postJson('/api/auth/register', [
@@ -130,7 +131,7 @@ class AuthApiTest extends TestCase
             ->assertJsonValidationErrors(['name', 'email', 'password']);
     }
 
-    /** @test */
+    #[Test]
     public function email_must_be_unique()
     {
         User::factory()->create(['email' => 'existing@example.com']);
@@ -147,7 +148,7 @@ class AuthApiTest extends TestCase
             ->assertJsonValidationErrors(['email']);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_login_with_valid_credentials()
     {
         $user = User::factory()->create([
@@ -169,7 +170,7 @@ class AuthApiTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function login_fails_with_invalid_credentials()
     {
         User::factory()->create([
@@ -188,7 +189,7 @@ class AuthApiTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function authenticated_user_can_get_profile()
     {
         $user = User::factory()->create();
@@ -206,7 +207,7 @@ class AuthApiTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function unauthenticated_user_cannot_get_profile()
     {
         $response = $this->getJson('/api/auth/me');
@@ -214,7 +215,7 @@ class AuthApiTest extends TestCase
         $response->assertStatus(401);
     }
 
-    /** @test */
+    #[Test]
     public function authenticated_user_can_logout()
     {
         $user = User::factory()->create();
@@ -234,7 +235,7 @@ class AuthApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function customer_profile_includes_role_specific_data()
     {
         $user = User::factory()->create(['role' => 'customer']);
@@ -253,7 +254,7 @@ class AuthApiTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_profile_includes_pharmacy_data()
     {
         $user = User::factory()->create(['role' => 'pharmacy']);
@@ -285,7 +286,7 @@ class AuthApiTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function courier_profile_includes_courier_data()
     {
         $user = User::factory()->create(['role' => 'courier']);

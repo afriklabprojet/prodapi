@@ -11,6 +11,7 @@ use App\Channels\FcmChannel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class NewPrescriptionNotificationTest extends TestCase
 {
@@ -41,7 +42,7 @@ class NewPrescriptionNotificationTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_be_constructed_with_prescription()
     {
         $notification = new NewPrescriptionNotification($this->prescription);
@@ -49,7 +50,7 @@ class NewPrescriptionNotificationTest extends TestCase
         $this->assertInstanceOf(NewPrescriptionNotification::class, $notification);
     }
 
-    /** @test */
+    #[Test]
     public function via_includes_database_channel()
     {
         $notification = new NewPrescriptionNotification($this->prescription);
@@ -58,7 +59,7 @@ class NewPrescriptionNotificationTest extends TestCase
         $this->assertContains('database', $channels);
     }
 
-    /** @test */
+    #[Test]
     public function via_includes_fcm_when_user_has_token()
     {
         $notification = new NewPrescriptionNotification($this->prescription);
@@ -67,7 +68,7 @@ class NewPrescriptionNotificationTest extends TestCase
         $this->assertContains(FcmChannel::class, $channels);
     }
 
-    /** @test */
+    #[Test]
     public function via_excludes_fcm_when_user_has_no_token()
     {
         $userWithoutToken = User::factory()->create(['fcm_token' => null]);
@@ -78,7 +79,7 @@ class NewPrescriptionNotificationTest extends TestCase
         $this->assertNotContains(FcmChannel::class, $channels);
     }
 
-    /** @test */
+    #[Test]
     public function to_array_returns_correct_structure()
     {
         $notification = new NewPrescriptionNotification($this->prescription);
@@ -90,7 +91,7 @@ class NewPrescriptionNotificationTest extends TestCase
         $this->assertEquals('new_prescription', $array['type']);
     }
 
-    /** @test */
+    #[Test]
     public function to_array_contains_customer_reference()
     {
         $notification = new NewPrescriptionNotification($this->prescription);
@@ -100,7 +101,7 @@ class NewPrescriptionNotificationTest extends TestCase
         $this->assertStringContainsString($this->prescription->customer_id, $array['body']);
     }
 
-    /** @test */
+    #[Test]
     public function to_fcm_returns_correct_structure()
     {
         $notification = new NewPrescriptionNotification($this->prescription);
@@ -112,7 +113,7 @@ class NewPrescriptionNotificationTest extends TestCase
         $this->assertEquals('Nouvelle Ordonnance', $fcm['title']);
     }
 
-    /** @test */
+    #[Test]
     public function to_fcm_data_contains_prescription_info()
     {
         $notification = new NewPrescriptionNotification($this->prescription);
@@ -122,7 +123,7 @@ class NewPrescriptionNotificationTest extends TestCase
         $this->assertEquals((string) $this->prescription->id, $fcm['data']['prescription_id']);
     }
 
-    /** @test */
+    #[Test]
     public function notification_can_be_sent()
     {
         Notification::fake();
@@ -132,7 +133,7 @@ class NewPrescriptionNotificationTest extends TestCase
         Notification::assertSentTo($this->pharmacyUser, NewPrescriptionNotification::class);
     }
 
-    /** @test */
+    #[Test]
     public function notification_implements_should_queue()
     {
         $notification = new NewPrescriptionNotification($this->prescription);

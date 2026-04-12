@@ -12,6 +12,7 @@ use App\Services\CourierAssignmentService;
 use App\Services\CommissionService;
 use App\Services\CacheService;
 use App\Services\FirestoreService;
+use App\Services\LoyaltyService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -20,15 +21,18 @@ class OrderObserver
     protected CourierAssignmentService $assignmentService;
     protected CommissionService $commissionService;
     protected FirestoreService $firestoreService;
+    protected LoyaltyService $loyaltyService;
 
     public function __construct(
         CourierAssignmentService $assignmentService,
         CommissionService $commissionService,
-        FirestoreService $firestoreService
+        FirestoreService $firestoreService,
+        LoyaltyService $loyaltyService,
     ) {
         $this->assignmentService = $assignmentService;
         $this->commissionService = $commissionService;
         $this->firestoreService = $firestoreService;
+        $this->loyaltyService = $loyaltyService;
     }
 
     /**
@@ -197,6 +201,17 @@ class OrderObserver
             $this->commissionService->calculateAndDistribute($order);
         } catch (\Exception $e) {
             Log::error("Error distributing commissions for order {$order->id}: " . $e->getMessage());
+        }
+
+        // Award loyalty points
+        try {
+            $loyaltyPoint = $this->loyaltyService->awardPointsForOrder($order);
+            Log::info("Loyalty points awarded for order {$order->reference}", [
+                'points' => $loyaltyPoint->points,
+                'customer_id' => $order->customer_id,
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Error awarding loyalty points for order {$order->id}: " . $e->getMessage());
         }
     }
 

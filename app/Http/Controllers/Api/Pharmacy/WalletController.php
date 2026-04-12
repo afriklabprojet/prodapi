@@ -6,6 +6,7 @@ use App\Enums\JekoPaymentMethod;
 use App\Http\Controllers\Controller;
 use App\Models\Pharmacy;
 use App\Models\Setting;
+use App\Models\User;
 use App\Models\WithdrawalRequest;
 use App\Services\JekoPaymentService;
 use Illuminate\Http\Request;
@@ -24,12 +25,23 @@ class WalletController extends Controller
         $this->jekoService = $jekoService;
     }
 
+    private function getAuthenticatedUser(): User
+    {
+        $user = Auth::user();
+
+        if (! $user instanceof User) {
+            abort(401, 'Unauthenticated.');
+        }
+
+        return $user;
+    }
+
     /**
      * Get wallet balance and transaction history
      */
     public function index(Request $request)
     {
-        $user = Auth::user();
+        $user = $this->getAuthenticatedUser();
         
         // Find pharmacy associated with user
         $pharmacy = $user->pharmacies()->firstOrFail();
@@ -77,7 +89,7 @@ class WalletController extends Controller
      */
     public function stats(Request $request)
     {
-        $user = Auth::user();
+        $user = $this->getAuthenticatedUser();
         $pharmacy = $user->pharmacies()->firstOrFail();
         $wallet = $pharmacy->wallet;
         
@@ -89,12 +101,12 @@ class WalletController extends Controller
                     'total_debits' => 0,
                     'transaction_count' => 0,
                     'average_transaction' => 0,
-                    'period' => $request->get('period', 'month'),
+                    'period' => $request->input('period', 'month'),
                 ]
             ]);
         }
         
-        $period = $request->get('period', 'month');
+        $period = $request->input('period', 'month');
         $query = $wallet->transactions();
         
         // Filter by period
@@ -161,7 +173,7 @@ class WalletController extends Controller
             ], 422);
         }
         
-        $user = Auth::user();
+        $user = $this->getAuthenticatedUser();
         $pharmacy = $user->pharmacies()->firstOrFail();
         
         // Vérifier si un PIN est configuré
@@ -357,7 +369,7 @@ class WalletController extends Controller
             ], 422);
         }
         
-        $user = Auth::user();
+        $user = $this->getAuthenticatedUser();
         $pharmacy = $user->pharmacies()->firstOrFail();
         
         // Save or update payment info
@@ -400,11 +412,11 @@ class WalletController extends Controller
             ], 422);
         }
         
-        $user = Auth::user();
+        $user = $this->getAuthenticatedUser();
         $pharmacy = $user->pharmacies()->firstOrFail();
         
         // If this is primary, unset others
-        if ($request->get('is_primary', true)) {
+        if ($request->input('is_primary', true)) {
             $pharmacy->paymentInfo()->where('type', 'mobile_money')->update(['is_primary' => false]);
         }
         
@@ -414,7 +426,7 @@ class WalletController extends Controller
             [
                 'operator' => $request->operator,
                 'holder_name' => $request->account_name,
-                'is_primary' => $request->get('is_primary', true),
+                'is_primary' => $request->input('is_primary', true),
             ]
         );
         
@@ -430,7 +442,7 @@ class WalletController extends Controller
      */
     public function getWithdrawalSettings()
     {
-        $user = Auth::user();
+        $user = $this->getAuthenticatedUser();
         $pharmacy = $user->pharmacies()->firstOrFail();
         
         // Get global settings from Filament Settings
@@ -498,7 +510,7 @@ class WalletController extends Controller
             ], 403);
         }
         
-        $user = Auth::user();
+        $user = $this->getAuthenticatedUser();
         $pharmacy = $user->pharmacies()->firstOrFail();
         
         $pharmacy->update([
@@ -537,7 +549,7 @@ class WalletController extends Controller
             ], 422);
         }
         
-        $user = Auth::user();
+        $user = $this->getAuthenticatedUser();
         $pharmacy = $user->pharmacies()->firstOrFail();
         $wallet = $pharmacy->wallet;
         
@@ -576,7 +588,7 @@ class WalletController extends Controller
      */
     public function getPinStatus()
     {
-        $user = Auth::user();
+        $user = $this->getAuthenticatedUser();
         $pharmacy = $user->pharmacies()->firstOrFail();
 
         return response()->json([
@@ -610,7 +622,7 @@ class WalletController extends Controller
             ], 422);
         }
         
-        $user = Auth::user();
+        $user = $this->getAuthenticatedUser();
         $pharmacy = $user->pharmacies()->firstOrFail();
 
         // Si PIN déjà configuré, utiliser changePin
@@ -652,7 +664,7 @@ class WalletController extends Controller
             ], 422);
         }
         
-        $user = Auth::user();
+        $user = $this->getAuthenticatedUser();
         $pharmacy = $user->pharmacies()->firstOrFail();
 
         if (!$pharmacy->hasPinConfigured()) {
@@ -713,7 +725,7 @@ class WalletController extends Controller
             ], 422);
         }
         
-        $user = Auth::user();
+        $user = $this->getAuthenticatedUser();
         $pharmacy = $user->pharmacies()->firstOrFail();
 
         if (!$pharmacy->hasPinConfigured()) {
@@ -754,6 +766,128 @@ class WalletController extends Controller
         ]);
     }
 
+    /**
+     * Request PIN reset - sends OTP to user's phone
+     */
+    public function requestPinReset(Request $request)
+    {
+        $user = $this->getAuthenticatedUser();
+        $pharmacy = $user->pharmacies()->firstOrFail();
+
+        if (!$pharmacy->hasPinConfigured()) {
+            return response()->json([
+                'success' => false,
+                'status' => 'error',
+                'message' => 'Aucun code PIN configuré. Utilisez la configuration initiale.',
+                'code' => 'PIN_NOT_SET'
+            ], 400);
+        }
+
+        // Vérifier que l'utilisateur a un numéro de téléphone
+        $phone = $user->phone;
+        if (empty($phone)) {
+            return response()->json([
+                'success' => false,
+                'status' => 'error',
+                'message' => 'Aucun numéro de téléphone associé au compte',
+                'code' => 'NO_PHONE'
+            ], 400);
+        }
+
+        // Générer et envoyer l'OTP
+        try {
+            $otpService = app(\App\Services\OtpService::class);
+            $otpService->sendOtp($phone, 'pin_reset');
+
+            // Masquer le numéro pour la réponse (ex: 07****85)
+            $maskedPhone = substr($phone, 0, 2) . '****' . substr($phone, -2);
+
+            return response()->json([
+                'success' => true,
+                'status' => 'success',
+                'message' => "Code de vérification envoyé au {$maskedPhone}",
+                'masked_phone' => $maskedPhone,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('PIN Reset OTP failed', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'status' => 'error',
+                'message' => 'Impossible d\'envoyer le code de vérification',
+            ], 500);
+        }
+    }
+
+    /**
+     * Confirm PIN reset with OTP and set new PIN
+     */
+    public function confirmPinReset(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'otp' => 'required|string|digits:6',
+            'new_pin' => 'required|string|digits:4',
+            'new_pin_confirmation' => 'required|string|same:new_pin',
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'status' => 'error',
+                'message' => 'Données invalides',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+        
+        $user = $this->getAuthenticatedUser();
+        $pharmacy = $user->pharmacies()->firstOrFail();
+        $phone = $user->phone;
+
+        if (empty($phone)) {
+            return response()->json([
+                'success' => false,
+                'status' => 'error',
+                'message' => 'Aucun numéro de téléphone associé',
+            ], 400);
+        }
+
+        // Vérifier l'OTP
+        try {
+            $otpService = app(\App\Services\OtpService::class);
+            $isValid = $otpService->verifyOtp($phone, $request->otp, 'pin_reset');
+
+            if (!$isValid) {
+                return response()->json([
+                    'success' => false,
+                    'status' => 'error',
+                    'message' => 'Code de vérification invalide ou expiré',
+                    'code' => 'OTP_INVALID'
+                ], 401);
+            }
+
+            // Réinitialiser le PIN
+            $pharmacy->setWithdrawalPin($request->new_pin);
+            
+            // Réinitialiser les tentatives et le verrouillage
+            $pharmacy->update([
+                'pin_attempts' => 0,
+                'pin_locked_until' => null,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'status' => 'success',
+                'message' => 'Code PIN réinitialisé avec succès'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('PIN Reset confirmation failed', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'status' => 'error',
+                'message' => 'Erreur lors de la réinitialisation',
+            ], 500);
+        }
+    }
+
     // ========================================================================
     // PAYMENT INFO WITH PIN PROTECTION
     // ========================================================================
@@ -780,7 +914,7 @@ class WalletController extends Controller
             ], 422);
         }
         
-        $user = Auth::user();
+        $user = $this->getAuthenticatedUser();
         $pharmacy = $user->pharmacies()->firstOrFail();
 
         // Vérifier le PIN
@@ -854,7 +988,7 @@ class WalletController extends Controller
             ], 422);
         }
         
-        $user = Auth::user();
+        $user = $this->getAuthenticatedUser();
         $pharmacy = $user->pharmacies()->firstOrFail();
 
         // Vérifier le PIN
@@ -888,7 +1022,7 @@ class WalletController extends Controller
         }
         
         // If this is primary, unset others
-        if ($request->get('is_primary', true)) {
+        if ($request->input('is_primary', true)) {
             $pharmacy->paymentInfo()->where('type', 'mobile_money')->update(['is_primary' => false]);
         }
         
@@ -898,7 +1032,7 @@ class WalletController extends Controller
             [
                 'operator' => $request->operator,
                 'holder_name' => $request->account_name,
-                'is_primary' => $request->get('is_primary', true),
+                'is_primary' => $request->input('is_primary', true),
             ]
         );
         
@@ -914,7 +1048,7 @@ class WalletController extends Controller
      */
     public function getPaymentInfo()
     {
-        $user = Auth::user();
+        $user = $this->getAuthenticatedUser();
         $pharmacy = $user->pharmacies()->firstOrFail();
 
         $bankInfo = $pharmacy->paymentInfo()->where('type', 'bank')->first();
@@ -934,7 +1068,8 @@ class WalletController extends Controller
                     return [
                         'id' => $info->id,
                         'operator' => $info->operator,
-                        'phone_number' => $this->maskPhoneNumber($info->phone_number),
+                        'phone_number' => $info->phone_number,
+                        'phone_number_masked' => $this->maskPhoneNumber($info->phone_number),
                         'holder_name' => $info->holder_name,
                         'is_primary' => $info->is_primary,
                     ];

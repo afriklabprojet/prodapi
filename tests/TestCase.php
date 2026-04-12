@@ -17,12 +17,46 @@ abstract class TestCase extends BaseTestCase
                 $pdo->sqliteCreateFunction('cos', 'cos', 1);
                 $pdo->sqliteCreateFunction('radians', 'deg2rad', 1);
                 $pdo->sqliteCreateFunction('sin', 'sin', 1);
+                $pdo->sqliteCreateFunction('HOUR', function ($datetime) {
+                    return $datetime ? (int) date('G', strtotime($datetime)) : null;
+                }, 1);
+                $pdo->sqliteCreateFunction('GREATEST', function () {
+                    $args = func_get_args();
+                    return max(array_filter($args, fn ($v) => $v !== null));
+                }, -1);
+                $pdo->sqliteCreateFunction('LEAST', function () {
+                    $args = func_get_args();
+                    return min(array_filter($args, fn ($v) => $v !== null));
+                }, -1);
 
-                // Enable WAL mode for better concurrent access and nested transactions
-                $pdo->exec('PRAGMA journal_mode=WAL');
+                // WAL mode only outside a transaction (RefreshDatabase starts one)
+                if (!$pdo->inTransaction()) {
+                    $pdo->exec('PRAGMA journal_mode=WAL');
+                }
             } catch (\Exception $e) {
                 // Functions might already be registered
             }
         }
+    }
+
+    protected function tearDown(): void
+    {
+        // Reset stuck SQLite transactions to prevent cascade failures
+        if (config('database.default') === 'sqlite') {
+            try {
+                $connection = $this->app['db']->connection();
+                $pdo = $connection->getPdo();
+                // If PDO thinks we're in a transaction but Laravel doesn't, force reset
+                if ($pdo && $pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                // Purge connection to get a fresh one for the next test
+                $this->app['db']->purge();
+            } catch (\Exception $e) {
+                // Connection may already be closed
+            }
+        }
+
+        parent::tearDown();
     }
 }

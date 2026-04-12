@@ -10,6 +10,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class PrescriptionControllerTest extends TestCase
 {
@@ -37,7 +38,7 @@ class PrescriptionControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function customer_can_list_prescriptions()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -59,7 +60,7 @@ class PrescriptionControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function prescriptions_include_associated_order()
     {
         $order = Order::factory()->create([
@@ -78,7 +79,7 @@ class PrescriptionControllerTest extends TestCase
         $this->assertEquals($order->id, $found['order']['id']);
     }
 
-    /** @test */
+    #[Test]
     public function customer_can_upload_prescription()
     {
         $images = [
@@ -115,7 +116,7 @@ class PrescriptionControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function upload_requires_at_least_one_image()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -127,7 +128,7 @@ class PrescriptionControllerTest extends TestCase
             ->assertJsonValidationErrors(['images']);
     }
 
-    /** @test */
+    #[Test]
     public function upload_rejects_non_image_files()
     {
         $file = UploadedFile::fake()->create('document.pdf', 100, 'application/pdf');
@@ -140,7 +141,7 @@ class PrescriptionControllerTest extends TestCase
         $response->assertStatus(422);
     }
 
-    /** @test */
+    #[Test]
     public function upload_rejects_large_images()
     {
         $file = UploadedFile::fake()->image('large.jpg')->size(15000); // 15MB
@@ -153,7 +154,7 @@ class PrescriptionControllerTest extends TestCase
         $response->assertStatus(422);
     }
 
-    /** @test */
+    #[Test]
     public function customer_can_specify_upload_source()
     {
         $image = UploadedFile::fake()->image('prescription.jpg');
@@ -168,7 +169,7 @@ class PrescriptionControllerTest extends TestCase
             ->assertJsonPath('data.source', 'checkout');
     }
 
-    /** @test */
+    #[Test]
     public function customer_can_view_prescription_details()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -189,7 +190,7 @@ class PrescriptionControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function customer_cannot_view_other_customer_prescriptions()
     {
         $otherUser = User::factory()->create(['role' => 'customer']);
@@ -203,7 +204,7 @@ class PrescriptionControllerTest extends TestCase
         $response->assertNotFound();
     }
 
-    /** @test */
+    #[Test]
     public function returns_404_for_non_existent_prescription()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -212,7 +213,7 @@ class PrescriptionControllerTest extends TestCase
         $response->assertNotFound();
     }
 
-    /** @test */
+    #[Test]
     public function customer_can_view_quoted_prescription()
     {
         $this->prescription->update([
@@ -229,7 +230,7 @@ class PrescriptionControllerTest extends TestCase
             ->assertJsonPath('data.quote_amount', 15000);
     }
 
-    /** @test */
+    #[Test]
     public function prescriptions_are_ordered_by_latest()
     {
         // Create older prescriptions
@@ -254,7 +255,7 @@ class PrescriptionControllerTest extends TestCase
         $this->assertEquals($recent->id, $data[0]['id']);
     }
 
-    /** @test */
+    #[Test]
     public function upload_accepts_webp_format()
     {
         $image = UploadedFile::fake()->image('prescription.webp');
@@ -267,7 +268,7 @@ class PrescriptionControllerTest extends TestCase
         $response->assertCreated();
     }
 
-    /** @test */
+    #[Test]
     public function notes_have_maximum_length()
     {
         $image = UploadedFile::fake()->image('prescription.jpg');
@@ -283,7 +284,7 @@ class PrescriptionControllerTest extends TestCase
             ->assertJsonValidationErrors(['notes']);
     }
 
-    /** @test */
+    #[Test]
     public function unauthenticated_user_cannot_access_prescriptions()
     {
         $response = $this->getJson('/api/customer/prescriptions');
@@ -291,7 +292,7 @@ class PrescriptionControllerTest extends TestCase
         $response->assertUnauthorized();
     }
 
-    /** @test */
+    #[Test]
     public function unauthenticated_user_cannot_upload_prescriptions()
     {
         $image = UploadedFile::fake()->image('prescription.jpg');

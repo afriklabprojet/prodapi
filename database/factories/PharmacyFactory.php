@@ -22,7 +22,6 @@ class PharmacyFactory extends Factory
             'latitude' => fake()->latitude(5.0, 7.5),
             'longitude' => fake()->longitude(-8.0, -3.0),
             'status' => 'approved',
-            'is_active' => true,
             'commission_rate_platform' => 0.10,
             'commission_rate_pharmacy' => 0.85,
             'commission_rate_courier' => 0.05,
@@ -45,7 +44,6 @@ class PharmacyFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'status' => 'approved',
-            'is_active' => true,
             'approved_at' => now(),
         ]);
     }
@@ -54,15 +52,7 @@ class PharmacyFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'status' => 'rejected',
-            'is_active' => false,
             'rejection_reason' => 'Documents incomplets',
-        ]);
-    }
-
-    public function inactive(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'is_active' => false,
         ]);
     }
 

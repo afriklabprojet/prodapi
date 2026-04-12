@@ -6,12 +6,13 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class LoginControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function user_can_login_with_email()
     {
         $user = User::factory()->create([
@@ -35,7 +36,7 @@ class LoginControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_login_with_phone()
     {
         $user = User::factory()->create([
@@ -58,7 +59,7 @@ class LoginControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function login_fails_with_wrong_password()
     {
         $user = User::factory()->create([
@@ -78,7 +79,7 @@ class LoginControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function login_fails_with_nonexistent_user()
     {
         $response = $this->postJson('/api/auth/login', [
@@ -89,7 +90,7 @@ class LoginControllerTest extends TestCase
         $response->assertStatus(401);
     }
 
-    /** @test */
+    #[Test]
     public function login_requires_email_field()
     {
         $response = $this->postJson('/api/auth/login', [
@@ -100,7 +101,7 @@ class LoginControllerTest extends TestCase
             ->assertJsonValidationErrors(['email']);
     }
 
-    /** @test */
+    #[Test]
     public function login_requires_password_field()
     {
         $response = $this->postJson('/api/auth/login', [
@@ -111,7 +112,7 @@ class LoginControllerTest extends TestCase
             ->assertJsonValidationErrors(['password']);
     }
 
-    /** @test */
+    #[Test]
     public function email_is_case_insensitive()
     {
         $user = User::factory()->create([
@@ -128,7 +129,7 @@ class LoginControllerTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function courier_cannot_login_as_customer()
     {
         $user = User::factory()->create([
@@ -146,7 +147,7 @@ class LoginControllerTest extends TestCase
         $response->assertStatus(422);
     }
 
-    /** @test */
+    #[Test]
     public function customer_cannot_login_as_courier()
     {
         $user = User::factory()->create([
@@ -164,7 +165,7 @@ class LoginControllerTest extends TestCase
         $response->assertStatus(422);
     }
 
-    /** @test */
+    #[Test]
     public function phone_spaces_are_removed()
     {
         $user = User::factory()->create([

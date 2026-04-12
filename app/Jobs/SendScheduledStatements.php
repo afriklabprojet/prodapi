@@ -38,7 +38,7 @@ class SendScheduledStatements implements ShouldQueue
     {
         Log::info('SendScheduledStatements: Début de la vérification des relevés programmés');
 
-        $preferences = PharmacyStatementPreference::with(['pharmacy.wallet', 'pharmacy.user'])
+        $preferences = PharmacyStatementPreference::with(['pharmacy.wallet', 'pharmacy.users'])
             ->dueForSending()
             ->get();
 
@@ -87,8 +87,8 @@ class SendScheduledStatements implements ShouldQueue
             ->get();
 
         // Calculer les totaux
-        $totalCredits = $transactions->where('type', 'credit')->sum('amount');
-        $totalDebits = $transactions->where('type', 'debit')->sum('amount');
+        $totalCredits = $transactions->whereIn('type', ['credit', 'CREDIT'])->sum('amount');
+        $totalDebits = $transactions->whereIn('type', ['debit', 'DEBIT'])->sum('amount');
 
         $statementData = [
             'pharmacy' => $pharmacy,

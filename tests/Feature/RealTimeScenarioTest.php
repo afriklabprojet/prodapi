@@ -13,6 +13,7 @@ use App\Notifications\OrderStatusNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class RealTimeScenarioTest extends TestCase
 {
@@ -59,7 +60,7 @@ class RealTimeScenarioTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function new_order_sends_notification_to_pharmacy()
     {
         Notification::fake();
@@ -83,7 +84,7 @@ class RealTimeScenarioTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function order_confirmation_sends_notification_to_client()
     {
         Notification::fake();
@@ -107,7 +108,7 @@ class RealTimeScenarioTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function order_ready_triggers_assignment_and_notifies_courier()
     {
         Notification::fake();

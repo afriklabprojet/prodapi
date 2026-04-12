@@ -45,7 +45,11 @@ class Settings extends Page implements HasForms
         
         $this->form->fill([
             'search_radius_km' => Setting::get('search_radius_km', 20),
+            // Commissions
             'default_commission_rate' => Setting::get('default_commission_rate', 2),
+            'default_commission_rate_platform' => Setting::get('default_commission_rate_platform', 10),
+            'default_commission_rate_pharmacy' => Setting::get('default_commission_rate_pharmacy', 85),
+            'default_commission_rate_courier' => Setting::get('default_commission_rate_courier', 5),
             'courier_commission_amount' => Setting::get('courier_commission_amount', 200),
             'minimum_wallet_balance' => Setting::get('minimum_wallet_balance', 200),
             'delivery_fee_base' => Setting::get('delivery_fee_base', 200),
@@ -65,12 +69,16 @@ class Settings extends Page implements HasForms
             'support_phone' => Setting::get('support_phone', '+225 07 01 159 572'),
             'support_email' => Setting::get('support_email', 'support@drlpharma.com'),
             'support_whatsapp' => Setting::get('support_whatsapp', '+225 07 01 159 572'),
-            'website_url' => Setting::get('website_url', 'https://drlpharma.com'),
+            'website_url' => Setting::get('website_url', 'https://drlpharma.pro'),
             'tutorials_url' => Setting::get('tutorials_url', 'https://www.youtube.com/@drlpharma'),
-            'guide_url' => Setting::get('guide_url', 'https://drlpharma.com/guide'),
-            'faq_url' => Setting::get('faq_url', 'https://drlpharma.com/faq'),
-            'terms_url' => Setting::get('terms_url', 'https://drlpharma.com/terms'),
-            'privacy_url' => Setting::get('privacy_url', 'https://drlpharma.com/privacy'),
+            'guide_url' => Setting::get('guide_url', 'https://drlpharma.pro/guide'),
+            'faq_url' => Setting::get('faq_url', 'https://drlpharma.pro/faq'),
+            'terms_url' => Setting::get('terms_url', 'https://drlpharma.pro/terms'),
+            'privacy_url' => Setting::get('privacy_url', 'https://drlpharma.pro/privacy'),
+            // Modes de paiement
+            'payment_mode_platform_enabled' => Setting::get('payment_mode_platform_enabled', true),
+            'payment_mode_cash_enabled' => Setting::get('payment_mode_cash_enabled', false),
+            'payment_mode_wallet_enabled' => Setting::get('payment_mode_wallet_enabled', true),
             // Paramètres minuterie d'attente
             'waiting_timeout_minutes' => Setting::get('waiting_timeout_minutes', 10),
             'waiting_fee_per_minute' => Setting::get('waiting_fee_per_minute', 100),
@@ -105,19 +113,52 @@ class Settings extends Page implements HasForms
                             ->numeric()
                             ->required()
                             ->helperText('Distance maximale pour rechercher un livreur autour de la pharmacie.'),
-                        TextInput::make('default_commission_rate')
-                            ->label('Commission plateforme (%)')
-                            ->numeric()
-                            ->suffix('%')
-                            ->required()
-                            ->helperText('Commission ajoutée au prix des médicaments (payée par le client). La pharmacie reçoit 100% du prix fixé.'),
                     ])->columns(2),
 
-                Section::make('Commissions Livreurs')
-                    ->description('Paramètres des commissions prélevées sur les livreurs')
+                Section::make('Commissions par Défaut')
+                    ->description('Répartition des commissions sur chaque commande. Ces taux s\'appliquent aux nouvelles pharmacies. Vous pouvez personnaliser les taux par pharmacie depuis la fiche de chaque pharmacie.')
+                    ->icon('heroicon-o-calculator')
+                    ->schema([
+                        TextInput::make('default_commission_rate')
+                            ->label('🏛️ Commission plateforme (%)')
+                            ->numeric()
+                            ->suffix('%')
+                            ->minValue(0)
+                            ->maxValue(50)
+                            ->required()
+                            ->helperText('Pourcentage ajouté au prix des médicaments (payé par le client). La pharmacie reçoit 100% de son prix.'),
+                        TextInput::make('default_commission_rate_platform')
+                            ->label('🏛️ Taux plateforme par défaut (%)')
+                            ->numeric()
+                            ->suffix('%')
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->required()
+                            ->helperText('Part de la plateforme sur le total de la commande (défaut pour nouvelles pharmacies).'),
+                        TextInput::make('default_commission_rate_pharmacy')
+                            ->label('🏥 Taux pharmacie par défaut (%)')
+                            ->numeric()
+                            ->suffix('%')
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->required()
+                            ->helperText('Part de la pharmacie sur le total de la commande (défaut pour nouvelles pharmacies).'),
+                        TextInput::make('default_commission_rate_courier')
+                            ->label('🚴 Taux livreur par défaut (%)')
+                            ->numeric()
+                            ->suffix('%')
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->required()
+                            ->helperText('Part du livreur sur le total de la commande (défaut pour nouvelles pharmacies).'),
+                    ])->columns(2),
+
+                Section::make('Livreurs & Livraison')
+                    ->description('Paramètres financiers pour les livreurs')
+                    ->icon('heroicon-o-truck')
                     ->schema([
                         TextInput::make('courier_commission_amount')
-                            ->label('Commission par livraison (FCFA)')
+                            ->label('Commission prélevée par livraison (FCFA)')
                             ->numeric()
                             ->suffix('FCFA')
                             ->required()
@@ -133,13 +174,13 @@ class Settings extends Page implements HasForms
                             ->numeric()
                             ->suffix('FCFA')
                             ->required()
-                            ->helperText('Montant fixe de départ pour toute livraison (ex: 200 FCFA).'),
+                            ->helperText('Montant fixe de départ pour toute livraison.'),
                         TextInput::make('delivery_fee_per_km')
                             ->label('Frais par kilomètre (FCFA/km)')
                             ->numeric()
                             ->suffix('FCFA/km')
                             ->required()
-                            ->helperText('Montant ajouté par kilomètre parcouru (ex: 100 FCFA/km).'),
+                            ->helperText('Montant ajouté par kilomètre parcouru.'),
                         TextInput::make('delivery_fee_min')
                             ->label('Frais minimum (FCFA)')
                             ->numeric()
@@ -236,7 +277,7 @@ class Settings extends Page implements HasForms
                         TextInput::make('website_url')
                             ->label('Site Web')
                             ->url()
-                            ->placeholder('https://drlpharma.com')
+                            ->placeholder('https://drlpharma.pro')
                             ->required()
                             ->helperText('URL du site web principal.'),
                         TextInput::make('tutorials_url')
@@ -247,23 +288,41 @@ class Settings extends Page implements HasForms
                         TextInput::make('guide_url')
                             ->label('URL Guide Utilisateur')
                             ->url()
-                            ->placeholder('https://drlpharma.com/guide')
+                            ->placeholder('https://drlpharma.pro/guide')
                             ->helperText('Lien vers le guide utilisateur en ligne.'),
                         TextInput::make('faq_url')
                             ->label('URL FAQ')
                             ->url()
-                            ->placeholder('https://drlpharma.com/faq')
+                            ->placeholder('https://drlpharma.pro/faq')
                             ->helperText('Lien vers la page FAQ.'),
                         TextInput::make('terms_url')
                             ->label('URL Conditions d\'utilisation')
                             ->url()
-                            ->placeholder('https://drlpharma.com/terms')
+                            ->placeholder('https://drlpharma.pro/terms')
                             ->helperText('Lien vers les conditions générales d\'utilisation.'),
                         TextInput::make('privacy_url')
                             ->label('URL Politique de confidentialité')
                             ->url()
-                            ->placeholder('https://drlpharma.com/privacy')
+                            ->placeholder('https://drlpharma.pro/privacy')
                             ->helperText('Lien vers la politique de confidentialité.'),
+                    ])->columns(3),
+
+                Section::make('Modes de Paiement')
+                    ->description('Activez ou désactivez les modes de paiement disponibles dans l\'application client')
+                    ->icon('heroicon-o-credit-card')
+                    ->schema([
+                        Toggle::make('payment_mode_platform_enabled')
+                            ->label('Paiement en ligne (Mobile Money)')
+                            ->helperText('Permet aux clients de payer via Mobile Money (Orange, MTN, Wave) lors de la commande.')
+                            ->default(true),
+                        Toggle::make('payment_mode_wallet_enabled')
+                            ->label('Paiement par portefeuille')
+                            ->helperText('Permet aux clients de payer avec leur solde de portefeuille DR-PHARMA.')
+                            ->default(true),
+                        Toggle::make('payment_mode_cash_enabled')
+                            ->label('Paiement à la livraison (espèces)')
+                            ->helperText('Permet aux clients de payer en espèces lors de la réception de la commande.')
+                            ->default(false),
                     ])->columns(3),
 
                 Section::make('Minuterie d\'attente livraison')
@@ -396,6 +455,9 @@ class Settings extends Page implements HasForms
 
         Setting::set('search_radius_km', $data['search_radius_km'], 'integer');
         Setting::set('default_commission_rate', $data['default_commission_rate'], 'integer');
+        Setting::set('default_commission_rate_platform', $data['default_commission_rate_platform'], 'float');
+        Setting::set('default_commission_rate_pharmacy', $data['default_commission_rate_pharmacy'], 'float');
+        Setting::set('default_commission_rate_courier', $data['default_commission_rate_courier'], 'float');
         Setting::set('courier_commission_amount', $data['courier_commission_amount'], 'integer');
         Setting::set('minimum_wallet_balance', $data['minimum_wallet_balance'], 'integer');
         Setting::set('delivery_fee_base', $data['delivery_fee_base'], 'integer');
@@ -421,6 +483,10 @@ class Settings extends Page implements HasForms
         Setting::set('faq_url', $data['faq_url'] ?? '', 'string');
         Setting::set('terms_url', $data['terms_url'] ?? '', 'string');
         Setting::set('privacy_url', $data['privacy_url'] ?? '', 'string');
+        // Modes de paiement
+        Setting::set('payment_mode_platform_enabled', $data['payment_mode_platform_enabled'], 'boolean');
+        Setting::set('payment_mode_cash_enabled', $data['payment_mode_cash_enabled'], 'boolean');
+        Setting::set('payment_mode_wallet_enabled', $data['payment_mode_wallet_enabled'], 'boolean');
         // Paramètres minuterie d'attente
         Setting::set('waiting_timeout_minutes', $data['waiting_timeout_minutes'], 'integer');
         Setting::set('waiting_fee_per_minute', $data['waiting_fee_per_minute'], 'integer');

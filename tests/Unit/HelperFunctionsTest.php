@@ -4,12 +4,13 @@ namespace Tests\Unit;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class HelperFunctionsTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_generates_valid_reference_format()
     {
         $reference = \App\Models\Order::generateReference();
@@ -18,7 +19,7 @@ class HelperFunctionsTest extends TestCase
         $this->assertGreaterThan(3, strlen($reference));
     }
 
-    /** @test */
+    #[Test]
     public function settings_helper_returns_default_value()
     {
         // Test getting a non-existent setting with default
@@ -27,7 +28,7 @@ class HelperFunctionsTest extends TestCase
         $this->assertEquals('default_value', $value);
     }
 
-    /** @test */
+    #[Test]
     public function settings_helper_stores_and_retrieves_value()
     {
         \App\Models\Setting::set('test_key', 'test_value');
@@ -37,7 +38,7 @@ class HelperFunctionsTest extends TestCase
         $this->assertEquals('test_value', $value);
     }
 
-    /** @test */
+    #[Test]
     public function settings_helper_updates_existing_value()
     {
         \App\Models\Setting::set('update_key', 'initial_value');
@@ -48,7 +49,7 @@ class HelperFunctionsTest extends TestCase
         $this->assertEquals('updated_value', $value);
     }
 
-    /** @test */
+    #[Test]
     public function log_masker_masks_sensitive_data()
     {
         $masker = new \App\Helpers\LogMasker();
@@ -60,7 +61,7 @@ class HelperFunctionsTest extends TestCase
         $this->assertNotEquals('0787654321', $masked['phone']);
     }
 
-    /** @test */
+    #[Test]
     public function haversine_distance_calculation_is_accurate()
     {
         // Abidjan coordinates
@@ -80,7 +81,7 @@ class HelperFunctionsTest extends TestCase
         $this->assertTrue(true);
     }
 
-    /** @test */
+    #[Test]
     public function delivery_code_is_4_digits()
     {
         $order = \App\Models\Order::factory()->make();

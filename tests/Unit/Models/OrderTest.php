@@ -12,6 +12,7 @@ use App\Models\Payment;
 use App\Models\Commission;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class OrderTest extends TestCase
 {
@@ -36,20 +37,20 @@ class OrderTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_belongs_to_a_pharmacy()
     {
         $this->assertInstanceOf(Pharmacy::class, $this->order->pharmacy);
         $this->assertEquals($this->pharmacy->id, $this->order->pharmacy->id);
     }
 
-    /** @test */
+    #[Test]
     public function it_belongs_to_a_customer()
     {
         $this->assertInstanceOf(User::class, $this->order->customer);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_many_items()
     {
         OrderItem::factory()->count(3)->create([
@@ -60,7 +61,7 @@ class OrderTest extends TestCase
         $this->assertInstanceOf(OrderItem::class, $this->order->items->first());
     }
 
-    /** @test */
+    #[Test]
     public function it_has_one_delivery()
     {
         $delivery = Delivery::factory()->create([
@@ -71,7 +72,7 @@ class OrderTest extends TestCase
         $this->assertEquals($delivery->id, $this->order->delivery->id);
     }
 
-    /** @test */
+    #[Test]
     public function it_generates_unique_reference()
     {
         $ref1 = Order::generateReference();
@@ -82,7 +83,7 @@ class OrderTest extends TestCase
         $this->assertStringStartsWith('DR-', $ref2);
     }
 
-    /** @test */
+    #[Test]
     public function it_auto_generates_delivery_code_on_creation()
     {
         $order = Order::factory()->create([
@@ -95,7 +96,7 @@ class OrderTest extends TestCase
         $this->assertEquals(4, strlen($order->delivery_code));
     }
 
-    /** @test */
+    #[Test]
     public function delivery_code_is_4_digits()
     {
         $order = Order::factory()->create([
@@ -106,7 +107,7 @@ class OrderTest extends TestCase
         $this->assertMatchesRegularExpression('/^\d{4}$/', $order->delivery_code);
     }
 
-    /** @test */
+    #[Test]
     public function it_casts_amounts_to_decimal()
     {
         $order = Order::factory()->create([
@@ -120,7 +121,7 @@ class OrderTest extends TestCase
         $this->assertEquals('1000.50', $order->subtotal);
     }
 
-    /** @test */
+    #[Test]
     public function it_casts_dates_correctly()
     {
         $order = Order::factory()->create([
@@ -134,7 +135,7 @@ class OrderTest extends TestCase
         $this->assertInstanceOf(\Carbon\Carbon::class, $order->delivered_at);
     }
 
-    /** @test */
+    #[Test]
     public function scope_paid_returns_paid_orders()
     {
         Order::factory()->create([
@@ -163,7 +164,7 @@ class OrderTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function scope_for_pharmacy_filters_by_pharmacy()
     {
         $otherPharmacy = Pharmacy::factory()->create();
@@ -179,7 +180,7 @@ class OrderTest extends TestCase
         $this->assertEquals($this->pharmacy->id, $orders->first()->pharmacy_id);
     }
 
-    /** @test */
+    #[Test]
     public function it_soft_deletes()
     {
         $this->order->delete();
@@ -189,7 +190,7 @@ class OrderTest extends TestCase
         $this->assertNotNull(Order::withTrashed()->find($this->order->id));
     }
 
-    /** @test */
+    #[Test]
     public function it_has_many_payments()
     {
         Payment::factory()->count(2)->create([
@@ -199,7 +200,7 @@ class OrderTest extends TestCase
         $this->assertCount(2, $this->order->payments);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_one_commission()
     {
         Commission::factory()->create([
@@ -209,7 +210,7 @@ class OrderTest extends TestCase
         $this->assertInstanceOf(Commission::class, $this->order->commission);
     }
 
-    /** @test */
+    #[Test]
     public function it_stores_delivery_coordinates()
     {
         $order = Order::factory()->create([
@@ -224,7 +225,7 @@ class OrderTest extends TestCase
         $this->assertEquals(-4.0083456, (float)$order->delivery_longitude);
     }
 
-    /** @test */
+    #[Test]
     public function it_stores_cancellation_info()
     {
         $this->order->update([
@@ -240,7 +241,7 @@ class OrderTest extends TestCase
         $this->assertEquals('Customer requested', $this->order->cancellation_reason);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_fillable_attributes()
     {
         $order = new Order();

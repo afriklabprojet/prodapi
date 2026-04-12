@@ -9,6 +9,7 @@ use App\Services\WalletService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 use Mockery;
+use PHPUnit\Framework\Attributes\Test;
 
 class WalletControllerTest extends TestCase
 {
@@ -28,7 +29,7 @@ class WalletControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_get_wallet_balance()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -53,13 +54,21 @@ class WalletControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_topup_wallet()
     {
         $wallet = \App\Models\Wallet::factory()->create([
             'walletable_type' => \App\Models\Courier::class,
             'walletable_id' => $this->courier->id,
             'balance' => 0,
+        ]);
+
+        \App\Models\JekoPayment::factory()->create([
+            'user_id' => $this->user->id,
+            'reference' => 'PAY-123',
+            'amount_cents' => 500000,
+            'status' => \App\Enums\JekoPaymentStatus::SUCCESS,
+            'business_processed' => false,
         ]);
 
         $transaction = WalletTransaction::factory()->create([
@@ -106,46 +115,49 @@ class WalletControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function topup_validates_minimum_amount()
     {
         $response = $this->actingAs($this->user, 'sanctum')
             ->postJson('/api/courier/wallet/topup', [
-                'amount' => 100, // Less than minimum
+                'amount' => 99,
                 'payment_method' => 'orange_money',
+                'payment_reference' => 'PAY-INVALID-MIN',
             ]);
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['amount']);
     }
 
-    /** @test */
+    #[Test]
     public function topup_validates_maximum_amount()
     {
         $response = $this->actingAs($this->user, 'sanctum')
             ->postJson('/api/courier/wallet/topup', [
-                'amount' => 1000000, // More than maximum
+                'amount' => 1000001,
                 'payment_method' => 'orange_money',
+                'payment_reference' => 'PAY-INVALID-MAX',
             ]);
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['amount']);
     }
 
-    /** @test */
+    #[Test]
     public function topup_validates_payment_method()
     {
         $response = $this->actingAs($this->user, 'sanctum')
             ->postJson('/api/courier/wallet/topup', [
                 'amount' => 5000,
                 'payment_method' => 'invalid_method',
+                'payment_reference' => 'PAY-INVALID-METHOD',
             ]);
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['payment_method']);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_request_withdrawal()
     {
         $wallet = \App\Models\Wallet::factory()->create([
@@ -189,7 +201,7 @@ class WalletControllerTest extends TestCase
             ->assertJsonPath('status', 'success');
     }
 
-    /** @test */
+    #[Test]
     public function withdrawal_validates_minimum_amount()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -203,7 +215,7 @@ class WalletControllerTest extends TestCase
             ->assertJsonValidationErrors(['amount']);
     }
 
-    /** @test */
+    #[Test]
     public function withdrawal_validates_phone_number_format()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -217,7 +229,7 @@ class WalletControllerTest extends TestCase
             ->assertJsonValidationErrors(['phone_number']);
     }
 
-    /** @test */
+    #[Test]
     public function courier_can_get_earnings_history()
     {
         // Create wallet for the courier and some transactions
@@ -248,7 +260,7 @@ class WalletControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function non_courier_cannot_access_wallet()
     {
         $customer = User::factory()->create(['role' => 'customer']);
@@ -259,7 +271,7 @@ class WalletControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function unauthenticated_user_cannot_access_wallet()
     {
         $response = $this->getJson('/api/courier/wallet');
@@ -267,7 +279,7 @@ class WalletControllerTest extends TestCase
         $response->assertUnauthorized();
     }
 
-    /** @test */
+    #[Test]
     public function wallet_shows_correct_statistics()
     {
         $this->mock(WalletService::class, function ($mock) {

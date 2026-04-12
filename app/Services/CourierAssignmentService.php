@@ -237,19 +237,35 @@ class CourierAssignmentService
 
     /**
      * Obtenir les livreurs disponibles dans un rayon
+     * Compatible SQLite et MySQL
      */
     public function getAvailableCouriersInRadius(
         float $latitude,
         float $longitude,
         float $radius = 15
     ): \Illuminate\Database\Eloquent\Collection {
-        return Courier::available()
+        // Récupérer tous les livreurs disponibles avec position puis filtrer par distance
+        // Cette approche est compatible SQLite et MySQL
+        $couriers = Courier::available()
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
-            ->nearLocation($latitude, $longitude)
-            ->having('distance', '<=', $radius)
-            ->orderBy('distance')
             ->get();
+
+        // Calculer la distance et filtrer en PHP pour compatibilité SQLite
+        return $couriers->map(function ($courier) use ($latitude, $longitude) {
+            $courier->distance = $this->calculateDistance(
+                $latitude,
+                $longitude,
+                $courier->latitude,
+                $courier->longitude
+            );
+            return $courier;
+        })
+        ->filter(function ($courier) use ($radius) {
+            return $courier->distance <= $radius;
+        })
+        ->sortBy('distance')
+        ->values();
     }
 
     /**
@@ -305,5 +321,47 @@ class CourierAssignmentService
 
         // Temps en minutes + 10 min de préparation
         return (int) ceil(($distance / $speed) * 60) + 10;
+    }
+
+    /**
+     * Créer une livraison à partir d'une offre acceptée
+     */
+    public function createDeliveryFromOffer(\App\Models\DeliveryOffer $offer, \App\Models\Courier $courier): \App\Models\Delivery
+    {
+        $order = $offer->order;
+        $pharmacy = $order->pharmacy;
+
+        // Calculer le frais total (base + bonus)
+        $deliveryFee = $offer->base_fee + $offer->bonus_fee;
+
+        $delivery = Delivery::create([
+            'order_id' => $order->id,
+            'courier_id' => $courier->id,
+            'pickup_address' => $pharmacy->address,
+            'pickup_latitude' => $pharmacy->latitude,
+            'pickup_longitude' => $pharmacy->longitude,
+            'delivery_address' => $order->delivery_address,
+            'delivery_latitude' => $order->delivery_latitude,
+            'delivery_longitude' => $order->delivery_longitude,
+            'status' => 'pending',
+            'delivery_fee' => $deliveryFee,
+            'surge_multiplier' => $offer->bonus_fee > 0 ? round(($offer->base_fee + $offer->bonus_fee) / max($offer->base_fee, 1), 2) : 1.0,
+            'surge_fee' => $offer->bonus_fee,
+        ]);
+
+        Log::info("Delivery {$delivery->id} created from offer {$offer->id} for order {$order->reference}", [
+            'courier_id' => $courier->id,
+            'delivery_fee' => $deliveryFee,
+            'bonus_fee' => $offer->bonus_fee,
+        ]);
+
+        // Notifier le livreur
+        try {
+            $courier->user->notify(new \App\Notifications\DeliveryAssignedNotification($delivery));
+        } catch (\Exception $e) {
+            Log::error("Failed to send notification to courier {$courier->id}: " . $e->getMessage());
+        }
+
+        return $delivery;
     }
 }

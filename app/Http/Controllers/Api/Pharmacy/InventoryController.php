@@ -102,7 +102,7 @@ class InventoryController extends Controller
         
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('products', 'public');
-            $product->image = 'storage/' . $path;
+            $product->image = $path;
         }
 
         $product->save();
@@ -338,12 +338,16 @@ class InventoryController extends Controller
 
         // Handle image
         if ($request->hasFile('image')) {
-            // Delete old image if exists
-            if ($product->image && Storage::disk('public')->exists(str_replace('storage/', '', $product->image))) {
-                Storage::disk('public')->delete(str_replace('storage/', '', $product->image));
+            // Delete old image if exists (use raw DB value, not accessor which returns full URL)
+            $rawImage = $product->getRawOriginal('image');
+            if ($rawImage) {
+                $storagePath = str_replace('storage/', '', $rawImage);
+                if (Storage::disk('public')->exists($storagePath)) {
+                    Storage::disk('public')->delete($storagePath);
+                }
             }
             $path = $request->file('image')->store('products', 'public');
-            $product->image = 'storage/' . $path;
+            $product->image = $path;
         }
 
         // Fill other fields

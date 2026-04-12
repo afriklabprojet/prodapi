@@ -57,13 +57,17 @@ class NewOrderNotification extends Notification implements ShouldQueue
      */
     public function toFcm(object $notifiable): array
     {
+        $fcmConfig = \App\Services\NotificationSettingsService::getFcmConfig('new_order');
+
         return [
             'title' => 'Nouvelle commande 🛒',
             'body' => "Ref: {$this->order->reference} - Total: {$this->order->total_amount} FCFA",
-            'data' => [
+            'data' => array_merge($fcmConfig['data'], [
                 'type' => 'new_order',
                 'order_id' => (string) $this->order->id,
-            ],
+            ]),
+            'android' => $fcmConfig['android'],
+            'apns' => $fcmConfig['apns'],
         ];
     }
 

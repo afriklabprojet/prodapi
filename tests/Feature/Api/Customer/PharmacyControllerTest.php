@@ -10,6 +10,7 @@ use App\Models\DutyZone;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class PharmacyControllerTest extends TestCase
 {
@@ -36,7 +37,7 @@ class PharmacyControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function customer_can_list_all_pharmacies()
     {
         Pharmacy::factory()->count(5)->create(['status' => 'approved']);
@@ -63,7 +64,7 @@ class PharmacyControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function only_approved_pharmacies_are_listed()
     {
         Pharmacy::factory()->create(['status' => 'pending']);
@@ -78,7 +79,7 @@ class PharmacyControllerTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function customer_can_get_nearby_pharmacies()
     {
         // Create nearby pharmacy
@@ -109,7 +110,7 @@ class PharmacyControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function nearby_requires_coordinates()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -119,7 +120,7 @@ class PharmacyControllerTest extends TestCase
             ->assertJsonValidationErrors(['latitude', 'longitude']);
     }
 
-    /** @test */
+    #[Test]
     public function nearby_validates_radius_range()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -129,7 +130,7 @@ class PharmacyControllerTest extends TestCase
             ->assertJsonValidationErrors(['radius']);
     }
 
-    /** @test */
+    #[Test]
     public function default_radius_is_10km()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -139,7 +140,7 @@ class PharmacyControllerTest extends TestCase
             ->assertJsonPath('meta.radius_km', 10);
     }
 
-    /** @test */
+    #[Test]
     public function customer_can_view_pharmacy_details()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -163,7 +164,7 @@ class PharmacyControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function returns_404_for_non_approved_pharmacy()
     {
         $pendingPharmacy = Pharmacy::factory()->create(['status' => 'pending']);
@@ -174,7 +175,7 @@ class PharmacyControllerTest extends TestCase
         $response->assertNotFound();
     }
 
-    /** @test */
+    #[Test]
     public function returns_404_for_non_existent_pharmacy()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -183,7 +184,7 @@ class PharmacyControllerTest extends TestCase
         $response->assertNotFound();
     }
 
-    /** @test */
+    #[Test]
     public function customer_can_get_on_duty_pharmacies()
     {
         $dutyZone = DutyZone::factory()->create();
@@ -209,7 +210,7 @@ class PharmacyControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function on_duty_can_filter_by_location()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -218,7 +219,7 @@ class PharmacyControllerTest extends TestCase
         $response->assertOk();
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_shows_duty_info_when_on_duty()
     {
         $dutyZone = DutyZone::factory()->create();
@@ -248,7 +249,7 @@ class PharmacyControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacy_shows_no_duty_info_when_not_on_duty()
     {
         $response = $this->actingAs($this->user, 'sanctum')
@@ -259,7 +260,7 @@ class PharmacyControllerTest extends TestCase
             ->assertJsonPath('data.duty_info', null);
     }
 
-    /** @test */
+    #[Test]
     public function pharmacies_are_ordered_by_name()
     {
         Pharmacy::factory()->create(['status' => 'approved', 'name' => 'Zebra Pharmacie']);
@@ -275,7 +276,7 @@ class PharmacyControllerTest extends TestCase
         $this->assertEquals($sortedNames, $names);
     }
 
-    /** @test */
+    #[Test]
     public function guest_can_list_pharmacies()
     {
         $response = $this->getJson('/api/customer/pharmacies');
@@ -284,7 +285,7 @@ class PharmacyControllerTest extends TestCase
         $this->assertContains($response->getStatusCode(), [200, 401]);
     }
 
-    /** @test */
+    #[Test]
     public function nearby_pharmacies_include_distance()
     {
         $response = $this->actingAs($this->user, 'sanctum')

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -32,8 +33,10 @@ class User extends Authenticatable implements FilamentUser
         'phone_verified_at',
         'fcm_token',
         'firebase_uid',
+        'notification_preferences',
         'last_notification_read_at',
         'must_change_password',
+        'courier_rating',
     ];
 
     protected $hidden = [
@@ -48,6 +51,7 @@ class User extends Authenticatable implements FilamentUser
             'phone_verified_at' => 'datetime',
             'password' => 'hashed',
             'must_change_password' => 'boolean',
+            'notification_preferences' => 'array',
         ];
     }
 
@@ -131,6 +135,23 @@ class User extends Authenticatable implements FilamentUser
     public function isCustomer(): bool
     {
         return $this->role === 'customer';
+    }
+
+    /**
+     * Profil client si l'utilisateur est un client
+     */
+    public function customer(): HasOne
+    {
+        return $this->hasOne(Customer::class);
+    }
+
+    /**
+     * Portefeuille du client (polymorphique)
+     * Note: Le wallet client sert uniquement à recharger/payer, pas à retirer
+     */
+    public function wallet(): MorphOne
+    {
+        return $this->morphOne(Wallet::class, 'walletable');
     }
 }
 

@@ -188,9 +188,71 @@ Route::get('/cgu', function () {
     return view('pages.cgu');
 })->name('cgu');
 
+Route::get('/guide', function () {
+    $defaultSections = [
+        ['id' => 'commandes', 'icon' => '🛒', 'title' => 'Traiter une commande', 'subtitle' => 'Recevoir, confirmer et préparer les commandes clients', 'color' => 'green', 'steps' => [['title' => 'Recevoir une nouvelle commande', 'content' => 'Lorsqu\'un client passe commande près de votre pharmacie, vous recevez une notification push et sonore. La commande apparaît dans l\'onglet <strong>« Commandes »</strong> avec le statut <strong>« En attente »</strong>.'], ['title' => 'Examiner la commande', 'content' => 'Appuyez sur la commande pour voir le détail : liste des produits, quantités, éventuelle ordonnance jointe, informations du client et mode de paiement choisi.'], ['title' => 'Confirmer ou refuser', 'content' => 'Si tous les produits sont disponibles, appuyez sur <strong>« Confirmer »</strong>. Si un produit manque, vous pouvez proposer un substitut ou refuser la commande en indiquant le motif.'], ['title' => 'Préparer la commande', 'content' => 'Une fois confirmée, préparez physiquement les médicaments. Quand tout est prêt, appuyez sur <strong>« Prêt pour récupération »</strong>. Un coursier sera automatiquement assigné.']], 'tip' => 'Traitez les commandes rapidement ! Un temps de réponse court améliore votre classement et la satisfaction des clients.'],
+        ['id' => 'stock', 'icon' => '📦', 'title' => 'Gérer votre stock', 'subtitle' => 'Ajouter, modifier et suivre vos produits', 'color' => 'blue', 'steps' => [['title' => 'Accéder à votre inventaire', 'content' => 'Rendez-vous dans l\'onglet <strong>« Stock »</strong> depuis le menu principal.'], ['title' => 'Ajouter un produit', 'content' => 'Appuyez sur le bouton <strong>« + »</strong>. Scannez le code-barres, recherchez dans la base DR-PHARMA, ou saisissez manuellement.'], ['title' => 'Modifier un produit', 'content' => 'Appuyez sur un produit pour modifier prix, quantité ou le marquer <strong>« Indisponible »</strong>.'], ['title' => 'Alertes de stock bas', 'content' => 'Configurez des seuils d\'alerte pour être notifié quand un produit est bientôt en rupture.']], 'tip' => 'Gardez votre stock à jour ! Un catalogue précis vous permet de recevoir plus de commandes.'],
+        ['id' => 'ordonnances', 'icon' => '📋', 'title' => 'Traiter les ordonnances', 'subtitle' => 'Recevoir et valider les ordonnances des patients', 'color' => 'amber', 'steps' => [['title' => 'Réception d\'une ordonnance', 'content' => 'Quand un client envoie une photo d\'ordonnance, vous recevez une notification avec le badge <strong>« Ordonnance »</strong>.'], ['title' => 'Vérifier l\'ordonnance', 'content' => 'Examinez la photo, vérifiez sa validité et les produits prescrits.'], ['title' => 'Créer le devis', 'content' => 'Sélectionnez les produits dans votre stock, ajustez les quantités et validez le devis.']], 'tip' => 'Si un médicament prescrit n\'est pas disponible, proposez un générique équivalent.'],
+        ['id' => 'mode-garde', 'icon' => '🌙', 'title' => 'Mode Garde', 'subtitle' => 'Signaler votre pharmacie comme étant de garde', 'color' => 'purple', 'steps' => [['title' => 'Activer le mode garde', 'content' => 'Allez dans <strong>« Profil »</strong> → <strong>« Mode Garde »</strong>. Activez le toggle.'], ['title' => 'Définir les horaires', 'content' => 'Configurez les plages horaires de garde (ex : 20h - 8h).'], ['title' => 'Désactiver le mode garde', 'content' => 'Désactivez le mode pour revenir aux horaires normaux.']], 'tip' => 'Activez le mode garde lors des jours fériés et week-ends.'],
+        ['id' => 'statistiques', 'icon' => '📊', 'title' => 'Statistiques & rapports', 'subtitle' => 'Suivre vos performances et ventes', 'color' => 'rose', 'steps' => [['title' => 'Accéder aux statistiques', 'content' => 'Depuis le <strong>menu profil</strong>, appuyez sur <strong>« Rapports & Analytics »</strong>.'], ['title' => 'Indicateurs disponibles', 'content' => 'Commandes traitées, chiffre d\'affaires, taux d\'acceptation, temps moyen, produits les plus vendus.'], ['title' => 'Filtrer par période', 'content' => 'Affichez les statistiques sur une période précise.']], 'tip' => 'Consultez régulièrement vos statistiques pour ajuster votre stock.'],
+        ['id' => 'profil', 'icon' => '⚙️', 'title' => 'Profil & paramètres', 'subtitle' => 'Gérer les informations de votre pharmacie', 'color' => 'cyan', 'steps' => [['title' => 'Modifier les informations', 'content' => 'Dans <strong>« Profil »</strong> → <strong>« Ma Pharmacie »</strong>, modifiez nom, adresse, photo, téléphone et horaires.'], ['title' => 'Gérer les notifications', 'content' => 'Configurez vos préférences de notification.'], ['title' => 'Changer de mot de passe', 'content' => 'Allez dans <strong>« Sécurité »</strong> pour modifier votre mot de passe.']], 'tip' => ''],
+    ];
+
+    return view('pages.guide', [
+        'heroTitle' => Setting::get('guide_hero_title', 'Guide d\'utilisation'),
+        'heroSubtitle' => Setting::get('guide_hero_subtitle', 'Apprenez à utiliser l\'application DR-PHARMA Pharmacie pour gérer votre officine efficacement.'),
+        'intro' => Setting::get('guide_intro', 'Ce guide vous accompagne pas à pas dans l\'utilisation de l\'application <strong>DR-PHARMA Pharmacie</strong>. Découvrez comment traiter les commandes, gérer votre stock, activer le mode garde et suivre vos performances.'),
+        'sections' => Setting::get('guide_sections', $defaultSections),
+    ]);
+})->name('guide');
+
+Route::get('/faq', function () {
+    $defaultCategories = [
+        ['icon' => '🛒', 'title' => 'Patients — Commandes & Livraisons', 'filter' => 'patient', 'questions' => [['question' => 'Comment passer une commande ?', 'answer' => 'Téléchargez l\'application DR-PHARMA, créez un compte, puis recherchez votre médicament par nom ou envoyez une photo de votre ordonnance.'], ['question' => 'Quel est le délai de livraison ?', 'answer' => 'En moyenne, votre commande est livrée en moins de 45 minutes dans les zones couvertes d\'Abidjan.'], ['question' => 'Comment suivre ma livraison ?', 'answer' => 'Suivez votre coursier en temps réel sur la carte dans l\'application.'], ['question' => 'Puis-je annuler une commande ?', 'answer' => 'Oui, tant que la pharmacie n\'a pas encore préparé votre commande.'], ['question' => 'Comment créer un compte ?', 'answer' => 'Téléchargez l\'application, appuyez sur "S\'inscrire" et suivez les étapes.']]],
+        ['icon' => '💊', 'title' => 'Pharmaciens', 'filter' => 'pharmacien', 'questions' => [['question' => 'Comment traiter une commande ?', 'answer' => 'Dans l\'onglet "Commandes", appuyez sur une commande en attente, vérifiez les produits, puis confirmez ou refusez.'], ['question' => 'Comment ajouter un produit à mon stock ?', 'answer' => 'Allez dans "Stock", appuyez sur "+", scannez le code-barres ou entrez les informations manuellement.'], ['question' => 'Comment activer le mode garde ?', 'answer' => 'Dans "Profil" → "Mode Garde", activez le toggle et définissez vos horaires.'], ['question' => 'Comment devenir pharmacie partenaire ?', 'answer' => 'Contactez-nous via le formulaire de contact ou par email à support@drlpharma.com.'], ['question' => 'Comment voir mes statistiques de vente ?', 'answer' => 'Accédez à "Rapports & Analytics" depuis le menu profil.']]],
+        ['icon' => '🚴', 'title' => 'Coursiers', 'filter' => 'coursier', 'questions' => [['question' => 'Comment accepter une livraison ?', 'answer' => 'Allez dans "Livraisons" et appuyez sur "Accepter".'], ['question' => 'Comment recharger mon portefeuille ?', 'answer' => 'Profil → Portefeuille → Recharger via Mobile Money ou carte bancaire.'], ['question' => 'Comment confirmer une livraison ?', 'answer' => 'Demandez le code à 4 chiffres au client et entrez-le dans l\'application.'], ['question' => 'Comment devenir coursier DR-PHARMA ?', 'answer' => 'Téléchargez l\'app Coursier, inscrivez-vous avec vos documents. Validation sous 48h.']]],
+        ['icon' => '💳', 'title' => 'Paiements', 'filter' => 'paiement', 'questions' => [['question' => 'Quels moyens de paiement sont acceptés ?', 'answer' => 'Orange Money, MTN Mobile Money, Moov Money, Wave, cartes bancaires et cash à la livraison.'], ['question' => 'Mon paiement a échoué, que faire ?', 'answer' => 'Vérifiez votre solde et connexion. Si le problème persiste, essayez un autre moyen de paiement.'], ['question' => 'Comment obtenir un remboursement ?', 'answer' => 'Contactez notre support. Remboursements traités sous 24 à 48 heures.']]],
+        ['icon' => '🔒', 'title' => 'Compte & Sécurité', 'filter' => 'patient', 'questions' => [['question' => 'Mes données sont-elles sécurisées ?', 'answer' => 'Oui. Toutes les communications sont chiffrées (HTTPS/TLS).'], ['question' => 'J\'ai oublié mon mot de passe, comment le réinitialiser ?', 'answer' => 'Appuyez sur "Mot de passe oublié ?" sur l\'écran de connexion.']]],
+    ];
+
+    return view('pages.faq', [
+        'heroTitle' => Setting::get('faq_hero_title', 'Foire aux questions'),
+        'heroSubtitle' => Setting::get('faq_hero_subtitle', 'Trouvez des réponses rapides à toutes vos questions sur DR-PHARMA.'),
+        'categories' => Setting::get('faq_categories', $defaultCategories),
+    ]);
+})->name('faq');
+
+Route::get('/tutoriels', function () {
+    $defaultVideos = [
+        ['title' => 'Passer sa première commande', 'description' => 'Créer un compte, rechercher un médicament et commander en quelques minutes.', 'badge' => 'Patient', 'url' => 'https://www.youtube.com/@drlpharma'],
+        ['title' => 'Envoyer une ordonnance', 'description' => 'Comment photographier et envoyer votre ordonnance à une pharmacie.', 'badge' => 'Patient', 'url' => 'https://www.youtube.com/@drlpharma'],
+        ['title' => 'Gérer les commandes', 'description' => 'Recevoir, confirmer et préparer les commandes des patients.', 'badge' => 'Pharmacien', 'url' => 'https://www.youtube.com/@drlpharma'],
+        ['title' => 'Gérer votre stock', 'description' => 'Ajouter des produits, mettre à jour les prix et gérer les ruptures.', 'badge' => 'Pharmacien', 'url' => 'https://www.youtube.com/@drlpharma'],
+        ['title' => 'Première livraison', 'description' => 'Accepter, naviguer et confirmer votre première livraison.', 'badge' => 'Coursier', 'url' => 'https://www.youtube.com/@drlpharma'],
+        ['title' => 'Recharger son portefeuille', 'description' => 'Comment recharger via Mobile Money ou carte bancaire.', 'badge' => 'Coursier', 'url' => 'https://www.youtube.com/@drlpharma'],
+    ];
+
+    return view('pages.tutoriels', [
+        'heroTitle' => Setting::get('tutorials_hero_title', 'Tutoriels vidéo'),
+        'heroSubtitle' => Setting::get('tutorials_hero_subtitle', 'Apprenez à utiliser DR-PHARMA grâce à nos vidéos explicatives.'),
+        'intro' => Setting::get('tutorials_intro', 'Nos tutoriels vous guident pas à pas pour maîtriser toutes les fonctionnalités de l\'application DR-PHARMA, que vous soyez <strong>patient</strong>, <strong>pharmacien</strong> ou <strong>coursier</strong>.'),
+        'youtubeUrl' => Setting::get('tutorials_youtube_url', 'https://www.youtube.com/@drlpharma'),
+        'videos' => Setting::get('tutorials_videos', $defaultVideos),
+    ]);
+})->name('tutoriels');
+
+// Aliases pour les URLs retournées par l'API support settings
+Route::get('/terms', function () {
+    return redirect()->route('cgu');
+});
+
+Route::get('/privacy', function () {
+    return redirect()->route('confidentialite');
+});
+
 // Routes pour servir les documents privés (admin uniquement)
-// Ces routes doivent être APRÈS le middleware web mais AVANT les routes Filament
-Route::middleware(['web'])->prefix('admin/documents')->group(function () {
+// SECURITY: auth + vérification rôle admin dans le contrôleur
+Route::middleware(['web', 'auth'])->prefix('admin/documents')->group(function () {
     Route::get('/view/{path}', [PrivateDocumentController::class, 'show'])
         ->where('path', '.*')
         ->name('admin.documents.view');

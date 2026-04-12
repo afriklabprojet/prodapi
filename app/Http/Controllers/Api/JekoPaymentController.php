@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Enums\JekoPaymentMethod;
 use App\Http\Controllers\Controller;
 use App\Models\Courier;
+use App\Models\Customer;
 use App\Models\JekoPayment;
 use App\Models\Order;
 use App\Models\Wallet;
+use App\Services\BusinessEventService;
 use App\Services\JekoPaymentService;
+use App\Traits\ApiResponder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,6 +20,8 @@ use Illuminate\Validation\Rule;
 
 class JekoPaymentController extends Controller
 {
+    use ApiResponder;
+
     public function __construct(
         private JekoPaymentService $jekoService
     ) {}
@@ -28,14 +33,15 @@ class JekoPaymentController extends Controller
     public function initiate(Request $request): JsonResponse
     {
         Log::info('=== JEKO PAYMENT INITIATE START ===', [
-            'input' => $request->all(),
+            'type' => $request->input('type'),
+            'amount' => $request->input('amount'),
             'user_id' => Auth::id(),
         ]);
 
         $request->validate([
             'type' => 'required|in:order,wallet_topup',
             'order_id' => 'required_if:type,order|integer|exists:orders,id',
-            'amount' => 'required_if:type,wallet_topup|numeric|min:500',
+            'amount' => 'required_if:type,wallet_topup|numeric|min:500|max:1000000',
             'payment_method' => ['required', Rule::in(JekoPaymentMethod::values())],
         ]);
 
@@ -61,10 +67,10 @@ class JekoPaymentController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Exception: ' . $e->getMessage(),
-            ], 400);
+            return $this->paymentError(
+                'Échec de l\'initialisation du paiement. ' . $e->getMessage(),
+                'PAYMENT_INIT_FAILED'
+            );
         }
     }
 
@@ -78,19 +84,20 @@ class JekoPaymentController extends Controller
         $order = Order::findOrFail($orderId);
 
         // SECURITY: Vérifier que la commande appartient à l'utilisateur (via customer_id)
-        if ($order->customer_id !== $user->id) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Cette commande ne vous appartient pas',
-            ], 403);
+        // Cast both sides to int: PDO returns DB columns as strings, $user->id may
+        // also be a string depending on the User model casts — strict !== would
+        // incorrectly fail when the numeric values are equal but types differ.
+        if ((int) $order->customer_id !== (int) $user->id) {
+            return $this->forbidden('Cette commande ne vous appartient pas', 'ORDER_NOT_OWNED');
         }
 
         // Vérifier que la commande n'est pas déjà payée
         if ($order->payment_status === 'paid') {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Cette commande est déjà payée',
-            ], 400);
+            return $this->error(
+                'Cette commande est déjà payée',
+                400,
+                'ORDER_ALREADY_PAID'
+            );
         }
 
         // Auto-expire stale payments (>30min stuck in pending/processing)
@@ -113,18 +120,18 @@ class JekoPaymentController extends Controller
             ->first();
 
         if ($existingPayment) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Un paiement est déjà en cours pour cette commande',
-                'data' => [
+            return $this->conflict(
+                'Un paiement est déjà en cours pour cette commande',
+                'PAYMENT_IN_PROGRESS',
+                [
                     'existing_reference' => $existingPayment->reference,
                     'redirect_url' => $existingPayment->redirect_url,
-                ],
-            ], 409);
+                ]
+            );
         }
 
         // Montant en centimes
-        $amountCents = (int) ($order->total * 100);
+        $amountCents = (int) ($order->total_amount * 100);
 
         $payment = $this->jekoService->createRedirectPayment(
             $order,
@@ -134,17 +141,21 @@ class JekoPaymentController extends Controller
             "Paiement commande #{$order->id}"
         );
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Paiement initié',
-            'data' => [
-                'reference' => $payment->reference,
-                'redirect_url' => $payment->redirect_url,
-                'amount' => $payment->amount,
-                'currency' => $payment->currency,
-                'payment_method' => $payment->payment_method->value,
-            ],
-        ]);
+        // Track payment initiation
+        BusinessEventService::paymentInitiated(
+            $user->id,
+            $payment->reference,
+            (float) $payment->amount / 100,
+            $method->value
+        );
+
+        return $this->success([
+            'reference' => $payment->reference,
+            'redirect_url' => $payment->redirect_url,
+            'amount' => $payment->amount,
+            'currency' => $payment->currency,
+            'payment_method' => $payment->payment_method->value,
+        ], 'Paiement initié. Suivez le lien pour compléter.');
     }
 
     /**
@@ -154,21 +165,28 @@ class JekoPaymentController extends Controller
      */
     private function initiateWalletTopup(float $amount, JekoPaymentMethod $method, $user): JsonResponse
     {
-        // Trouver le wallet du courier
+        // Détecter le type d'utilisateur (Customer ou Courier)
         $courier = Courier::where('user_id', $user->id)->first();
-        
-        if (!$courier) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Profil coursier non trouvé',
-            ], 404);
+        $customer = Customer::where('user_id', $user->id)->first();
+
+        if ($courier) {
+            $walletable = $courier;
+            $walletableType = Courier::class;
+        } elseif ($customer) {
+            $walletable = $customer;
+            $walletableType = Customer::class;
+        } else {
+            // Créer un profil client automatiquement
+            $customer = Customer::create(['user_id' => $user->id]);
+            $walletable = $customer;
+            $walletableType = Customer::class;
         }
 
         // Obtenir ou créer le wallet
         $wallet = Wallet::firstOrCreate(
             [
-                'walletable_type' => Courier::class,
-                'walletable_id' => $courier->id,
+                'walletable_type' => $walletableType,
+                'walletable_id' => $walletable->id,
             ],
             [
                 'balance' => 0,
@@ -176,34 +194,24 @@ class JekoPaymentController extends Controller
             ]
         );
 
-        // Auto-expire stale payments (>30min stuck in pending/processing)
-        JekoPayment::where('payable_type', Wallet::class)
+        // Auto-cancel only PENDING payments (not PROCESSING ones that may have webhooks incoming)
+        // Skip payments that already received a webhook (payment may still be confirming)
+        $cancelledCount = JekoPayment::where('payable_type', Wallet::class)
             ->where('payable_id', $wallet->id)
-            ->whereIn('status', [
-                \App\Enums\JekoPaymentStatus::PENDING,
-                \App\Enums\JekoPaymentStatus::PROCESSING,
-            ])
-            ->where('created_at', '<', now()->subMinutes(30))
-            ->update(['status' => 'expired', 'error_message' => 'Auto-expired: timeout']);
+            ->where('status', \App\Enums\JekoPaymentStatus::PENDING)
+            ->whereNull('webhook_received_at')
+            ->update([
+                'status' => 'failed',
+                'error_message' => 'Annulé automatiquement: nouvelle tentative initiée',
+                'completed_at' => now(),
+            ]);
 
-        // SECURITY V-009: Vérifier qu'il n'y a pas de paiement en cours pour ce wallet
-        $existingPayment = JekoPayment::where('payable_type', Wallet::class)
-            ->where('payable_id', $wallet->id)
-            ->whereIn('status', [
-                \App\Enums\JekoPaymentStatus::PENDING,
-                \App\Enums\JekoPaymentStatus::PROCESSING,
-            ])
-            ->first();
-
-        if ($existingPayment) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Un rechargement est déjà en cours',
-                'data' => [
-                    'existing_reference' => $existingPayment->reference,
-                    'redirect_url' => $existingPayment->redirect_url,
-                ],
-            ], 409);
+        if ($cancelledCount > 0) {
+            Log::info('Auto-cancelled pending wallet topups', [
+                'wallet_id' => $wallet->id,
+                'user_id' => $user->id,
+                'cancelled_count' => $cancelledCount,
+            ]);
         }
 
         // Montant en centimes
@@ -217,17 +225,21 @@ class JekoPaymentController extends Controller
             "Rechargement wallet"
         );
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Rechargement initié',
-            'data' => [
-                'reference' => $payment->reference,
-                'redirect_url' => $payment->redirect_url,
-                'amount' => $payment->amount,
-                'currency' => $payment->currency,
-                'payment_method' => $payment->payment_method->value,
-            ],
-        ]);
+        // Track topup initiation
+        BusinessEventService::paymentInitiated(
+            $user->id,
+            $payment->reference,
+            (float) $payment->amount / 100,
+            $method->value
+        );
+
+        return $this->success([
+            'reference' => $payment->reference,
+            'redirect_url' => $payment->redirect_url,
+            'amount' => $payment->amount,
+            'currency' => $payment->currency,
+            'payment_method' => $payment->payment_method->value,
+        ], 'Rechargement initié. Suivez le lien pour compléter.');
     }
 
     /**
@@ -247,10 +259,7 @@ class JekoPaymentController extends Controller
 
         if (!$payment) {
             // Message générique pour ne pas révéler l'existence du paiement
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Paiement non trouvé',
-            ], 404);
+            return $this->notFound('Paiement non trouvé', 'PAYMENT_NOT_FOUND');
         }
 
         // Si pas encore finalisé, vérifier auprès de JEKO
@@ -258,20 +267,25 @@ class JekoPaymentController extends Controller
             $payment = $this->jekoService->checkPaymentStatus($payment);
         }
 
-        return response()->json([
-            'status' => 'success',
-            'data' => [
-                'reference' => $payment->reference,
-                'payment_status' => $payment->status->value,
-                'payment_status_label' => $payment->status->label(),
-                'amount' => $payment->amount,
-                'currency' => $payment->currency,
-                'payment_method' => $payment->payment_method->value,
-                'is_final' => $payment->isFinal(),
-                'completed_at' => $payment->completed_at?->toIso8601String(),
-                'error_message' => $payment->error_message,
-            ],
-        ]);
+        // Traitement synchrone: si le paiement est réussi mais pas encore crédité,
+        // exécuter le job immédiatement dans le même processus (idempotent).
+        // Cela évite d'attendre le prochain passage du cron queue worker (1 min).
+        if ($payment->isSuccess() && !$payment->business_processed) {
+            \App\Jobs\ProcessPaymentResultJob::dispatchSync($payment->id);
+            $payment = $payment->fresh();
+        }
+
+        return $this->success([
+            'reference' => $payment->reference,
+            'payment_status' => $payment->status->value,
+            'payment_status_label' => $payment->status->label(),
+            'amount' => $payment->amount,
+            'currency' => $payment->currency,
+            'payment_method' => $payment->payment_method->value,
+            'is_final' => $payment->isFinal(),
+            'completed_at' => $payment->completed_at?->toIso8601String(),
+            'error_message' => $payment->error_message,
+        ], $payment->isFinal() ? 'Paiement finalisé' : 'Paiement en cours');
     }
 
     /**
@@ -286,25 +300,17 @@ class JekoPaymentController extends Controller
             ->orderByDesc('created_at')
             ->paginate($request->get('per_page', 20));
 
-        return response()->json([
-            'status' => 'success',
-            'data' => $payments->map(fn($p) => [
-                'reference' => $p->reference,
-                'amount' => $p->amount,
-                'currency' => $p->currency,
-                'payment_method' => $p->payment_method->value,
-                'payment_method_label' => $p->payment_method->label(),
-                'status' => $p->status->value,
-                'status_label' => $p->status->label(),
-                'created_at' => $p->created_at->toIso8601String(),
-                'completed_at' => $p->completed_at?->toIso8601String(),
-            ]),
-            'meta' => [
-                'current_page' => $payments->currentPage(),
-                'last_page' => $payments->lastPage(),
-                'total' => $payments->total(),
-            ],
-        ]);
+        return $this->paginated($payments, $payments->map(fn($p) => [
+            'reference' => $p->reference,
+            'amount' => $p->amount,
+            'currency' => $p->currency,
+            'payment_method' => $p->payment_method->value,
+            'payment_method_label' => $p->payment_method->label(),
+            'status' => $p->status->value,
+            'status_label' => $p->status->label(),
+            'created_at' => $p->created_at->toIso8601String(),
+            'completed_at' => $p->completed_at?->toIso8601String(),
+        ]), 'Liste des paiements');
     }
 
     /**
@@ -313,34 +319,39 @@ class JekoPaymentController extends Controller
      */
     public function methods(): JsonResponse
     {
-        return response()->json([
-            'status' => 'success',
-            'data' => $this->jekoService->getAvailableMethods(),
-        ]);
+        return $this->success(
+            $this->jekoService->getAvailableMethods(),
+            'Méthodes de paiement disponibles'
+        );
     }
 
     /**
      * Callback succès (redirection depuis JEKO)
      * GET /api/payments/callback/success
+     *
+     * Retourne une page HTML qui redirige automatiquement vers l'app mobile
+     * via le deep link drpharma://payment/success?reference=XXX
      */
-    public function callbackSuccess(Request $request): JsonResponse
+    public function callbackSuccess(Request $request)
     {
         $reference = $request->query('reference');
-        
+
         if (!$reference) {
-            return response()->json([
+            return view('payments.callback', [
                 'status' => 'error',
-                'message' => 'Référence manquante',
-            ], 400);
+                'errorMessage' => 'Référence de paiement manquante.',
+                'deepLink' => 'drpharma-courier://payment/error?reason=missing_reference',
+            ]);
         }
 
         $payment = JekoPayment::byReference($reference)->first();
 
         if (!$payment) {
-            return response()->json([
+            return view('payments.callback', [
                 'status' => 'error',
-                'message' => 'Paiement non trouvé',
-            ], 404);
+                'errorMessage' => 'Paiement introuvable.',
+                'deepLink' => 'drpharma-courier://payment/error?reason=not_found',
+            ]);
         }
 
         // Vérifier le statut réel (le webhook est la source de vérité)
@@ -348,41 +359,50 @@ class JekoPaymentController extends Controller
             $payment = $this->jekoService->checkPaymentStatus($payment);
         }
 
-        return response()->json([
+        // SECURITY H-1: Ne pas dispatchSync depuis un callback non authentifié.
+        // Le webhook JEKO ou l'endpoint /status (authentifié) déclenchera le traitement.
+        // Ici on dispatch en async uniquement, pour que le queue worker le traite.
+        if ($payment->isSuccess() && !$payment->business_processed) {
+            \App\Jobs\ProcessPaymentResultJob::dispatch($payment->id)->onQueue('payments');
+        }
+
+        // Deep link vers l'app delivery (scheme = drpharma-courier)
+        $deepLink = 'drpharma-courier://payment/success?reference=' . urlencode($payment->reference);
+
+        return view('payments.callback', [
             'status' => 'success',
-            'message' => $payment->isSuccess() 
-                ? 'Paiement effectué avec succès' 
-                : 'Paiement en cours de vérification',
-            'data' => [
-                'reference' => $payment->reference,
-                'payment_status' => $payment->status->value,
-                'is_success' => $payment->isSuccess(),
-            ],
+            'deepLink' => $deepLink,
+            'reference' => $payment->reference,
         ]);
     }
 
     /**
      * Callback erreur (redirection depuis JEKO)
      * GET /api/payments/callback/error
+     *
+     * Retourne une page HTML qui redirige automatiquement vers l'app mobile
+     * via le deep link drpharma://payment/error?reference=XXX
      */
-    public function callbackError(Request $request): JsonResponse
+    public function callbackError(Request $request)
     {
         $reference = $request->query('reference');
-        
+
         if (!$reference) {
-            return response()->json([
+            return view('payments.callback', [
                 'status' => 'error',
-                'message' => 'Référence manquante',
-            ], 400);
+                'errorMessage' => 'Référence de paiement manquante.',
+                'deepLink' => 'drpharma-courier://payment/error?reason=missing_reference',
+            ]);
         }
 
         $payment = JekoPayment::byReference($reference)->first();
 
         if (!$payment) {
-            return response()->json([
+            return view('payments.callback', [
                 'status' => 'error',
-                'message' => 'Paiement non trouvé',
-            ], 404);
+                'errorMessage' => 'Paiement introuvable.',
+                'deepLink' => 'drpharma-courier://payment/error?reason=not_found',
+            ]);
         }
 
         // Vérifier le statut réel
@@ -390,13 +410,15 @@ class JekoPaymentController extends Controller
             $payment = $this->jekoService->checkPaymentStatus($payment);
         }
 
-        return response()->json([
+        // Deep link vers l'app delivery (scheme = drpharma-courier)
+        $deepLink = 'drpharma-courier://payment/error?reference=' . urlencode($payment->reference)
+            . '&reason=' . urlencode($payment->error_message ?? 'payment_failed');
+
+        return view('payments.callback', [
             'status' => 'error',
-            'message' => $payment->error_message ?? 'Le paiement a échoué',
-            'data' => [
-                'reference' => $payment->reference,
-                'payment_status' => $payment->status->value,
-            ],
+            'errorMessage' => $payment->error_message ?? 'Le paiement a échoué. Veuillez réessayer.',
+            'deepLink' => $deepLink,
+            'reference' => $payment->reference,
         ]);
     }
 
@@ -406,14 +428,26 @@ class JekoPaymentController extends Controller
      * 
      * Cette route est utilisée uniquement en développement quand les clés JEKO ne sont pas configurées.
      * Elle simule un paiement réussi et met à jour la commande.
+     * 
+     * SECURITY C-3: Double protection — route restreinte dans api.php ET guard ici
      */
     public function sandboxConfirm(Request $request)
     {
+        // SÉCURITÉ: Refuser catégoriquement en production/staging
+        if (!app()->environment('local', 'testing')) {
+            Log::critical('SANDBOX: Tentative d\'accès à sandboxConfirm en ' . app()->environment(), [
+                'ip' => $request->ip(),
+                'reference' => $request->query('reference'),
+            ]);
+            abort(404);
+        }
+
         $reference = $request->query('reference');
         $orderId = $request->query('order_id');
         
         if (!$reference) {
             return response()->json([
+                'success' => false,
                 'status' => 'error',
                 'message' => 'Référence manquante',
             ], 400);
@@ -468,10 +502,7 @@ class JekoPaymentController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
-            return response()->json([
-                'status' => 'error',
-                'message' => $e->getMessage(),
-            ], 400);
+            return $this->error($e->getMessage(), 400, 'SANDBOX_CONFIRM_FAILED');
         }
     }
 
@@ -486,26 +517,21 @@ class JekoPaymentController extends Controller
         $payment = JekoPayment::byReference($reference)->first();
 
         if (!$payment) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Paiement non trouvé',
-            ], 404);
+            return $this->notFound('Paiement non trouvé', 'PAYMENT_NOT_FOUND');
         }
 
         // Vérifier que le paiement appartient à l'utilisateur
         if ($payment->user_id !== $user->id) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Ce paiement ne vous appartient pas',
-            ], 403);
+            return $this->forbidden('Ce paiement ne vous appartient pas', 'PAYMENT_NOT_OWNED');
         }
 
         // Vérifier que le paiement peut être annulé (pas déjà finalisé)
         if ($payment->isFinal()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Ce paiement ne peut plus être annulé',
-            ], 400);
+            return $this->error(
+                'Ce paiement ne peut plus être annulé',
+                400,
+                'PAYMENT_ALREADY_FINALIZED'
+            );
         }
 
         // Annuler le paiement
@@ -520,13 +546,9 @@ class JekoPaymentController extends Controller
             'user_id' => $user->id,
         ]);
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Paiement annulé',
-            'data' => [
-                'reference' => $payment->reference,
-                'payment_status' => 'cancelled',
-            ],
-        ]);
+        return $this->success([
+            'reference' => $payment->reference,
+            'payment_status' => 'cancelled',
+        ], 'Paiement annulé');
     }
 }

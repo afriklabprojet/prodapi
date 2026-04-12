@@ -40,32 +40,18 @@ class KycStatusNotification extends Notification implements ShouldQueue
     public function toFcm(object $notifiable): array
     {
         $config = $this->getMessageConfig();
+        $fcmConfig = \App\Services\NotificationSettingsService::getFcmConfig('kyc_status_update');
 
         return [
             'title' => $config['title'],
             'body' => $config['body'],
-            'data' => [
+            'data' => array_merge($fcmConfig['data'], [
                 'type' => 'kyc_status_update',
                 'kyc_status' => $this->status,
                 'click_action' => 'KYC_STATUS',
-                'android_channel_id' => 'kyc_updates',
-                'sound' => 'default',
-            ],
-            'android' => [
-                'priority' => 'high',
-                'notification' => [
-                    'channel_id' => 'kyc_updates',
-                    'sound' => 'default',
-                ],
-            ],
-            'apns' => [
-                'payload' => [
-                    'aps' => [
-                        'sound' => 'default',
-                        'badge' => 1,
-                    ],
-                ],
-            ],
+            ]),
+            'android' => $fcmConfig['android'],
+            'apns' => $fcmConfig['apns'],
         ];
     }
 
