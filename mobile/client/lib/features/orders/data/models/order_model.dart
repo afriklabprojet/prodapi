@@ -5,24 +5,6 @@ import 'order_item_model.dart';
 
 part 'order_model.g.dart';
 
-/// Helper to convert String or num to int (API may return "1" as String)
-int _toInt(dynamic value) {
-  if (value == null) return 0;
-  if (value is int) return value;
-  if (value is num) return value.toInt();
-  if (value is String) return int.tryParse(value) ?? 0;
-  return 0;
-}
-
-/// Helper to convert nullable String or num to int
-int? _toIntNullable(dynamic value) {
-  if (value == null) return null;
-  if (value is int) return value;
-  if (value is num) return value.toInt();
-  if (value is String) return int.tryParse(value);
-  return null;
-}
-
 /// Helper to convert String or num to double (API returns "2500.00" as String)
 double _toDouble(dynamic value) {
   if (value == null) return 0.0;
@@ -57,6 +39,8 @@ class OrderModel {
   final PharmacyBasicModel? pharmacy;
   @JsonKey(defaultValue: [])
   final List<OrderItemModel> items;
+  @JsonKey(name: 'items_count', defaultValue: 0)
+  final int itemsCount;
   @JsonKey(fromJson: _toDoubleNullable)
   final double? subtotal;
   @JsonKey(name: 'delivery_fee', fromJson: _toDoubleNullable)
@@ -102,6 +86,7 @@ class OrderModel {
     this.pharmacyId,
     this.pharmacy,
     this.items = const [],
+    this.itemsCount = 0,
     this.subtotal,
     this.deliveryFee,
     required this.totalAmount,
@@ -125,25 +110,29 @@ class OrderModel {
     // Pre-convert potential String→num fields for safety
     // (Laravel decimal casts return strings like "5.3599320")
     final mJson = Map<String, dynamic>.from(json);
-    
+
     // Convert id (usually int, but could be String)
     if (mJson['id'] is String) {
       mJson['id'] = int.tryParse(mJson['id'] as String) ?? 0;
     }
-    
+
     // Convert pharmacy_id
     if (mJson['pharmacy_id'] is String) {
       mJson['pharmacy_id'] = int.tryParse(mJson['pharmacy_id'] as String) ?? 0;
     }
-    
+
     // Convert delivery_latitude/longitude (decimal:7 cast → String in Laravel)
     if (mJson['delivery_latitude'] is String) {
-      mJson['delivery_latitude'] = double.tryParse(mJson['delivery_latitude'] as String);
+      mJson['delivery_latitude'] = double.tryParse(
+        mJson['delivery_latitude'] as String,
+      );
     }
     if (mJson['delivery_longitude'] is String) {
-      mJson['delivery_longitude'] = double.tryParse(mJson['delivery_longitude'] as String);
+      mJson['delivery_longitude'] = double.tryParse(
+        mJson['delivery_longitude'] as String,
+      );
     }
-    
+
     // Convert pharmacy.id if pharmacy is present
     if (mJson['pharmacy'] is Map) {
       final pharmacy = Map<String, dynamic>.from(mJson['pharmacy'] as Map);
@@ -152,7 +141,7 @@ class OrderModel {
       }
       mJson['pharmacy'] = pharmacy;
     }
-    
+
     return _$OrderModelFromJson(mJson);
   }
 
@@ -170,6 +159,7 @@ class OrderModel {
       pharmacyName: pharmacy?.name ?? '',
       pharmacyPhone: pharmacy?.phone,
       pharmacyAddress: pharmacy?.address,
+      itemsCount: items.isNotEmpty ? items.length : itemsCount,
       items: items.map((item) => item.toEntity()).toList(),
       subtotal: subtotal ?? 0.0,
       deliveryFee: deliveryFee ?? 0.0,
@@ -199,6 +189,9 @@ class OrderModel {
         return OrderStatus.pending;
       case 'confirmed':
         return OrderStatus.confirmed;
+      case 'processing':
+      case 'preparing':
+        return OrderStatus.preparing;
       case 'ready':
         return OrderStatus.ready;
       case 'delivering':

@@ -9,6 +9,11 @@ abstract class AuthRepository {
     required String password,
   });
 
+  /// Login with biometric authentication (no password required)
+  Future<Either<Failure, AuthResponseEntity>> loginWithBiometric({
+    required String email,
+  });
+
   Future<Either<Failure, AuthResponseEntity>> register({
     required String name,
     required String pName,

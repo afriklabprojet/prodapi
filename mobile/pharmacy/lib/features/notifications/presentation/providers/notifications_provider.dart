@@ -1,27 +1,35 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/services/realtime_event_bus.dart';
 import '../../data/models/notification_model.dart';
 import '../../data/repositories/notification_repository.dart';
 
-// ─────────── Unread Count (lightweight polling) ───────────
+// ─────────── Unread Count (FCM-triggered) ───────────
 
 /// Dedicated provider for unread notification count.
-/// Polls the server every 30 seconds for a lightweight count.
-/// Can be manually refreshed via [refreshUnreadCount].
+/// Listens to FCM events via RealtimeEventBus instead of polling.
+/// Falls back to a 2-minute safety-net timer.
 class UnreadCountNotifier extends StateNotifier<int> {
   final NotificationRepository _repository;
   Timer? _timer;
+  StreamSubscription<RealtimeEvent>? _subscription;
 
   UnreadCountNotifier(this._repository) : super(0) {
-    // Fetch immediately then poll
+    // Fetch immediately
     fetchCount();
-    _timer = Timer.periodic(const Duration(seconds: 30), (_) => fetchCount());
+    // Listen to all FCM events to refresh badge count
+    _subscription = RealtimeEventBus().stream.listen((_) => fetchCount());
+    // Safety-net timer: 2 minutes (down from 30 seconds)
+    _timer = Timer.periodic(const Duration(minutes: 2), (_) => fetchCount());
   }
 
   Future<void> fetchCount() async {
     final result = await _repository.getUnreadCount();
     result.fold(
-      (_) {}, // ignore errors silently
+      (failure) => debugPrint(
+        '⚠️ [UnreadCount] Failed to fetch count: ${failure.message}',
+      ),
       (count) {
         if (mounted) state = count;
       },
@@ -33,6 +41,7 @@ class UnreadCountNotifier extends StateNotifier<int> {
 
   @override
   void dispose() {
+    _subscription?.cancel();
     _timer?.cancel();
     super.dispose();
   }
@@ -40,9 +49,9 @@ class UnreadCountNotifier extends StateNotifier<int> {
 
 final unreadCountNotifierProvider =
     StateNotifierProvider<UnreadCountNotifier, int>((ref) {
-  final repo = ref.watch(notificationRepositoryProvider);
-  return UnreadCountNotifier(repo);
-});
+      final repo = ref.watch(notificationRepositoryProvider);
+      return UnreadCountNotifier(repo);
+    });
 
 /// Public provider all badges should watch.
 /// Returns the live unread notification count.
@@ -76,23 +85,27 @@ class NotificationsState {
   }
 }
 
-class NotificationsNotifier extends StateNotifier<NotificationsState> {
-  final NotificationRepository _repository;
-  final Ref _ref;
+class NotificationsNotifier extends AutoDisposeNotifier<NotificationsState> {
+  late final NotificationRepository _repository;
 
-  NotificationsNotifier(this._repository, this._ref) : super(NotificationsState()) {
-    loadNotifications();
+  @override
+  NotificationsState build() {
+    _repository = ref.watch(notificationRepositoryProvider);
+    // Defer initial fetch to avoid "Bad state: uninitialized" error
+    Future.microtask(loadNotifications);
+    return NotificationsState();
   }
 
   Future<void> loadNotifications() async {
     state = state.copyWith(isLoading: true, error: null);
     final result = await _repository.getNotifications();
     result.fold(
-      (failure) => state = state.copyWith(isLoading: false, error: failure.message),
+      (failure) =>
+          state = state.copyWith(isLoading: false, error: failure.message),
       (notifications) {
         state = state.copyWith(isLoading: false, notifications: notifications);
         // Sync the unread count from the full list
-        _ref.read(unreadCountNotifierProvider.notifier).refresh();
+        ref.read(unreadCountNotifierProvider.notifier).refresh();
       },
     );
   }
@@ -113,10 +126,10 @@ class NotificationsNotifier extends StateNotifier<NotificationsState> {
       }
       return n;
     }).toList();
-    
+
     state = state.copyWith(notifications: updatedList);
     // Immediately decrement unread count
-    _ref.read(unreadCountNotifierProvider.notifier).refresh();
+    ref.read(unreadCountNotifierProvider.notifier).refresh();
 
     final result = await _repository.markAsRead(id);
     result.fold(
@@ -127,12 +140,12 @@ class NotificationsNotifier extends StateNotifier<NotificationsState> {
 
   Future<void> markAllAsRead() async {
     await _repository.markAllAsRead();
-    _ref.read(unreadCountNotifierProvider.notifier).refresh();
+    ref.read(unreadCountNotifierProvider.notifier).refresh();
     loadNotifications();
   }
 }
 
-final notificationsProvider = StateNotifierProvider<NotificationsNotifier, NotificationsState>((ref) {
-  final repository = ref.watch(notificationRepositoryProvider);
-  return NotificationsNotifier(repository, ref);
-});
+final notificationsProvider =
+    NotifierProvider.autoDispose<NotificationsNotifier, NotificationsState>(
+      NotificationsNotifier.new,
+    );

@@ -53,4 +53,12 @@ class AppConstants {
   static String get websiteUrl => EnvConfig.websiteUrl;
   static String get tutorialsUrl => EnvConfig.tutorialsUrl;
   static String get guideUrl => EnvConfig.guideUrl;
+
+  // ============================================================
+  // ORDERS
+  // ============================================================
+
+  /// Durée après laquelle une commande en attente de paiement
+  /// est masquée de la liste des commandes (par défaut 30 minutes).
+  static const Duration pendingUnpaidOrderTimeout = Duration(minutes: 30);
 }

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/order_entity.dart';
+import '../../domain/enums/order_status.dart';
+import '../extensions/order_status_l10n.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 
@@ -9,154 +12,195 @@ class OrderCard extends StatelessWidget {
 
   const OrderCard({super.key, required this.order, required this.onTap});
 
+  String _buildSemanticLabel(AppLocalizations l10n) {
+    final statusLabel = order.status.localizedLabel(l10n);
+    final formattedAmount = NumberFormat.currency(
+      symbol: 'FCFA',
+      decimalDigits: 0,
+      locale: 'fr_FR',
+    ).format(order.totalAmount);
+    final formattedDate = DateFormat(
+      'dd MMM yyyy à HH:mm',
+      'fr',
+    ).format(order.createdAt);
+
+    return 'Commande ${order.reference}, Client: ${order.customerName}, '
+        'Statut: $statusLabel, Montant: $formattedAmount, '
+        '${order.itemsCount ?? 0} articles, créée le $formattedDate. '
+        'Appuyer pour voir les détails.';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     // Utilisation d'un Card avec un design plus moderne et "flat" mais avec une légère élévation
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20, left: 4, right: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF8D8D8D).withValues(alpha: 0.1),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
+    return Semantics(
+      button: true,
+      label: _buildSemanticLabel(l10n),
+      excludeSemantics: true,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 20, left: 4, right: 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
           borderRadius: BorderRadius.circular(24),
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // En-tête : Référence + Statut
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF8D8D8D).withValues(alpha: 0.1),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+              spreadRadius: 0,
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(24),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // En-tête : Référence + Statut
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF5F7FA),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '#${order.reference}',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: Colors.black87,
+                                letterSpacing: 0.5,
+                              ),
+                        ),
                       ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF5F7FA),
-                        borderRadius: BorderRadius.circular(12),
+                      _StatusBadge(status: order.status),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Informations Client
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).primaryColor.withValues(alpha: 0.08),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.person,
+                          size: 20,
+                          color: Theme.of(context).primaryColor,
+                        ),
                       ),
-                      child: Text(
-                        '#${order.reference}',
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          order.customerName,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Date et Heure
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF5F7FA),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.access_time_rounded,
+                          size: 20,
+                          color: Color(0xFF9E9E9E),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Text(
+                        DateFormat(
+                          'dd MMM yyyy • HH:mm',
+                          'fr',
+                        ).format(order.createdAt),
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: Colors.black87,
-                          letterSpacing: 0.5,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                    ),
-                    _StatusBadge(status: order.status),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                
-                // Informations Client
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.person,
-                        size: 20,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Text(
-                        order.customerName,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                
-                const SizedBox(height: 12),
-                
-                // Date et Heure
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF5F7FA),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.access_time_rounded,
-                        size: 20,
-                        color: Color(0xFF9E9E9E),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Text(
-                      DateFormat('dd MMM yyyy • HH:mm', 'fr').format(order.createdAt),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
 
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Divider(height: 1, thickness: 1, color: Color(0xFFF0F0F0)),
-                ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: Color(0xFFF0F0F0),
+                    ),
+                  ),
 
-                // Pied de page : Nombre d'articles + Montant Total
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.shopping_bag_outlined, size: 18, color: Colors.grey),
-                        const SizedBox(width: 6),
-                        Text(
-                          '${order.itemsCount ?? 0} article${(order.itemsCount ?? 0) > 1 ? 's' : ''}',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[700],
-                            fontWeight: FontWeight.w500,
+                  // Pied de page : Nombre d'articles + Montant Total
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.shopping_bag_outlined,
+                            size: 18,
+                            color: Colors.grey,
                           ),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      NumberFormat.currency(
-                        symbol: 'FCFA',
-                        decimalDigits: 0,
-                        locale: 'fr_FR',
-                      ).format(order.totalAmount),
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: Theme.of(context).primaryColor,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 18,
+                          const SizedBox(width: 6),
+                          Text(
+                            '${order.itemsCount ?? 0} article${(order.itemsCount ?? 0) > 1 ? 's' : ''}',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Colors.grey[700],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      Text(
+                        NumberFormat.currency(
+                          symbol: 'FCFA',
+                          decimalDigits: 0,
+                          locale: 'fr_FR',
+                        ).format(order.totalAmount),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: Theme.of(context).primaryColor,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 18,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -166,74 +210,45 @@ class OrderCard extends StatelessWidget {
 }
 
 class _StatusBadge extends StatelessWidget {
-  final String status;
+  final OrderStatus status;
 
   const _StatusBadge({required this.status});
 
   @override
   Widget build(BuildContext context) {
-    Color color;
-    String label;
+    final color = status.color;
+    final label = status.localizedLabel(AppLocalizations.of(context));
 
-    switch (status) {
-      case 'pending':
-        color = AppColors.warning; // Amber 700
-        label = 'En attente';
-        break;
-      case 'confirmed':
-        color = AppColors.info; // Blue 700
-        label = 'Confirmé';
-        break;
-      case 'ready':
-        color = AppColors.secondary; // Purple 700
-        label = 'Prêt';
-        break;
-      case 'picked_up':
-        color = const Color(0xFF4527A0); // Deep Purple 800
-        label = 'Récupéré';
-        break;
-      case 'delivered':
-        color = AppColors.primary; // Green 800
-        label = 'Livré';
-        break;
-      case 'cancelled':
-        color = AppColors.urgent; // Red 800
-        label = 'Annulé';
-        break;
-      default:
-        color = Colors.grey[700]!;
-        label = status;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
+    return Semantics(
+      label: 'Statut de la commande: $label',
+      excludeSemantics: true,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
             ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.3,
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.3,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

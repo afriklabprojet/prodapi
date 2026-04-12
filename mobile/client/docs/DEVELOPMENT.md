@@ -96,7 +96,7 @@ class Environment {
 
 ```bash
 # Lancer avec des variables d'environnement
-flutter run --dart-define=API_BASE_URL=https://api.drlpharma.com
+flutter run --dart-define=API_BASE_URL=https://api.drlpharma.pro
 ```
 
 ---

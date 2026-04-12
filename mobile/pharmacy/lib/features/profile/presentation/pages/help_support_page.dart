@@ -4,6 +4,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/providers/support_settings_provider.dart';
 import '../../../../core/services/whatsapp_service.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../l10n/app_localizations.dart';
+import 'package:go_router/go_router.dart';
 
 class HelpSupportPage extends ConsumerWidget {
   const HelpSupportPage({super.key});
@@ -15,18 +17,21 @@ class HelpSupportPage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : null,
-      appBar: AppBar(
-        title: const Text('Aide & Support'),
-      ),
+      appBar: AppBar(title: const Text('Aide & Support')),
       body: supportSettingsAsync.when(
         data: (settings) => _buildContent(context, settings, isDark),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, _) => _buildContent(context, SupportSettings.defaults(), isDark),
+        error: (_, _) =>
+            _buildContent(context, SupportSettings.defaults(), isDark),
       ),
     );
   }
 
-  Widget _buildContent(BuildContext context, SupportSettings settings, bool isDark) {
+  Widget _buildContent(
+    BuildContext context,
+    SupportSettings settings,
+    bool isDark,
+  ) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -58,7 +63,8 @@ class HelpSupportPage extends ConsumerWidget {
               subtitle: 'Chat en direct',
               onTap: () => WhatsAppService.contactSupport(
                 supportNumber: settings.supportWhatsapp,
-                message: 'Bonjour, je suis pharmacien partenaire DR-PHARMA et j\'ai besoin d\'aide.',
+                message:
+                    'Bonjour, je suis pharmacien partenaire DR-PHARMA et j\'ai besoin d\'aide.',
               ),
             ),
           ],
@@ -74,31 +80,36 @@ class HelpSupportPage extends ConsumerWidget {
             _buildFaqItem(
               context,
               question: 'Comment ajouter un produit à mon inventaire ?',
-              answer: 'Allez dans l\'onglet "Stock", appuyez sur le bouton "+", puis scannez le code-barres ou entrez les informations manuellement.',
+              answer:
+                  'Allez dans l\'onglet "Stock", appuyez sur le bouton "+", puis scannez le code-barres ou entrez les informations manuellement.',
             ),
             const Divider(height: 1),
             _buildFaqItem(
               context,
               question: 'Comment traiter une commande ?',
-              answer: 'Dans l\'onglet "Commandes", appuyez sur une commande en attente, puis utilisez les boutons "Confirmer" ou "Préparer" selon l\'état de la commande.',
+              answer:
+                  'Dans l\'onglet "Commandes", appuyez sur une commande en attente, puis utilisez les boutons "Confirmer" ou "Préparer" selon l\'état de la commande.',
             ),
             const Divider(height: 1),
             _buildFaqItem(
               context,
               question: 'Comment modifier les informations de ma pharmacie ?',
-              answer: 'Allez dans "Profil" > "Ma Pharmacie" > appuyez sur l\'icône de modification pour éditer les informations.',
+              answer:
+                  'Allez dans "Profil" > "Ma Pharmacie" > appuyez sur l\'icône de modification pour éditer les informations.',
             ),
             const Divider(height: 1),
             _buildFaqItem(
               context,
               question: 'Comment activer le mode garde ?',
-              answer: 'Dans "Profil" > "Mode Garde", vous pouvez activer/désactiver le mode garde et définir vos horaires de garde.',
+              answer:
+                  'Dans "Profil" > "Mode Garde", vous pouvez activer/désactiver le mode garde et définir vos horaires de garde.',
             ),
             const Divider(height: 1),
             _buildFaqItem(
               context,
               question: 'Comment voir mes statistiques de vente ?',
-              answer: 'Accédez à "Rapports & Analytics" depuis le menu profil pour voir vos statistiques détaillées.',
+              answer:
+                  'Accédez à "Rapports & Analytics" depuis le menu profil pour voir vos statistiques détaillées.',
             ),
           ],
         ),
@@ -115,7 +126,8 @@ class HelpSupportPage extends ConsumerWidget {
                 context,
                 icon: Icons.play_circle_outline,
                 title: 'Tutoriels vidéo',
-                onTap: () => _launchUrl(settings.tutorialsUrl),
+                onTap: () =>
+                    _launchUrl(settings.tutorialsUrl, context: context),
               ),
               const Divider(height: 1),
             ],
@@ -124,7 +136,7 @@ class HelpSupportPage extends ConsumerWidget {
                 context,
                 icon: Icons.menu_book_outlined,
                 title: 'Guide d\'utilisation',
-                onTap: () => _launchUrl(settings.guideUrl),
+                onTap: () => _launchUrl(settings.guideUrl, context: context),
               ),
               const Divider(height: 1),
             ],
@@ -133,7 +145,7 @@ class HelpSupportPage extends ConsumerWidget {
                 context,
                 icon: Icons.help_outline,
                 title: 'FAQ en ligne',
-                onTap: () => _launchUrl(settings.faqUrl),
+                onTap: () => _launchUrl(settings.faqUrl, context: context),
               ),
               const Divider(height: 1),
             ],
@@ -149,7 +161,7 @@ class HelpSupportPage extends ConsumerWidget {
                 context,
                 icon: Icons.language_outlined,
                 title: 'Site web',
-                onTap: () => _launchUrl(settings.websiteUrl),
+                onTap: () => _launchUrl(settings.websiteUrl, context: context),
               ),
             ],
           ],
@@ -158,34 +170,27 @@ class HelpSupportPage extends ConsumerWidget {
         const SizedBox(height: 20),
 
         // Liens légaux
-        if (settings.termsUrl.isNotEmpty || settings.privacyUrl.isNotEmpty)
-          _buildSectionCard(
-            context,
-            title: 'Informations légales',
-            children: [
-              if (settings.termsUrl.isNotEmpty) ...[
-                _buildResourceTile(
-                  context,
-                  icon: Icons.article_outlined,
-                  title: 'Conditions d\'utilisation',
-                  onTap: () => _launchUrl(settings.termsUrl),
-                ),
-              ],
-              if (settings.termsUrl.isNotEmpty && settings.privacyUrl.isNotEmpty)
-                const Divider(height: 1),
-              if (settings.privacyUrl.isNotEmpty) ...[
-                _buildResourceTile(
-                  context,
-                  icon: Icons.privacy_tip_outlined,
-                  title: 'Politique de confidentialité',
-                  onTap: () => _launchUrl(settings.privacyUrl),
-                ),
-              ],
-            ],
-          ),
+        _buildSectionCard(
+          context,
+          title: 'Informations légales',
+          children: [
+            _buildResourceTile(
+              context,
+              icon: Icons.article_outlined,
+              title: 'Conditions d\'utilisation',
+              onTap: () => context.push('/terms'),
+            ),
+            const Divider(height: 1),
+            _buildResourceTile(
+              context,
+              icon: Icons.privacy_tip_outlined,
+              title: 'Politique de confidentialité',
+              onTap: () => context.push('/privacy'),
+            ),
+          ],
+        ),
 
-        if (settings.termsUrl.isNotEmpty || settings.privacyUrl.isNotEmpty)
-          const SizedBox(height: 20),
+        const SizedBox(height: 20),
 
         // Report Bug
         Container(
@@ -203,7 +208,10 @@ class HelpSupportPage extends ConsumerWidget {
                   color: Colors.orange.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.bug_report_outlined, color: Colors.orange),
+                child: const Icon(
+                  Icons.bug_report_outlined,
+                  color: Colors.orange,
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -221,7 +229,9 @@ class HelpSupportPage extends ConsumerWidget {
                       'Aidez-nous à améliorer l\'application',
                       style: TextStyle(
                         fontSize: 13,
-                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                        color: isDark
+                            ? Colors.grey.shade400
+                            : Colors.grey.shade600,
                       ),
                     ),
                   ],
@@ -229,11 +239,13 @@ class HelpSupportPage extends ConsumerWidget {
               ),
               IconButton(
                 icon: Icon(
-                  Icons.arrow_forward_ios, 
+                  Icons.arrow_forward_ios,
                   size: 16,
                   color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                 ),
                 onPressed: () => _showReportBugDialog(context, settings),
+                tooltip: 'Signaler un problème',
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
               ),
             ],
           ),
@@ -250,7 +262,7 @@ class HelpSupportPage extends ConsumerWidget {
     required List<Widget> children,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -269,13 +281,15 @@ class HelpSupportPage extends ConsumerWidget {
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: isDark ? null : [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            boxShadow: isDark
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
           ),
           child: Column(children: children),
         ),
@@ -298,11 +312,28 @@ class HelpSupportPage extends ConsumerWidget {
           color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(icon, color: Theme.of(context).colorScheme.primary, size: 22),
+        child: Icon(
+          icon,
+          color: Theme.of(context).colorScheme.primary,
+          size: 22,
+        ),
       ),
-      title: Text(title, style: TextStyle(fontWeight: FontWeight.w500, color: isDark ? Colors.white : Colors.black87)),
-      subtitle: Text(subtitle, style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600])),
-      trailing: Icon(Icons.arrow_forward_ios, size: 16, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontWeight: FontWeight.w500,
+          color: isDark ? Colors.white : Colors.black87,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
+      ),
+      trailing: Icon(
+        Icons.arrow_forward_ios,
+        size: 16,
+        color: isDark ? Colors.grey[400] : Colors.grey[600],
+      ),
       onTap: onTap,
     );
   }
@@ -345,16 +376,27 @@ class HelpSupportPage extends ConsumerWidget {
     final isDark = AppColors.isDark(context);
     return ListTile(
       leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
-      title: Text(title, style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
-      trailing: Icon(Icons.arrow_forward_ios, size: 16, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+      title: Text(
+        title,
+        style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+      ),
+      trailing: Icon(
+        Icons.arrow_forward_ios,
+        size: 16,
+        color: isDark ? Colors.grey[400] : Colors.grey[600],
+      ),
       onTap: onTap,
     );
   }
 
-  Future<void> _launchUrl(String url) async {
+  Future<void> _launchUrl(String url, {BuildContext? context}) async {
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else if (context != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible d\'ouvrir le lien')),
+      );
     }
   }
 
@@ -382,7 +424,7 @@ class HelpSupportPage extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Fermer'),
+            child: Text(AppLocalizations.of(context).close),
           ),
         ],
       ),
@@ -407,23 +449,25 @@ class HelpSupportPage extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 8),
-        ...changes.map((c) => Padding(
-          padding: const EdgeInsets.only(left: 8, bottom: 4),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('• ', style: TextStyle(fontWeight: FontWeight.bold)),
-              Expanded(child: Text(c, style: const TextStyle(fontSize: 14))),
-            ],
+        ...changes.map(
+          (c) => Padding(
+            padding: const EdgeInsets.only(left: 8, bottom: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('• ', style: TextStyle(fontWeight: FontWeight.bold)),
+                Expanded(child: Text(c, style: const TextStyle(fontSize: 14))),
+              ],
+            ),
           ),
-        )),
+        ),
       ],
     );
   }
 
   void _showReportBugDialog(BuildContext context, SupportSettings settings) {
     final controller = TextEditingController();
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -446,15 +490,19 @@ class HelpSupportPage extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           FilledButton(
             onPressed: () {
               if (controller.text.isNotEmpty) {
                 // Envoyer par email
-                final subject = Uri.encodeComponent('Bug Report - DR-PHARMA Pharmacy App');
+                final subject = Uri.encodeComponent(
+                  'Bug Report - DR-PHARMA Pharmacy App',
+                );
                 final body = Uri.encodeComponent(controller.text);
-                _launchUrl('mailto:${settings.supportEmail}?subject=$subject&body=$body');
+                _launchUrl(
+                  'mailto:${settings.supportEmail}?subject=$subject&body=$body',
+                );
               }
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drpharma_pharmacy/features/orders/data/models/order_model.dart';
 import 'package:drpharma_pharmacy/features/orders/domain/entities/order_entity.dart';
+import 'package:drpharma_pharmacy/features/orders/domain/enums/order_status.dart';
 
 void main() {
   group('OrderModel', () {
@@ -62,7 +63,10 @@ void main() {
         // assert
         expect(result.id, tOrderModel.id);
         expect(result.reference, tOrderModel.reference);
-        expect(result.status, tOrderModel.status);
+        expect(
+          result.status,
+          tOrderModel.status,
+        ); // String comparison OK for model
         expect(result.paymentMode, tOrderModel.paymentMode);
         expect(result.totalAmount, tOrderModel.totalAmount);
         expect(result.createdAt, tOrderModel.createdAt);
@@ -126,7 +130,10 @@ void main() {
         expect(result, isA<OrderEntity>());
         expect(result.id, tOrderModel.id);
         expect(result.reference, tOrderModel.reference);
-        expect(result.status, tOrderModel.status);
+        expect(
+          result.status,
+          OrderStatus.pending,
+        ); // Entity uses enum, not string
         expect(result.paymentMode, tOrderModel.paymentMode);
         expect(result.totalAmount, tOrderModel.totalAmount);
         expect(result.customerName, tOrderModel.customer['name']);

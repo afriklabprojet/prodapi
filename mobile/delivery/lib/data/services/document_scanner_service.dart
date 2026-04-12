@@ -14,6 +14,7 @@ import 'package:dio/dio.dart';
 import '../models/scanned_document.dart';
 import '../../core/network/api_client.dart';
 import '../../core/constants/api_constants.dart';
+import '../../core/config/app_config.dart';
 
 /// Provider pour le service de scanner
 final documentScannerServiceProvider = Provider<DocumentScannerService>((ref) {
@@ -23,26 +24,31 @@ final documentScannerServiceProvider = Provider<DocumentScannerService>((ref) {
 /// Provider pour l'état du scanner
 final documentScannerStateProvider =
     StateNotifierProvider<DocumentScannerNotifier, DocumentScannerState>((ref) {
-  return DocumentScannerNotifier(ref.read(documentScannerServiceProvider));
-});
+      return DocumentScannerNotifier(ref.read(documentScannerServiceProvider));
+    });
 
 /// Provider pour les documents d'une livraison
 final deliveryDocumentsProvider =
     FutureProvider.family<List<ScannedDocument>, int>((ref, deliveryId) async {
-  final service = ref.read(documentScannerServiceProvider);
-  return service.getDocumentsForDelivery(deliveryId);
-});
+      final service = ref.read(documentScannerServiceProvider);
+      return service.getDocumentsForDelivery(deliveryId);
+    });
 
 /// Service pour le scanner de documents
 class DocumentScannerService {
   final Dio _dio;
-  final ImagePicker _picker = ImagePicker();
-  final FirebaseStorage _storage = FirebaseStorage.instance;
+  final ImagePicker _picker;
+  final FirebaseStorage? _storage;
 
   // Cache local des documents scannés
   final Map<int, List<ScannedDocument>> _documentsCache = {};
 
-  DocumentScannerService(this._dio);
+  DocumentScannerService(
+    this._dio, {
+    ImagePicker? picker,
+    FirebaseStorage? storage,
+  }) : _picker = picker ?? ImagePicker(),
+       _storage = storage;
 
   /// Capture un document depuis la caméra avec guidage
   Future<File?> captureDocument({
@@ -51,14 +57,16 @@ class DocumentScannerService {
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.camera,
-        maxWidth: 2048,
-        maxHeight: 2048,
-        imageQuality: 95,
+        maxWidth: AppConfig.documentMaxWidth.toDouble(),
+        maxHeight: AppConfig.documentMaxHeight.toDouble(),
+        imageQuality: AppConfig.documentImageQuality,
         preferredCameraDevice: preferredCamera,
       );
 
       if (image != null) {
-        if (kDebugMode) debugPrint('📄 [Scanner] Document capturé: ${image.path}');
+        if (kDebugMode) {
+          debugPrint('📄 [Scanner] Document capturé: ${image.path}');
+        }
         return File(image.path);
       }
       return null;
@@ -73,13 +81,15 @@ class DocumentScannerService {
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 2048,
-        maxHeight: 2048,
-        imageQuality: 95,
+        maxWidth: AppConfig.documentMaxWidth.toDouble(),
+        maxHeight: AppConfig.documentMaxHeight.toDouble(),
+        imageQuality: AppConfig.documentImageQuality,
       );
 
       if (image != null) {
-        if (kDebugMode) debugPrint('📄 [Scanner] Document sélectionné: ${image.path}');
+        if (kDebugMode) {
+          debugPrint('📄 [Scanner] Document sélectionné: ${image.path}');
+        }
         return File(image.path);
       }
       return null;
@@ -92,20 +102,22 @@ class DocumentScannerService {
   /// Capture plusieurs documents en rafale
   Future<List<File>> captureMultipleDocuments({int maxCount = 5}) async {
     final documents = <File>[];
-    
+
     try {
       final List<XFile> images = await _picker.pickMultiImage(
-        maxWidth: 2048,
-        maxHeight: 2048,
-        imageQuality: 95,
+        maxWidth: AppConfig.documentMaxWidth.toDouble(),
+        maxHeight: AppConfig.documentMaxHeight.toDouble(),
+        imageQuality: AppConfig.documentImageQuality,
         limit: maxCount,
       );
 
       for (final image in images) {
         documents.add(File(image.path));
       }
-      
-      if (kDebugMode) debugPrint('📄 [Scanner] ${documents.length} documents sélectionnés');
+
+      if (kDebugMode) {
+        debugPrint('📄 [Scanner] ${documents.length} documents sélectionnés');
+      }
       return documents;
     } catch (e) {
       if (kDebugMode) debugPrint('❌ [Scanner] Erreur multi-sélection: $e');
@@ -118,18 +130,23 @@ class DocumentScannerService {
     try {
       final bytes = await imageFile.readAsBytes();
       final image = await decodeImageFromList(bytes);
-      
+
       // Calcul du score basé sur la résolution
       final pixels = image.width * image.height;
-      final resolutionScore = math.min(1.0, pixels / 4000000); // 4MP = score max
-      
+      final resolutionScore = math.min(
+        1.0,
+        pixels / AppConfig.qualityBenchmarkPixels,
+      );
+
       // Calcul basé sur la taille du fichier (netteté indirecte)
       final fileSize = await imageFile.length();
       final sizeScore = math.min(1.0, fileSize / 500000); // 500KB = bon score
-      
-      // Score final
-      final totalScore = (resolutionScore * 0.6) + (sizeScore * 0.4);
-      
+
+      // Score final pondéré
+      final totalScore =
+          (resolutionScore * AppConfig.qualityWeightResolution) +
+          (sizeScore * AppConfig.qualityWeightSize);
+
       return ScanQuality.fromScore(totalScore);
     } catch (e) {
       if (kDebugMode) debugPrint('⚠️ [Scanner] Erreur analyse qualité: $e');
@@ -141,45 +158,48 @@ class DocumentScannerService {
   Future<File?> processImage(File originalImage) async {
     try {
       final bytes = await originalImage.readAsBytes();
-      
+
       // Décodage de l'image
       final codec = await ui.instantiateImageCodec(bytes);
       final frame = await codec.getNextFrame();
       final image = frame.image;
-      
+
       // Création du recorder pour les modifications
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder);
-      
+
       // Application des améliorations
-      final paint = Paint()
-        ..filterQuality = FilterQuality.high;
-      
+      final paint = Paint()..filterQuality = FilterQuality.high;
+
       // Augmentation légère du contraste via ColorFilter
       paint.colorFilter = const ColorFilter.matrix(<double>[
         1.2, 0, 0, 0, -20, // Rouge : augmente contraste
         0, 1.2, 0, 0, -20, // Vert
         0, 0, 1.2, 0, -20, // Bleu
-        0, 0, 0, 1, 0,     // Alpha
+        0, 0, 0, 1, 0, // Alpha
       ]);
-      
+
       // Dessin de l'image améliorée
       canvas.drawImage(image, Offset.zero, paint);
-      
+
       final picture = recorder.endRecording();
       final processedImage = await picture.toImage(image.width, image.height);
-      
+
       // Encodage en PNG
-      final byteData = await processedImage.toByteData(format: ui.ImageByteFormat.png);
+      final byteData = await processedImage.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
       if (byteData == null) return null;
-      
+
       // Sauvegarde dans un fichier temporaire
       final tempDir = await getTemporaryDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final processedFile = File('${tempDir.path}/processed_$timestamp.png');
       await processedFile.writeAsBytes(byteData.buffer.asUint8List());
-      
-      if (kDebugMode) debugPrint('✅ [Scanner] Image traitée: ${processedFile.path}');
+
+      if (kDebugMode) {
+        debugPrint('✅ [Scanner] Image traitée: ${processedFile.path}');
+      }
       return processedFile;
     } catch (e) {
       if (kDebugMode) debugPrint('❌ [Scanner] Erreur traitement: $e');
@@ -226,7 +246,7 @@ class DocumentScannerService {
       return OcrResult.error('Réponse invalide du serveur');
     } on DioException catch (e) {
       if (kDebugMode) debugPrint('❌ [Scanner] Erreur OCR API: ${e.message}');
-      
+
       // Fallback: extraction locale basique basée sur le type
       return _performLocalOcr(imageFile, type);
     } catch (e) {
@@ -270,15 +290,18 @@ class DocumentScannerService {
   }
 
   /// Upload le document vers Firebase Storage
+  /// SÉCURITÉ: Supprime automatiquement les fichiers locaux après upload réussi
   Future<String?> uploadDocument(ScannedDocument document) async {
     try {
       final file = document.displayImage;
-      final fileName = 'documents/${document.deliveryId ?? 'unknown'}/'
+      final fileName =
+          'documents/${document.deliveryId ?? 'unknown'}/'
           '${document.id}_${document.type.name}.jpg';
 
       if (kDebugMode) debugPrint('📤 [Scanner] Upload: $fileName');
 
-      final ref = _storage.ref().child(fileName);
+      final storage = _storage ?? FirebaseStorage.instance;
+      final ref = storage.ref().child(fileName);
       final uploadTask = ref.putFile(
         file,
         SettableMetadata(
@@ -295,10 +318,61 @@ class DocumentScannerService {
       final downloadUrl = await snapshot.ref.getDownloadURL();
 
       if (kDebugMode) debugPrint('✅ [Scanner] Uploadé: $downloadUrl');
+
+      // SÉCURITÉ: Supprimer le fichier local après upload réussi
+      // Protège les données KYC sensibles en cas de perte/vol du device
+      await _cleanupLocalFile(file);
+
       return downloadUrl;
     } catch (e) {
       if (kDebugMode) debugPrint('❌ [Scanner] Erreur upload: $e');
       return null;
+    }
+  }
+
+  /// SÉCURITÉ: Supprime un fichier local sensible (KYC, ordonnances)
+  /// À appeler après chaque upload réussi pour éviter la persistance
+  /// de données sensibles sur le device
+  Future<void> _cleanupLocalFile(File file) async {
+    try {
+      if (await file.exists()) {
+        await file.delete();
+        if (kDebugMode) {
+          debugPrint('🗑️ [Scanner] Fichier local supprimé: ${file.path}');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('⚠️ [Scanner] Erreur suppression fichier: $e');
+    }
+  }
+
+  /// SÉCURITÉ: Nettoie tous les fichiers temporaires de documents
+  /// À appeler au démarrage de l'app ou périodiquement
+  Future<void> cleanupAllTempDocuments() async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final files = tempDir.listSync();
+
+      int deletedCount = 0;
+      for (final entity in files) {
+        if (entity is File &&
+            (entity.path.contains('processed_') ||
+                entity.path.contains('scanned_') ||
+                entity.path.contains('ocr_'))) {
+          try {
+            await entity.delete();
+            deletedCount++;
+          } catch (_) {}
+        }
+      }
+
+      if (kDebugMode && deletedCount > 0) {
+        debugPrint(
+          '🗑️ [Scanner] Nettoyage: $deletedCount fichiers temporaires supprimés',
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('⚠️ [Scanner] Erreur nettoyage temp: $e');
     }
   }
 
@@ -429,14 +503,16 @@ class DocumentScannerNotifier extends StateNotifier<DocumentScannerState> {
     } catch (e) {
       state = state.copyWith(
         isProcessing: false,
-        error: 'Erreur lors du scan: $e',
+        error: 'Erreur lors du scan. Veuillez réessayer.',
       );
       return null;
     }
   }
 
   /// Lance l'OCR sur un document
-  Future<ScannedDocument?> performOcrOnDocument(ScannedDocument document) async {
+  Future<ScannedDocument?> performOcrOnDocument(
+    ScannedDocument document,
+  ) async {
     state = state.copyWith(isProcessing: true);
 
     try {
@@ -461,7 +537,7 @@ class DocumentScannerNotifier extends StateNotifier<DocumentScannerState> {
     } catch (e) {
       state = state.copyWith(
         isProcessing: false,
-        error: 'Erreur OCR: $e',
+        error: 'Erreur OCR. Veuillez réessayer.',
       );
       return null;
     }
@@ -506,7 +582,7 @@ class DocumentScannerNotifier extends StateNotifier<DocumentScannerState> {
     } catch (e) {
       state = state.copyWith(
         isProcessing: false,
-        error: 'Erreur upload: $e',
+        error: 'Erreur upload. Veuillez réessayer.',
       );
       return null;
     }

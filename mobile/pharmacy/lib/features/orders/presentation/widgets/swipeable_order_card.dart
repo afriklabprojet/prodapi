@@ -1,14 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
+import '../../../../core/presentation/widgets/buttons.dart';
+import '../../../../l10n/app_localizations.dart';
+import '../../domain/enums/order_status.dart';
+import '../extensions/order_status_l10n.dart';
 
 /// Carte de commande avec actions par swipe
 class SwipeableOrderCard extends StatefulWidget {
   final Map<String, dynamic> order;
   final VoidCallback? onTap;
-  final VoidCallback? onAccept;
+
+  /// Callback async pour accepter - retourne true si succès
+  final Future<bool> Function()? onAccept;
+
+  /// Callback sync pour rejeter (ouvre un dialogue)
   final VoidCallback? onReject;
-  final VoidCallback? onMarkReady;
+
+  /// Callback async pour marquer prête - retourne true si succès
+  final Future<bool> Function()? onMarkReady;
   final VoidCallback? onViewDetails;
 
   const SwipeableOrderCard({
@@ -42,9 +51,10 @@ class _SwipeableOrderCardState extends State<SwipeableOrderCard>
       vsync: this,
       duration: const Duration(milliseconds: 200),
     );
-    _animation = Tween<double>(begin: 0, end: 0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
+    _animation = Tween<double>(
+      begin: 0,
+      end: 0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
   }
 
   @override
@@ -65,24 +75,151 @@ class _SwipeableOrderCardState extends State<SwipeableOrderCard>
     if (_dragExtent.abs() >= _swipeThreshold) {
       HapticFeedback.mediumImpact();
       if (_isSwipingRight) {
-        // Accept action
-        _performAction(widget.onAccept);
+        // Accept action - show confirmation dialog first
+        _showAcceptConfirmDialog();
       } else {
         // Reject action
-        _performAction(widget.onReject);
+        widget.onReject?.call();
       }
     }
     _resetPosition();
   }
 
-  void _performAction(VoidCallback? action) {
-    action?.call();
+  Future<void> _showAcceptConfirmDialog() async {
+    if (widget.onAccept == null) return;
+
+    final l10n = AppLocalizations.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final customerName = widget.order['customerName'] as String? ?? 'Client';
+    final itemCount = widget.order['itemCount'] as int? ?? 0;
+    final total = widget.order['total'] as int? ?? 0;
+    final orderId = widget.order['id']?.toString() ?? '';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green.shade600),
+            const SizedBox(width: 8),
+            const Expanded(child: Text('Confirmer la commande ?')),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey[800] : Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.person, size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          customerName,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.shopping_bag,
+                        size: 16,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '$itemCount article${itemCount > 1 ? 's' : ''}',
+                        style: TextStyle(
+                          color: isDark ? Colors.white70 : Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.payments, size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 8),
+                      Text(
+                        '$total FCFA',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green.shade700,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (orderId.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Commande #$orderId',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? Colors.grey[500] : Colors.grey[500],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Êtes-vous sûr de vouloir accepter cette commande ?',
+              style: TextStyle(
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.check, size: 18),
+            label: const Text('Accepter'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await widget.onAccept!();
+    }
   }
 
   void _resetPosition() {
-    _animation = Tween<double>(begin: _dragExtent, end: 0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
+    _animation = Tween<double>(
+      begin: _dragExtent,
+      end: 0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
     _controller.forward(from: 0).then((_) {
       setState(() => _dragExtent = 0);
     });
@@ -92,100 +229,124 @@ class _SwipeableOrderCardState extends State<SwipeableOrderCard>
   Widget build(BuildContext context) {
     final status = widget.order['status'] as String;
     final canSwipe = status == 'pending';
+    final l10n = AppLocalizations.of(context);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Stack(
-        children: [
-          // Background actions
-          if (canSwipe) ...[
-            // Accept background (right swipe)
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.green,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.only(left: 20),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.check_circle,
-                      color: Colors.white,
-                      size: _dragExtent > _swipeThreshold ? 32 : 24,
-                    ),
-                    const SizedBox(width: 8),
-                    if (_dragExtent > 40)
-                      const Text(
-                        'Accepter',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
+    // Build semantic label
+    final orderId = widget.order['id'] as String? ?? '';
+    final customerName = widget.order['customerName'] as String? ?? '';
+    final total = widget.order['total'] as int? ?? 0;
+    final itemCount = widget.order['itemCount'] as int? ?? 0;
+    final orderStatus = OrderStatus.values.firstWhere(
+      (e) => e.name == status,
+      orElse: () => OrderStatus.pending,
+    );
+    final statusLabel = orderStatus.localizedLabel(l10n);
+
+    final semanticLabel =
+        'Commande $orderId, Client: $customerName, '
+        'Statut: $statusLabel, $total FCFA, $itemCount articles. '
+        '${canSwipe ? "Glisser à droite pour accepter, à gauche pour refuser. " : ""}'
+        'Appuyer pour voir les détails.';
+
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      onTap: widget.onTap,
+      excludeSemantics: true,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Stack(
+          children: [
+            // Background actions
+            if (canSwipe) ...[
+              // Accept background (right swipe)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.green,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  alignment: Alignment.centerLeft,
+                  padding: const EdgeInsets.only(left: 20),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle,
+                        color: Colors.white,
+                        size: _dragExtent > _swipeThreshold ? 32 : 24,
                       ),
-                  ],
+                      const SizedBox(width: 8),
+                      if (_dragExtent > 40)
+                        const Text(
+                          'Accepter',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            // Reject background (left swipe)
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                alignment: Alignment.centerRight,
-                padding: const EdgeInsets.only(right: 20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    if (_dragExtent < -40)
-                      const Text(
-                        'Refuser',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+              // Reject background (left swipe)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      if (_dragExtent < -40)
+                        const Text(
+                          'Refuser',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        Icons.cancel,
+                        color: Colors.white,
+                        size: _dragExtent.abs() > _swipeThreshold ? 32 : 24,
                       ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.cancel,
-                      color: Colors.white,
-                      size: _dragExtent.abs() > _swipeThreshold ? 32 : 24,
-                    ),
-                  ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+
+            // Card
+            AnimatedBuilder(
+              animation: _animation,
+              builder: (context, child) {
+                final offset = _controller.isAnimating
+                    ? _animation.value
+                    : _dragExtent;
+                return Transform.translate(
+                  offset: Offset(offset, 0),
+                  child: child,
+                );
+              },
+              child: GestureDetector(
+                onHorizontalDragUpdate: canSwipe ? _onDragUpdate : null,
+                onHorizontalDragEnd: canSwipe ? _onDragEnd : null,
+                onTap: widget.onTap,
+                child: _OrderCardContent(
+                  order: widget.order,
+                  onAccept: widget.onAccept,
+                  onReject: widget.onReject,
+                  onMarkReady: widget.onMarkReady,
+                  onViewDetails: widget.onViewDetails,
                 ),
               ),
             ),
           ],
-
-          // Card
-          AnimatedBuilder(
-            animation: _animation,
-            builder: (context, child) {
-              final offset = _controller.isAnimating 
-                  ? _animation.value 
-                  : _dragExtent;
-              return Transform.translate(
-                offset: Offset(offset, 0),
-                child: child,
-              );
-            },
-            child: GestureDetector(
-              onHorizontalDragUpdate: canSwipe ? _onDragUpdate : null,
-              onHorizontalDragEnd: canSwipe ? _onDragEnd : null,
-              onTap: widget.onTap,
-              child: _OrderCardContent(
-                order: widget.order,
-                onAccept: widget.onAccept,
-                onReject: widget.onReject,
-                onMarkReady: widget.onMarkReady,
-                onViewDetails: widget.onViewDetails,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -194,9 +355,9 @@ class _SwipeableOrderCardState extends State<SwipeableOrderCard>
 /// Contenu de la carte de commande
 class _OrderCardContent extends StatelessWidget {
   final Map<String, dynamic> order;
-  final VoidCallback? onAccept;
+  final Future<bool> Function()? onAccept;
   final VoidCallback? onReject;
-  final VoidCallback? onMarkReady;
+  final Future<bool> Function()? onMarkReady;
   final VoidCallback? onViewDetails;
 
   const _OrderCardContent({
@@ -216,7 +377,7 @@ class _OrderCardContent extends StatelessWidget {
     final itemCount = order['itemCount'] as int;
     final createdAt = order['createdAt'] as DateTime;
     final isPriority = order['isPriority'] as bool? ?? false;
-    
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -302,22 +463,26 @@ class _OrderCardContent extends StatelessWidget {
                         ],
                       ),
                     ),
-                    
+
                     // Status badge
                     _StatusBadge(status: status),
                   ],
                 ),
-                
+
                 const SizedBox(height: 12),
-                
+
                 // Customer info
                 Row(
                   children: [
                     CircleAvatar(
                       radius: 18,
-                      backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.1),
                       child: Text(
-                        customerName.isNotEmpty ? customerName[0].toUpperCase() : '?',
+                        customerName.isNotEmpty
+                            ? customerName[0].toUpperCase()
+                            : '?',
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.primary,
                           fontWeight: FontWeight.bold,
@@ -356,7 +521,7 @@ class _OrderCardContent extends StatelessWidget {
               ],
             ),
           ),
-          
+
           // Quick actions
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -366,9 +531,7 @@ class _OrderCardContent extends StatelessWidget {
                 bottom: Radius.circular(16),
               ),
             ),
-            child: Row(
-              children: _buildActions(context, status),
-            ),
+            child: Row(children: _buildActions(context, status)),
           ),
         ],
       ),
@@ -379,7 +542,7 @@ class _OrderCardContent extends StatelessWidget {
     switch (status) {
       case 'pending':
         return [
-          _ActionButton(
+          _SyncActionButton(
             icon: Icons.close,
             label: 'Refuser',
             color: Colors.red,
@@ -387,18 +550,17 @@ class _OrderCardContent extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: _ActionButton(
+            child: AsyncSmallButton(
               icon: Icons.check,
               label: 'Accepter',
               color: Colors.green,
-              isPrimary: true,
-              onTap: onAccept,
+              onPressed: onAccept,
             ),
           ),
         ];
       case 'confirmed':
         return [
-          _ActionButton(
+          _SyncActionButton(
             icon: Icons.visibility,
             label: 'Détails',
             color: Colors.grey.shade600,
@@ -406,19 +568,18 @@ class _OrderCardContent extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: _ActionButton(
+            child: AsyncSmallButton(
               icon: Icons.check_circle,
               label: 'Prête',
               color: Theme.of(context).colorScheme.primary,
-              isPrimary: true,
-              onTap: onMarkReady,
+              onPressed: onMarkReady,
             ),
           ),
         ];
       default:
         return [
           Expanded(
-            child: _ActionButton(
+            child: _SyncActionButton(
               icon: Icons.visibility,
               label: 'Voir les détails',
               color: Colors.grey.shade600,
@@ -446,129 +607,96 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color bgColor;
-    Color textColor;
-    String label;
-    IconData icon;
+    final orderStatus = OrderStatus.fromApi(status);
+    final l10n = AppLocalizations.of(context);
+    final Color bgColor = orderStatus.color.withValues(alpha: 0.1);
+    final Color textColor = orderStatus.color;
+    final String label = orderStatus.localizedLabel(l10n);
+    final IconData icon = orderStatus.icon;
 
-    switch (status) {
-      case 'pending':
-        bgColor = Colors.orange.withValues(alpha: 0.1);
-        textColor = Colors.orange;
-        label = 'En attente';
-        icon = Icons.access_time;
-        break;
-      case 'confirmed':
-        bgColor = Colors.blue.withValues(alpha: 0.1);
-        textColor = Colors.blue;
-        label = 'Confirmée';
-        icon = Icons.thumb_up;
-        break;
-      case 'ready':
-        bgColor = Theme.of(context).colorScheme.primary.withValues(alpha: 0.1);
-        textColor = Theme.of(context).colorScheme.primary;
-        label = 'Prête';
-        icon = Icons.inventory_2;
-        break;
-      case 'picked_up':
-        bgColor = Colors.purple.shade50;
-        textColor = Colors.purple;
-        label = 'Récupérée';
-        icon = Icons.local_shipping;
-        break;
-      case 'delivered':
-        bgColor = Colors.green.withValues(alpha: 0.1);
-        textColor = Colors.green;
-        label = 'Livrée';
-        icon = Icons.check_circle;
-        break;
-      case 'cancelled':
-        bgColor = Colors.red.withValues(alpha: 0.1);
-        textColor = Colors.red;
-        label = 'Annulée';
-        icon = Icons.cancel;
-        break;
-      default:
-        bgColor = Colors.grey.shade100;
-        textColor = Colors.grey;
-        label = status;
-        icon = Icons.help;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: textColor),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: textColor,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+    return Semantics(
+      label: 'Statut: $label',
+      excludeSemantics: true,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: textColor),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Bouton d'action
-class _ActionButton extends StatelessWidget {
+/// Bouton d'action synchrone (pour actions qui ouvrent un dialogue ou navigation)
+class _SyncActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
-  final bool isPrimary;
   final VoidCallback? onTap;
 
-  const _ActionButton({
+  const _SyncActionButton({
     required this.icon,
     required this.label,
     required this.color,
-    this.isPrimary = false,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: isPrimary ? color : Colors.transparent,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
+    return Semantics(
+      button: true,
+      enabled: onTap != null,
+      label: label,
+      child: Material(
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            border: isPrimary ? null : Border.all(color: color.withValues(alpha: 0.3)),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 18,
-                color: isPrimary ? Colors.white : color,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  color: isPrimary ? Colors.white : color,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            onTap?.call();
+          },
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            constraints: const BoxConstraints(
+              minHeight: 48,
+            ), // Touch target minimum
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border.all(color: color.withValues(alpha: 0.3)),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 18, color: color),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -580,10 +708,7 @@ class _ActionButton extends StatelessWidget {
 class OrderFiltersWidget extends StatefulWidget {
   final Function(Map<String, dynamic> filters)? onFiltersChanged;
 
-  const OrderFiltersWidget({
-    super.key,
-    this.onFiltersChanged,
-  });
+  const OrderFiltersWidget({super.key, this.onFiltersChanged});
 
   @override
   State<OrderFiltersWidget> createState() => _OrderFiltersWidgetState();
@@ -595,13 +720,33 @@ class _OrderFiltersWidgetState extends State<OrderFiltersWidget> {
   bool _priorityOnly = false;
   String _sortBy = 'date_desc';
 
-  final List<Map<String, dynamic>> _statuses = [
-    {'value': null, 'label': 'Tous', 'icon': Icons.all_inclusive},
-    {'value': 'pending', 'label': 'En attente', 'icon': Icons.access_time},
-    {'value': 'confirmed', 'label': 'Confirmées', 'icon': Icons.thumb_up},
-    {'value': 'ready', 'label': 'Prêtes', 'icon': Icons.inventory_2},
-    {'value': 'delivered', 'label': 'Livrées', 'icon': Icons.check_circle},
-    {'value': 'cancelled', 'label': 'Annulées', 'icon': Icons.cancel},
+  List<Map<String, dynamic>> _statuses(AppLocalizations l10n) => [
+    {'value': null, 'label': l10n.orderFilterAll, 'icon': Icons.all_inclusive},
+    {
+      'value': 'pending',
+      'label': l10n.orderStatusPending,
+      'icon': Icons.access_time,
+    },
+    {
+      'value': 'confirmed',
+      'label': l10n.orderFilterConfirmed,
+      'icon': Icons.thumb_up,
+    },
+    {
+      'value': 'ready',
+      'label': l10n.orderFilterReady,
+      'icon': Icons.inventory_2,
+    },
+    {
+      'value': 'delivered',
+      'label': l10n.orderFilterDelivered,
+      'icon': Icons.check_circle,
+    },
+    {
+      'value': 'cancelled',
+      'label': l10n.orderFilterCancelled,
+      'icon': Icons.cancel,
+    },
   ];
 
   void _notifyFiltersChanged() {
@@ -624,11 +769,11 @@ class _OrderFiltersWidgetState extends State<OrderFiltersWidget> {
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: _statuses.length,
+            itemCount: _statuses(AppLocalizations.of(context)).length,
             itemBuilder: (context, index) {
-              final status = _statuses[index];
+              final status = _statuses(AppLocalizations.of(context))[index];
               final isSelected = status['value'] == _selectedStatus;
-              
+
               return Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: FilterChip(
@@ -639,7 +784,9 @@ class _OrderFiltersWidgetState extends State<OrderFiltersWidget> {
                       Icon(
                         status['icon'] as IconData,
                         size: 16,
-                        color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey,
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.grey,
                       ),
                       const SizedBox(width: 4),
                       Text(status['label'] as String),
@@ -649,16 +796,18 @@ class _OrderFiltersWidgetState extends State<OrderFiltersWidget> {
                     setState(() => _selectedStatus = status['value']);
                     _notifyFiltersChanged();
                   },
-                  selectedColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                  selectedColor: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.1),
                   checkmarkColor: Theme.of(context).colorScheme.primary,
                 ),
               );
             },
           ),
         ),
-        
+
         const SizedBox(height: 12),
-        
+
         // Additional filters row
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -676,7 +825,7 @@ class _OrderFiltersWidgetState extends State<OrderFiltersWidget> {
                 ),
               ),
               const SizedBox(width: 8),
-              
+
               // Priority filter
               _FilterButton(
                 icon: Icons.priority_high,
@@ -688,7 +837,7 @@ class _OrderFiltersWidgetState extends State<OrderFiltersWidget> {
                 },
               ),
               const SizedBox(width: 8),
-              
+
               // Sort button
               PopupMenuButton<String>(
                 initialValue: _sortBy,
@@ -750,7 +899,7 @@ class _OrderFiltersWidgetState extends State<OrderFiltersWidget> {
             ],
           ),
         ),
-        
+
         // Active filters summary
         if (_hasActiveFilters) ...[
           const SizedBox(height: 8),
@@ -760,10 +909,7 @@ class _OrderFiltersWidgetState extends State<OrderFiltersWidget> {
               children: [
                 Text(
                   'Filtres actifs',
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                 ),
                 const Spacer(),
                 TextButton(
@@ -801,13 +947,15 @@ class _OrderFiltersWidgetState extends State<OrderFiltersWidget> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(primary: Theme.of(context).colorScheme.primary),
+            colorScheme: ColorScheme.light(
+              primary: Theme.of(context).colorScheme.primary,
+            ),
           ),
           child: child!,
         );
       },
     );
-    
+
     if (picked != null && mounted) {
       setState(() => _dateRange = picked);
       _notifyFiltersChanged();
@@ -840,10 +988,16 @@ class _FilterButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isActive ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1) : Colors.grey.shade100,
+          color: isActive
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
+              : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(8),
           border: isActive
-              ? Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3))
+              ? Border.all(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.3),
+                )
               : null,
         ),
         child: Row(
@@ -852,7 +1006,9 @@ class _FilterButton extends StatelessWidget {
             Icon(
               icon,
               size: 16,
-              color: isActive ? Theme.of(context).colorScheme.primary : Colors.grey.shade600,
+              color: isActive
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.grey.shade600,
             ),
             const SizedBox(width: 4),
             Flexible(
@@ -860,7 +1016,9 @@ class _FilterButton extends StatelessWidget {
                 label,
                 style: TextStyle(
                   fontSize: 12,
-                  color: isActive ? Theme.of(context).colorScheme.primary : Colors.grey.shade600,
+                  color: isActive
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.grey.shade600,
                   fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
                 ),
                 overflow: TextOverflow.ellipsis,
@@ -906,29 +1064,23 @@ class OrdersSummaryWidget extends StatelessWidget {
             children: [
               const Text(
                 'Aperçu des commandes',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const Spacer(),
               Text(
                 'Total: ${counts.values.fold(0, (a, b) => a + b)}',
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          
+
           // Status cards
           Row(
             children: [
               _StatusCountCard(
                 icon: Icons.access_time,
-                label: 'En attente',
+                label: AppLocalizations.of(context).orderStatusPending,
                 count: counts['pending'] ?? 0,
                 color: Colors.orange,
                 onTap: () => onStatusTap?.call('pending'),
@@ -936,7 +1088,7 @@ class OrdersSummaryWidget extends StatelessWidget {
               const SizedBox(width: 8),
               _StatusCountCard(
                 icon: Icons.inventory_2,
-                label: 'Prêtes',
+                label: AppLocalizations.of(context).orderFilterReady,
                 count: counts['ready'] ?? 0,
                 color: Theme.of(context).colorScheme.primary,
                 onTap: () => onStatusTap?.call('ready'),
@@ -944,7 +1096,7 @@ class OrdersSummaryWidget extends StatelessWidget {
               const SizedBox(width: 8),
               _StatusCountCard(
                 icon: Icons.check_circle,
-                label: 'Livrées',
+                label: AppLocalizations.of(context).orderFilterDelivered,
                 count: counts['delivered'] ?? 0,
                 color: Colors.green,
                 onTap: () => onStatusTap?.call('delivered'),

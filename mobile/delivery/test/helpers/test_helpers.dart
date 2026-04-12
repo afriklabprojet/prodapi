@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:courier/core/services/cache_service.dart';
+import 'package:courier/core/services/offline_service.dart';
 
 // ── Mock classes ──────────────────────────────────────
 
@@ -44,8 +45,9 @@ DioException timeoutError() {
 
 // ── Setup helpers ─────────────────────────────────────
 
-/// Initialise CacheService in test mode (in-memory store, no platform calls).
+/// Initialise CacheService + OfflineService in test mode (in-memory store, no platform calls).
 Future<void> setupTestDependencies() async {
   CacheService.instance.resetForTesting();
   await CacheService.instance.init();
+  OfflineService.instance.resetForTesting();
 }

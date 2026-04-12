@@ -38,7 +38,8 @@ class BiometricSettingsNotifier extends Notifier<bool> {
     try {
       final value = await _storage.read(key: _key);
       state = value == 'true';
-    } catch (_) {
+    } catch (e) {
+      if (kDebugMode) debugPrint('⚠️ Biometric settings load failed: $e');
       state = false;
     }
   }
@@ -212,7 +213,8 @@ class BiometricService {
     try {
       final value = await _secureStorage.read(key: _biometricEnabledKey);
       return value == 'true';
-    } catch (_) {
+    } catch (e) {
+      if (kDebugMode) debugPrint('⚠️ isBiometricEnabled check failed: $e');
       return false;
     }
   }

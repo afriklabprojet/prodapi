@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/app_config.dart';
 
 /// Clés pour les données du widget Android
 class HomeWidgetKeys {
@@ -29,7 +30,7 @@ enum WidgetDeliveryStatus {
 
 /// Service pour mettre à jour le widget Android de l'écran d'accueil
 class HomeWidgetService {
-  static const String _appGroupId = 'group.com.drpharma.courier';
+  static String get _appGroupId => AppConfig.iosAppGroup;
   static const String _androidWidgetName = 'CourierStatusWidget';
   static const String _iOSWidgetName = 'CourierStatusWidget';
   

@@ -443,8 +443,7 @@ class RichNotificationService extends StateNotifier<List<RichNotification>> {
         playSound: true,
         enableVibration: true,
         vibrationPattern: Int64List.fromList(type.vibrationPattern),
-        // Note: Custom sounds require files in android/app/src/main/res/raw/
-        // sound: RawResourceAndroidNotificationSound(type.soundName),
+        sound: RawResourceAndroidNotificationSound(type.soundName),
       );
 
       await androidPlugin.createNotificationChannel(channel);
@@ -520,6 +519,7 @@ class RichNotificationService extends StateNotifier<List<RichNotification>> {
       priority: type.priority,
       icon: '@mipmap/ic_launcher',
       playSound: _preferences.soundEnabled && !_preferences.isQuietTime,
+      sound: RawResourceAndroidNotificationSound(type.soundName),
       enableVibration: _preferences.vibrationEnabled && !_preferences.isQuietTime,
       vibrationPattern: _preferences.vibrationEnabled 
           ? Int64List.fromList(type.vibrationPattern) 

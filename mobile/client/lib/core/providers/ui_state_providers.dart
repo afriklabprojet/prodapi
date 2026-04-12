@@ -27,7 +27,8 @@ class ToggleNotifier extends StateNotifier<bool> {
 ///   Future.microtask(() => ref.read(toggleProvider(_obscurePasswordId).notifier).set(true));
 /// }
 /// ```
-final toggleProvider = StateNotifierProvider.family<ToggleNotifier, bool, String>(
+final toggleProvider = StateNotifierProvider.autoDispose
+    .family<ToggleNotifier, bool, String>(
   (ref, id) => ToggleNotifier(false),
 );
 
@@ -61,7 +62,8 @@ class LoadingState {
 
 /// Provider for form loading states
 /// Usage: ref.watch(loadingProvider('login_form'))
-final loadingProvider = StateNotifierProvider.family<LoadingNotifier, LoadingState, String>(
+final loadingProvider = StateNotifierProvider.autoDispose
+    .family<LoadingNotifier, LoadingState, String>(
   (ref, formId) => LoadingNotifier(),
 );
 

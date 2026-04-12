@@ -172,3 +172,99 @@ class ProfileSkeleton extends StatelessWidget {
     );
   }
 }
+
+/// Skeleton pour la liste de notifications
+class NotificationsListSkeleton extends StatelessWidget {
+  const NotificationsListSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: 6,
+      separatorBuilder: (_, _) => const Divider(height: 1),
+      itemBuilder: (_, _) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            ShimmerLoading.circle(size: 48),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ShimmerLoading.rectangle(height: 14, width: 180),
+                  const SizedBox(height: 8),
+                  ShimmerLoading.rectangle(height: 12),
+                  const SizedBox(height: 6),
+                  ShimmerLoading.rectangle(height: 10, width: 80),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Skeleton pour la page portefeuille
+class WalletSkeleton extends StatelessWidget {
+  const WalletSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          ShimmerLoading.rectangle(height: 160, radius: 16),
+          const SizedBox(height: 24),
+          ShimmerLoading.rectangle(height: 20, width: 150),
+          const SizedBox(height: 16),
+          ...List.generate(
+            4,
+            (index) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: ShimmerLoading.rectangle(height: 64, radius: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Skeleton pour une liste simple (adresses, prescriptions, pharmacies)
+class ListItemSkeleton extends StatelessWidget {
+  final int itemCount;
+  const ListItemSkeleton({super.key, this.itemCount = 5});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: itemCount,
+      itemBuilder: (_, _) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ShimmerLoading.rectangle(height: 16, width: 200),
+              const SizedBox(height: 10),
+              ShimmerLoading.rectangle(height: 12),
+              const SizedBox(height: 6),
+              ShimmerLoading.rectangle(height: 12, width: 140),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -12,22 +12,18 @@ import 'package:drpharma_client/features/orders/domain/usecases/get_orders_useca
 import 'package:drpharma_client/features/orders/domain/usecases/get_order_details_usecase.dart';
 import 'package:drpharma_client/features/orders/domain/usecases/create_order_usecase.dart';
 import 'package:drpharma_client/features/orders/domain/usecases/cancel_order_usecase.dart';
-import 'package:drpharma_client/features/orders/domain/usecases/initiate_payment_usecase.dart';
 import 'package:drpharma_client/features/orders/presentation/providers/orders_notifier.dart';
 import 'package:drpharma_client/features/orders/presentation/providers/orders_state.dart';
 
 import 'orders_notifier_test.mocks.dart';
 
-@GenerateMocks([
-  OrdersRepository,
-])
+@GenerateMocks([OrdersRepository])
 void main() {
   late MockOrdersRepository mockRepository;
   late GetOrdersUseCase getOrdersUseCase;
   late GetOrderDetailsUseCase getOrderDetailsUseCase;
   late CreateOrderUseCase createOrderUseCase;
   late CancelOrderUseCase cancelOrderUseCase;
-  late InitiatePaymentUseCase initiatePaymentUseCase;
   late OrdersNotifier notifier;
 
   // Test data
@@ -52,6 +48,7 @@ void main() {
     reference: 'ORD-001',
     status: OrderStatus.pending,
     paymentMode: PaymentMode.onDelivery,
+    paymentStatus: 'pending',
     pharmacyId: 1,
     pharmacyName: 'Pharmacie du Centre',
     items: [testOrderItem],
@@ -70,14 +67,12 @@ void main() {
     getOrderDetailsUseCase = GetOrderDetailsUseCase(mockRepository);
     createOrderUseCase = CreateOrderUseCase(mockRepository);
     cancelOrderUseCase = CancelOrderUseCase(mockRepository);
-    initiatePaymentUseCase = InitiatePaymentUseCase(mockRepository);
-    
+
     notifier = OrdersNotifier(
       getOrdersUseCase: getOrdersUseCase,
       getOrderDetailsUseCase: getOrderDetailsUseCase,
       createOrderUseCase: createOrderUseCase,
       cancelOrderUseCase: cancelOrderUseCase,
-      initiatePaymentUseCase: initiatePaymentUseCase,
     );
   });
 
@@ -95,11 +90,13 @@ void main() {
     group('loadOrders', () {
       test('should emit loading then loaded with orders on success', () async {
         // Arrange
-        when(mockRepository.getOrders(
-          status: anyNamed('status'),
-          page: anyNamed('page'),
-          perPage: anyNamed('perPage'),
-        )).thenAnswer((_) async => Right(testOrders));
+        when(
+          mockRepository.getOrders(
+            status: anyNamed('status'),
+            page: anyNamed('page'),
+            perPage: anyNamed('perPage'),
+          ),
+        ).thenAnswer((_) async => Right(testOrders));
 
         final states = <OrdersState>[];
         notifier.addListener((state) => states.add(state));
@@ -118,11 +115,15 @@ void main() {
 
       test('should emit loading then error on failure', () async {
         // Arrange
-        when(mockRepository.getOrders(
-          status: anyNamed('status'),
-          page: anyNamed('page'),
-          perPage: anyNamed('perPage'),
-        )).thenAnswer((_) async => Left(ServerFailure(message: 'Erreur serveur')));
+        when(
+          mockRepository.getOrders(
+            status: anyNamed('status'),
+            page: anyNamed('page'),
+            perPage: anyNamed('perPage'),
+          ),
+        ).thenAnswer(
+          (_) async => Left(ServerFailure(message: 'Erreur serveur')),
+        );
 
         final states = <OrdersState>[];
         notifier.addListener((state) => states.add(state));
@@ -137,45 +138,54 @@ void main() {
 
       test('should filter by status when provided', () async {
         // Arrange
-        when(mockRepository.getOrders(
-          status: 'pending',
-          page: anyNamed('page'),
-          perPage: anyNamed('perPage'),
-        )).thenAnswer((_) async => Right(testOrders));
+        when(
+          mockRepository.getOrders(
+            status: 'pending',
+            page: anyNamed('page'),
+            perPage: anyNamed('perPage'),
+          ),
+        ).thenAnswer((_) async => Right(testOrders));
 
         // Act
         await notifier.loadOrders(status: 'pending');
 
         // Assert
-        verify(mockRepository.getOrders(
-          status: 'pending',
-          page: anyNamed('page'),
-          perPage: anyNamed('perPage'),
-        )).called(1);
+        verify(
+          mockRepository.getOrders(
+            status: 'pending',
+            page: anyNamed('page'),
+            perPage: anyNamed('perPage'),
+          ),
+        ).called(1);
       });
     });
 
     group('loadOrderDetails', () {
-      test('should emit loading then loaded with order details on success', () async {
-        // Arrange
-        when(mockRepository.getOrderDetails(1))
-            .thenAnswer((_) async => Right(testOrder));
+      test(
+        'should emit loading then loaded with order details on success',
+        () async {
+          // Arrange
+          when(
+            mockRepository.getOrderDetails(1),
+          ).thenAnswer((_) async => Right(testOrder));
 
-        final states = <OrdersState>[];
-        notifier.addListener((state) => states.add(state));
+          final states = <OrdersState>[];
+          notifier.addListener((state) => states.add(state));
 
-        // Act
-        await notifier.loadOrderDetails(1);
+          // Act
+          await notifier.loadOrderDetails(1);
 
-        // Assert
-        expect(states.last.status, equals(OrdersStatus.loaded));
-        expect(states.last.selectedOrder, equals(testOrder));
-      });
+          // Assert
+          expect(states.last.status, equals(OrdersStatus.loaded));
+          expect(states.last.selectedOrder, equals(testOrder));
+        },
+      );
 
       test('should emit error on failure', () async {
         // Arrange
-        when(mockRepository.getOrderDetails(999))
-            .thenAnswer((_) async => Left(ServerFailure(message: 'Commande introuvable')));
+        when(mockRepository.getOrderDetails(999)).thenAnswer(
+          (_) async => Left(ServerFailure(message: 'Commande introuvable')),
+        );
 
         // Act
         await notifier.loadOrderDetails(999);
@@ -187,41 +197,48 @@ void main() {
     });
 
     group('createOrder', () {
-      test('should emit loading then loaded with new order on success', () async {
-        // Arrange
-        when(mockRepository.createOrder(
-          pharmacyId: anyNamed('pharmacyId'),
-          items: anyNamed('items'),
-          deliveryAddress: anyNamed('deliveryAddress'),
-          paymentMode: anyNamed('paymentMode'),
-          prescriptionImage: anyNamed('prescriptionImage'),
-          customerNotes: anyNamed('customerNotes'),
-        )).thenAnswer((_) async => Right(testOrder));
+      test(
+        'should emit loading then loaded with new order on success',
+        () async {
+          // Arrange
+          when(
+            mockRepository.createOrder(
+              pharmacyId: anyNamed('pharmacyId'),
+              items: anyNamed('items'),
+              deliveryAddress: anyNamed('deliveryAddress'),
+              paymentMode: anyNamed('paymentMode'),
+              prescriptionImage: anyNamed('prescriptionImage'),
+              customerNotes: anyNamed('customerNotes'),
+            ),
+          ).thenAnswer((_) async => Right(testOrder));
 
-        final states = <OrdersState>[];
-        notifier.addListener((state) => states.add(state));
+          final states = <OrdersState>[];
+          notifier.addListener((state) => states.add(state));
 
-        // Act
-        await notifier.createOrder(
-          pharmacyId: 1,
-          items: [testOrderItem],
-          deliveryAddress: testDeliveryAddress,
-          paymentMode: 'on_delivery',
-        );
+          // Act
+          await notifier.createOrder(
+            pharmacyId: 1,
+            items: [testOrderItem],
+            deliveryAddress: testDeliveryAddress,
+            paymentMode: 'on_delivery',
+          );
 
-        // Assert
-        expect(states.last.status, equals(OrdersStatus.loaded));
-        expect(states.last.createdOrder, equals(testOrder));
-        expect(states.last.orders.contains(testOrder), isTrue);
-      });
+          // Assert
+          expect(states.last.status, equals(OrdersStatus.loaded));
+          expect(states.last.createdOrder, equals(testOrder));
+          expect(states.last.orders.contains(testOrder), isTrue);
+        },
+      );
 
       test('should add created order to beginning of orders list', () async {
         // Arrange - first load existing orders
-        when(mockRepository.getOrders(
-          status: anyNamed('status'),
-          page: anyNamed('page'),
-          perPage: anyNamed('perPage'),
-        )).thenAnswer((_) async => Right(testOrders));
+        when(
+          mockRepository.getOrders(
+            status: anyNamed('status'),
+            page: anyNamed('page'),
+            perPage: anyNamed('perPage'),
+          ),
+        ).thenAnswer((_) async => Right(testOrders));
         await notifier.loadOrders();
 
         final newOrder = OrderEntity(
@@ -231,6 +248,7 @@ void main() {
           paymentMode: PaymentMode.platform,
           pharmacyId: 1,
           pharmacyName: 'Pharmacie du Centre',
+          paymentStatus: 'pending',
           items: [testOrderItem],
           subtotal: 5000.0,
           deliveryFee: 500.0,
@@ -239,14 +257,16 @@ void main() {
           createdAt: DateTime.now(),
         );
 
-        when(mockRepository.createOrder(
-          pharmacyId: anyNamed('pharmacyId'),
-          items: anyNamed('items'),
-          deliveryAddress: anyNamed('deliveryAddress'),
-          paymentMode: anyNamed('paymentMode'),
-          prescriptionImage: anyNamed('prescriptionImage'),
-          customerNotes: anyNamed('customerNotes'),
-        )).thenAnswer((_) async => Right(newOrder));
+        when(
+          mockRepository.createOrder(
+            pharmacyId: anyNamed('pharmacyId'),
+            items: anyNamed('items'),
+            deliveryAddress: anyNamed('deliveryAddress'),
+            paymentMode: anyNamed('paymentMode'),
+            prescriptionImage: anyNamed('prescriptionImage'),
+            customerNotes: anyNamed('customerNotes'),
+          ),
+        ).thenAnswer((_) async => Right(newOrder));
 
         // Act
         await notifier.createOrder(
@@ -263,14 +283,18 @@ void main() {
 
       test('should emit error on creation failure', () async {
         // Arrange
-        when(mockRepository.createOrder(
-          pharmacyId: anyNamed('pharmacyId'),
-          items: anyNamed('items'),
-          deliveryAddress: anyNamed('deliveryAddress'),
-          paymentMode: anyNamed('paymentMode'),
-          prescriptionImage: anyNamed('prescriptionImage'),
-          customerNotes: anyNamed('customerNotes'),
-        )).thenAnswer((_) async => Left(ServerFailure(message: 'Stock insuffisant')));
+        when(
+          mockRepository.createOrder(
+            pharmacyId: anyNamed('pharmacyId'),
+            items: anyNamed('items'),
+            deliveryAddress: anyNamed('deliveryAddress'),
+            paymentMode: anyNamed('paymentMode'),
+            prescriptionImage: anyNamed('prescriptionImage'),
+            customerNotes: anyNamed('customerNotes'),
+          ),
+        ).thenAnswer(
+          (_) async => Left(ServerFailure(message: 'Stock insuffisant')),
+        );
 
         // Act
         await notifier.createOrder(
@@ -289,92 +313,42 @@ void main() {
     group('cancelOrder', () {
       test('should refresh orders list on successful cancellation', () async {
         // Arrange
-        when(mockRepository.cancelOrder(1, 'Changed my mind'))
-            .thenAnswer((_) async => const Right(null));
-        when(mockRepository.getOrders(
-          status: anyNamed('status'),
-          page: anyNamed('page'),
-          perPage: anyNamed('perPage'),
-        )).thenAnswer((_) async => Right([]));
+        when(
+          mockRepository.cancelOrder(1, 'Changed my mind'),
+        ).thenAnswer((_) async => const Right(null));
+        when(
+          mockRepository.getOrders(
+            status: anyNamed('status'),
+            page: anyNamed('page'),
+            perPage: anyNamed('perPage'),
+          ),
+        ).thenAnswer((_) async => Right([]));
 
         // Act
         await notifier.cancelOrder(1, 'Changed my mind');
 
         // Assert
         verify(mockRepository.cancelOrder(1, 'Changed my mind')).called(1);
-        verify(mockRepository.getOrders(
-          status: anyNamed('status'),
-          page: anyNamed('page'),
-          perPage: anyNamed('perPage'),
-        )).called(1);
+        verify(
+          mockRepository.getOrders(
+            status: anyNamed('status'),
+            page: anyNamed('page'),
+            perPage: anyNamed('perPage'),
+          ),
+        ).called(1);
       });
 
       test('should emit error on cancellation failure', () async {
         // Arrange
-        when(mockRepository.cancelOrder(1, 'Test'))
-            .thenAnswer((_) async => Left(ServerFailure(message: 'Commande déjà expédiée')));
-
-        // Act
-        await notifier.cancelOrder(1, 'Test');
-
-        // Assert
-        expect(notifier.state.status, equals(OrdersStatus.error));
-        expect(notifier.state.errorMessage, equals('Commande déjà expédiée'));
-      });
-    });
-
-    group('initiatePayment', () {
-      test('should return payment data on success', () async {
-        // Arrange
-        final paymentData = {
-          'payment_url': 'https://payment.example.com/pay/123',
-          'reference': 'PAY-001',
-        };
-        when(mockRepository.initiatePayment(
-          orderId: anyNamed('orderId'),
-          provider: anyNamed('provider'),
-        )).thenAnswer((_) async => Right(paymentData));
-
-        // Act
-        final result = await notifier.initiatePayment(
-          orderId: 1,
-          provider: 'jeko', // Supported provider
+        when(mockRepository.cancelOrder(1, 'Test')).thenAnswer(
+          (_) async => Left(ServerFailure(message: 'Commande déjà expédiée')),
         );
 
-        // Assert
-        expect(result, equals(paymentData));
-      });
-
-      test('should return null and set error on unsupported provider', () async {
-        // Act - Use unsupported provider, UseCase will reject it before calling repository
-        final result = await notifier.initiatePayment(
-          orderId: 1,
-          provider: 'unknown_provider', // Not a supported provider
-        );
-
-        // Assert
-        expect(result, isNull);
-        expect(notifier.state.status, equals(OrdersStatus.error));
-        expect(notifier.state.errorMessage, contains('Unsupported payment provider'));
-      });
-      
-      test('should return null and set error on repository failure', () async {
-        // Arrange
-        when(mockRepository.initiatePayment(
-          orderId: anyNamed('orderId'),
-          provider: anyNamed('provider'),
-        )).thenAnswer((_) async => Left(ServerFailure(message: 'Service indisponible')));
-
         // Act
-        final result = await notifier.initiatePayment(
-          orderId: 1,
-          provider: 'jeko',
-        );
+        final errorMessage = await notifier.cancelOrder(1, 'Test');
 
-        // Assert
-        expect(result, isNull);
-        expect(notifier.state.status, equals(OrdersStatus.error));
-        expect(notifier.state.errorMessage, equals('Service indisponible'));
+        // Assert: cancelOrder returns the error message without changing state
+        expect(errorMessage, equals('Commande déjà expédiée'));
       });
     });
   });

@@ -13,7 +13,6 @@ import '../widgets/address_autocomplete_field.dart';
 
 // Provider IDs pour cette page
 const _isDefaultId = 'add_address_is_default';
-const _selectedLabelId = 'add_address_selected_label';
 const _isLoadingLocationId = 'add_address_loading_location';
 
 /// Page d'ajout d'une nouvelle adresse
@@ -31,7 +30,8 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
   final _districtController = TextEditingController();
   final _phoneController = TextEditingController();
   final _instructionsController = TextEditingController();
-  
+  final _labelController = TextEditingController(text: 'Maison');
+
   double? _latitude;
   double? _longitude;
   bool _phonePreFilled = false;
@@ -48,11 +48,11 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
 
   Future<void> _preFillPhone() async {
     if (_phonePreFilled) return;
-    
+
     final formDataAsync = ref.read(addressFormDataProvider);
     formDataAsync.whenData((formData) {
-      if (formData.defaultPhone != null && 
-          formData.defaultPhone!.isNotEmpty && 
+      if (formData.defaultPhone != null &&
+          formData.defaultPhone!.isNotEmpty &&
           _phoneController.text.isEmpty) {
         setState(() {
           _phoneController.text = formData.defaultPhone!;
@@ -69,6 +69,7 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
     _districtController.dispose();
     _phoneController.dispose();
     _instructionsController.dispose();
+    _labelController.dispose();
     super.dispose();
   }
 
@@ -76,17 +77,19 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
   Widget build(BuildContext context) {
     final state = ref.watch(addressesProvider);
     final formDataAsync = ref.watch(addressFormDataProvider);
-    
+
     // Providers pour l'état UI
     final isDefault = ref.watch(toggleProvider(_isDefaultId));
-    final selectedLabel = ref.watch(formFieldsProvider(_selectedLabelId))['label'] ?? 'Maison';
-    final isLoadingLocation = ref.watch(loadingProvider(_isLoadingLocationId)).isLoading;
-    
+    // Label is now managed by _labelController (free text)
+    final isLoadingLocation = ref
+        .watch(loadingProvider(_isLoadingLocationId))
+        .isLoading;
+
     // Pré-remplir le téléphone si disponible
     formDataAsync.whenData((formData) {
-      if (!_phonePreFilled && 
-          formData.defaultPhone != null && 
-          formData.defaultPhone!.isNotEmpty && 
+      if (!_phonePreFilled &&
+          formData.defaultPhone != null &&
+          formData.defaultPhone!.isNotEmpty &&
           _phoneController.text.isEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
@@ -108,17 +111,10 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Label selector
-            _buildSectionTitle('Type d\'adresse'),
+            // Label (nom personnalisé)
+            _buildSectionTitle('Nom de l\'adresse'),
             const SizedBox(height: 8),
-            formDataAsync.when(
-              data: (formData) => _buildLabelSelector(formData.labels, selectedLabel),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stackTrace) => _buildLabelSelector(
-                ['Maison', 'Bureau', 'Famille', 'Autre'],
-                selectedLabel,
-              ),
-            ),
+            _buildLabelField(),
             const SizedBox(height: 24),
 
             // Address fields
@@ -134,7 +130,8 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
                 setState(() {
                   _latitude = details.latitude;
                   _longitude = details.longitude;
-                  if (details.district != null && _districtController.text.isEmpty) {
+                  if (details.district != null &&
+                      _districtController.text.isEmpty) {
                     _districtController.text = details.district!;
                   }
                   if (details.city != null && _cityController.text.isEmpty) {
@@ -187,7 +184,7 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
               controller: _phoneController,
               decoration: const InputDecoration(
                 labelText: 'Téléphone de contact',
-                hintText: 'Ex: +225 07 XX XX XX XX',
+                hintText: 'Ex: 07 07 07 07 07',
                 prefixIcon: Icon(Icons.phone_outlined),
                 border: OutlineInputBorder(),
               ),
@@ -218,10 +215,14 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
                 style: TextStyle(fontSize: 12, color: AppColors.textHint),
               ),
               value: isDefault,
-              onChanged: (value) => ref.read(toggleProvider(_isDefaultId).notifier).set(value),
+              onChanged: (value) =>
+                  ref.read(toggleProvider(_isDefaultId).notifier).set(value),
               activeTrackColor: AppColors.primary.withValues(alpha: 0.5),
-              thumbColor: WidgetStateProperty.resolveWith((states) =>
-                states.contains(WidgetState.selected) ? AppColors.primary : null),
+              thumbColor: WidgetStateProperty.resolveWith(
+                (states) => states.contains(WidgetState.selected)
+                    ? AppColors.primary
+                    : null,
+              ),
               contentPadding: EdgeInsets.zero,
             ),
             const SizedBox(height: 32),
@@ -230,7 +231,10 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
             SizedBox(
               height: 50,
               child: ElevatedButton(
-                onPressed: state.isLoading ? null : () => _submitForm(selectedLabel, isDefault),
+                onPressed: state.isLoading
+                    ? null
+                    : () =>
+                          _submitForm(_labelController.text.trim(), isDefault),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
@@ -249,7 +253,10 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
                       )
                     : const Text(
                         'Enregistrer l\'adresse',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
               ),
             ),
@@ -271,37 +278,62 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
     );
   }
 
-  Widget _buildLabelSelector(List<String> labels, String selectedLabel) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: labels.map((label) {
-        final isSelected = selectedLabel == label;
-        return ChoiceChip(
-          label: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                _getLabelIcon(label),
-                size: 18,
-                color: isSelected ? Colors.white : AppColors.textSecondary,
-              ),
-              const SizedBox(width: 8),
-              Text(label),
-            ],
+  Widget _buildLabelField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextFormField(
+          controller: _labelController,
+          decoration: const InputDecoration(
+            hintText: 'Ex: Chez Maman, Mon appart Cocody...',
+            prefixIcon: Icon(Icons.label_outline),
+            border: OutlineInputBorder(),
           ),
-          selected: isSelected,
-          onSelected: (selected) {
-            if (selected) {
-              ref.read(formFieldsProvider(_selectedLabelId).notifier).setField('label', label);
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'Donnez un nom à cette adresse';
             }
+            return null;
           },
-          selectedColor: AppColors.primary,
-          labelStyle: TextStyle(
-            color: isSelected ? Colors.white : AppColors.textPrimary,
-          ),
-        );
-      }).toList(),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: ['Maison', 'Bureau', 'Famille', 'Autre'].map((suggestion) {
+            return ActionChip(
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _getLabelIcon(suggestion),
+                    size: 16,
+                    color: _labelController.text == suggestion
+                        ? Colors.white
+                        : AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(suggestion),
+                ],
+              ),
+              backgroundColor: _labelController.text == suggestion
+                  ? AppColors.primary
+                  : null,
+              labelStyle: TextStyle(
+                color: _labelController.text == suggestion
+                    ? Colors.white
+                    : null,
+                fontSize: 12,
+              ),
+              onPressed: () {
+                setState(() {
+                  _labelController.text = suggestion;
+                });
+              },
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 
@@ -362,10 +394,7 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
             ] else ...[
               Text(
                 'Ajoutez votre position GPS pour aider le livreur à vous trouver plus facilement.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
-                ),
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 12),
               SizedBox(
@@ -404,7 +433,7 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
         if (permission == LocationPermission.denied) {
           if (mounted) {
             ErrorHandler.showWarningSnackBar(
-              context, 
+              context,
               'Permission de localisation refusée',
             );
           }
@@ -441,7 +470,7 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
 
         if (placemarks.isNotEmpty && mounted) {
           final place = placemarks.first;
-          
+
           // Construire l'adresse complète
           final streetParts = <String>[];
           if (place.street != null && place.street!.isNotEmpty) {
@@ -450,11 +479,12 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
           if (place.subLocality != null && place.subLocality!.isNotEmpty) {
             streetParts.add(place.subLocality!);
           }
-          if (place.thoroughfare != null && place.thoroughfare!.isNotEmpty && 
+          if (place.thoroughfare != null &&
+              place.thoroughfare!.isNotEmpty &&
               place.thoroughfare != place.street) {
             streetParts.add(place.thoroughfare!);
           }
-          
+
           setState(() {
             // Remplir le champ adresse
             if (streetParts.isNotEmpty) {
@@ -462,18 +492,20 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
             } else if (place.name != null && place.name!.isNotEmpty) {
               _addressController.text = place.name!;
             }
-            
+
             // Remplir la ville
             if (place.locality != null && place.locality!.isNotEmpty) {
               _cityController.text = place.locality!;
-            } else if (place.administrativeArea != null && place.administrativeArea!.isNotEmpty) {
+            } else if (place.administrativeArea != null &&
+                place.administrativeArea!.isNotEmpty) {
               _cityController.text = place.administrativeArea!;
             }
-            
+
             // Remplir le quartier/district
             if (place.subLocality != null && place.subLocality!.isNotEmpty) {
               _districtController.text = place.subLocality!;
-            } else if (place.subAdministrativeArea != null && place.subAdministrativeArea!.isNotEmpty) {
+            } else if (place.subAdministrativeArea != null &&
+                place.subAdministrativeArea!.isNotEmpty) {
               _districtController.text = place.subAdministrativeArea!;
             }
           });
@@ -486,8 +518,8 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
       if (mounted) {
         ErrorHandler.showSuccessSnackBar(
           context,
-          _addressController.text.isNotEmpty 
-              ? 'Position et adresse enregistrées' 
+          _addressController.text.isNotEmpty
+              ? 'Position et adresse enregistrées'
               : 'Position GPS enregistrée',
         );
       }
@@ -505,26 +537,39 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
   Future<void> _submitForm(String selectedLabel, bool isDefault) async {
     if (!_formKey.currentState!.validate()) return;
 
-    final success = await ref.read(addressesProvider.notifier).createAddress(
-      label: selectedLabel,
-      address: _addressController.text.trim(),
-      city: _cityController.text.trim().isEmpty ? null : _cityController.text.trim(),
-      district: _districtController.text.trim().isEmpty ? null : _districtController.text.trim(),
-      phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
-      instructions: _instructionsController.text.trim().isEmpty ? null : _instructionsController.text.trim(),
-      latitude: _latitude,
-      longitude: _longitude,
-      isDefault: isDefault,
-    );
+    final success = await ref
+        .read(addressesProvider.notifier)
+        .createAddress(
+          label: selectedLabel,
+          address: _addressController.text.trim(),
+          city: _cityController.text.trim().isEmpty
+              ? null
+              : _cityController.text.trim(),
+          district: _districtController.text.trim().isEmpty
+              ? null
+              : _districtController.text.trim(),
+          phone: _phoneController.text.trim().isEmpty
+              ? null
+              : _phoneController.text.trim(),
+          instructions: _instructionsController.text.trim().isEmpty
+              ? null
+              : _instructionsController.text.trim(),
+          latitude: _latitude,
+          longitude: _longitude,
+          isDefault: isDefault,
+        );
 
     if (mounted) {
       if (success != null) {
-        ErrorHandler.showSuccessSnackBar(context, 'Adresse ajoutée avec succès');
+        ErrorHandler.showSuccessSnackBar(
+          context,
+          'Adresse ajoutée avec succès',
+        );
         Navigator.pop(context);
       } else {
         final error = ref.read(addressesProvider).error;
         ErrorHandler.showErrorSnackBar(
-          context, 
+          context,
           error ?? 'Erreur lors de l\'ajout de l\'adresse',
         );
       }

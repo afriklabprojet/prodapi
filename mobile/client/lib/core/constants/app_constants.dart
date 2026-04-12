@@ -26,6 +26,7 @@ class AppConstants {
 
   // Payment Modes
   static const String paymentModePlatform = 'platform';
+  static const String paymentModeWallet = 'wallet';
   static const String paymentModeOnDelivery = 'on_delivery';
 
   // Currency
@@ -39,4 +40,13 @@ class AppConstants {
   // Default Map Coordinates (Abidjan, Côte d'Ivoire)
   static const double defaultLatitude = 5.3600;
   static const double defaultLongitude = -4.0083;
+
+  // Pagination
+  static const int walletPageSize = 50;
+
+  // Refresh intervals
+  static const Duration chatRefreshInterval = Duration(seconds: 5);
+  static const Duration etaRefreshInterval = Duration(seconds: 30);
+  static const Duration geoTimeoutShort = Duration(seconds: 10);
+  static const Duration geoTimeoutLong = Duration(seconds: 15);
 }

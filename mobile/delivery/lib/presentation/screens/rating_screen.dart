@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/models/rating.dart';
 import '../../data/repositories/delivery_repository.dart';
+import '../../core/services/offline_service.dart';
+import '../../core/utils/error_utils.dart';
 import '../../core/utils/responsive.dart';
 
 /// Écran de notation du client après une livraison réussie
@@ -8,12 +12,14 @@ class RatingScreen extends ConsumerStatefulWidget {
   final int deliveryId;
   final String customerName;
   final String? customerAddress;
+  final int initialRating;
 
   const RatingScreen({
     super.key,
     required this.deliveryId,
     required this.customerName,
     this.customerAddress,
+    this.initialRating = 0,
   });
 
   @override
@@ -25,30 +31,23 @@ class _RatingScreenState extends ConsumerState<RatingScreen>
   int _rating = 0;
   final _commentController = TextEditingController();
   bool _isSubmitting = false;
-  
-  // Tags prédéfinis
-  final List<String> _positiveTags = [
-    'Client aimable',
-    'Facile à trouver',
-    'Bon pourboire',
-    'Réponse rapide',
-  ];
-  
-  final List<String> _negativeTags = [
-    'Difficile à trouver',
-    'Pas de réponse',
-    'Adresse incorrecte',
-    'Impoli',
-  ];
-  
+
+  // Tags prédéfinis utilisant les enums
+  List<String> get _positiveTags =>
+      PositiveRatingTag.values.map((t) => t.displayLabel).toList();
+
+  List<String> get _negativeTags =>
+      NegativeRatingTag.values.map((t) => t.displayLabel).toList();
+
   final Set<String> _selectedTags = {};
-  
+
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
     super.initState();
+    _rating = widget.initialRating;
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -67,31 +66,74 @@ class _RatingScreenState extends ConsumerState<RatingScreen>
 
   Future<void> _submitRating() async {
     if (_rating == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez donner une note')),
-      );
+      HapticFeedback.heavyImpact();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Veuillez donner une note')));
       return;
     }
 
     setState(() => _isSubmitting = true);
+    HapticFeedback.mediumImpact();
 
     try {
-      final repo = ref.read(deliveryRepositoryProvider);
-      await repo.rateCustomer(
+      // Créer le modèle Rating
+      final rating = Rating(
         deliveryId: widget.deliveryId,
         rating: _rating,
-        comment: _commentController.text.trim(),
+        comment: _commentController.text.trim().isEmpty
+            ? null
+            : _commentController.text.trim(),
         tags: _selectedTags.toList(),
       );
 
+      final repo = ref.read(deliveryRepositoryProvider);
+      await repo.rateCustomer(
+        deliveryId: rating.deliveryId,
+        rating: rating.rating,
+        comment: rating.comment,
+        tags: rating.tags,
+      );
+
       if (mounted) {
+        HapticFeedback.heavyImpact();
         _showSuccessDialog();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
+        HapticFeedback.heavyImpact();
+        // Sauvegarder le rating en offline pour sync ultérieure
+        try {
+          await OfflineService.instance.addPendingAction(
+            type: 'rate_customer',
+            deliveryId: widget.deliveryId,
+            data: {
+              'rating': _rating,
+              'comment': _commentController.text.trim().isEmpty
+                  ? null
+                  : _commentController.text.trim(),
+              'tags': _selectedTags.toList(),
+            },
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Évaluation sauvegardée, envoi automatique à la reconnexion',
+                ),
+                backgroundColor: Colors.orange,
+              ),
+            );
+            // Naviguer comme si c'était un succès (sera synchro plus tard)
+            _showSuccessDialog();
+          }
+        } catch (_) {
+          if (mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(userFriendlyError(e))));
+          }
+        }
       }
     } finally {
       if (mounted) {
@@ -116,15 +158,16 @@ class _RatingScreenState extends ConsumerState<RatingScreen>
                 color: Colors.green.shade50,
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.check_circle, color: Colors.green.shade600, size: 48),
+              child: Icon(
+                Icons.check_circle,
+                color: Colors.green.shade600,
+                size: 48,
+              ),
             ),
             const SizedBox(height: 20),
             const Text(
               'Merci pour votre avis !',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
@@ -138,7 +181,9 @@ class _RatingScreenState extends ConsumerState<RatingScreen>
               child: ElevatedButton(
                 onPressed: () {
                   Navigator.of(ctx).pop();
-                  Navigator.of(context).pop(true); // Return true to indicate rating submitted
+                  Navigator.of(
+                    context,
+                  ).pop(true); // Return true to indicate rating submitted
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
@@ -147,7 +192,10 @@ class _RatingScreenState extends ConsumerState<RatingScreen>
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text('Continuer', style: TextStyle(color: Colors.white)),
+                child: const Text(
+                  'Continuer',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
             ),
           ],
@@ -163,19 +211,20 @@ class _RatingScreenState extends ConsumerState<RatingScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
       appBar: AppBar(
-        title: const Text('Évaluer le client'),
+        title: Text(
+          'Évaluer le client',
+          style: TextStyle(color: isDark ? Colors.white : Colors.black),
+        ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
+        foregroundColor: isDark ? Colors.white : Colors.black,
         elevation: 0,
         actions: [
-          TextButton(
-            onPressed: _skipRating,
-            child: const Text('Passer'),
-          ),
+          TextButton(onPressed: _skipRating, child: const Text('Passer')),
         ],
       ),
       body: SingleChildScrollView(
@@ -196,8 +245,8 @@ class _RatingScreenState extends ConsumerState<RatingScreen>
                     radius: 40,
                     backgroundColor: Colors.blue.shade100,
                     child: Text(
-                      widget.customerName.isNotEmpty 
-                          ? widget.customerName[0].toUpperCase() 
+                      widget.customerName.isNotEmpty
+                          ? widget.customerName[0].toUpperCase()
                           : 'C',
                       style: TextStyle(
                         fontSize: context.r.sp(32),
@@ -235,10 +284,7 @@ class _RatingScreenState extends ConsumerState<RatingScreen>
             const Text(
               'Comment était votre expérience\navec ce client ?',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
 
             const SizedBox(height: 24),
@@ -249,9 +295,10 @@ class _RatingScreenState extends ConsumerState<RatingScreen>
               children: List.generate(5, (index) {
                 final starNumber = index + 1;
                 final isSelected = starNumber <= _rating;
-                
+
                 return GestureDetector(
                   onTap: () {
+                    HapticFeedback.selectionClick();
                     setState(() => _rating = starNumber);
                     _animationController.forward().then((_) {
                       _animationController.reverse();
@@ -260,17 +307,21 @@ class _RatingScreenState extends ConsumerState<RatingScreen>
                   child: AnimatedBuilder(
                     animation: _animationController,
                     builder: (context, child) {
-                      final scale = starNumber == _rating 
-                          ? _scaleAnimation.value 
+                      final scale = starNumber == _rating
+                          ? _scaleAnimation.value
                           : 1.0;
                       return Transform.scale(
                         scale: scale,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 6),
                           child: Icon(
-                            isSelected ? Icons.star_rounded : Icons.star_outline_rounded,
+                            isSelected
+                                ? Icons.star_rounded
+                                : Icons.star_outline_rounded,
                             size: 48,
-                            color: isSelected ? Colors.amber : Colors.grey.shade400,
+                            color: isSelected
+                                ? Colors.amber
+                                : Colors.grey.shade400,
                           ),
                         ),
                       );
@@ -304,23 +355,23 @@ class _RatingScreenState extends ConsumerState<RatingScreen>
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Qu\'est-ce qui a marqué cette livraison ? (optionnel)',
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                 ),
               ),
               const SizedBox(height: 12),
-              
+
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: (_rating >= 4 ? _positiveTags : _negativeTags).map((tag) {
+                children: (_rating >= 4 ? _positiveTags : _negativeTags).map((
+                  tag,
+                ) {
                   final isSelected = _selectedTags.contains(tag);
                   return FilterChip(
                     label: Text(tag),
                     selected: isSelected,
                     onSelected: (selected) {
+                      HapticFeedback.lightImpact();
                       setState(() {
                         if (selected) {
                           _selectedTags.add(tag);
@@ -331,7 +382,9 @@ class _RatingScreenState extends ConsumerState<RatingScreen>
                     },
                     selectedColor: Colors.blue.shade100,
                     checkmarkColor: Colors.blue,
-                    backgroundColor: isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade100,
+                    backgroundColor: isDark
+                        ? const Color(0xFF2C2C2C)
+                        : Colors.grey.shade100,
                   );
                 }).toList(),
               ),
@@ -345,7 +398,9 @@ class _RatingScreenState extends ConsumerState<RatingScreen>
                 decoration: InputDecoration(
                   hintText: 'Ajouter un commentaire (optionnel)',
                   filled: true,
-                  fillColor: isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade100,
+                  fillColor: isDark
+                      ? const Color(0xFF2C2C2C)
+                      : Colors.grey.shade100,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,

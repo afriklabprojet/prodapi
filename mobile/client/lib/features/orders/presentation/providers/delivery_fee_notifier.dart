@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/services/app_logger.dart';
 import '../../../addresses/domain/entities/address_entity.dart';
@@ -28,6 +29,9 @@ class DeliveryFeeState {
 class DeliveryFeeNotifier extends StateNotifier<DeliveryFeeState> {
   final ApiClient apiClient;
 
+  double? _lastDistanceKm;
+  double? get lastDistanceKm => _lastDistanceKm;
+
   DeliveryFeeNotifier({required this.apiClient})
       : super(const DeliveryFeeState());
 
@@ -35,7 +39,7 @@ class DeliveryFeeNotifier extends StateNotifier<DeliveryFeeState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final response = await apiClient.post(
-        '/customer/delivery/estimate',
+        ApiConstants.deliveryEstimate,
         data: {
           'latitude': address.latitude,
           'longitude': address.longitude,
@@ -43,8 +47,15 @@ class DeliveryFeeNotifier extends StateNotifier<DeliveryFeeState> {
           if (address.city != null) 'city': address.city,
         },
       );
-      final fee = (response.data['data']?['fee'] as num?)?.toDouble() ?? 0.0;
+      // L'API renvoie { delivery_fee: X, distance_km: Y, ... } sans wrapper 'data'
+      final raw = response.data is Map ? response.data as Map<String, dynamic> : <String, dynamic>{};
+      final fee = (raw['delivery_fee'] as num?)?.toDouble()
+          ?? (raw['data']?['delivery_fee'] as num?)?.toDouble()
+          ?? 0.0;
+      final distanceKm = (raw['distance_km'] as num?)?.toDouble();
+      AppLogger.debug('[DeliveryFee] Estimated: $fee FCFA, distance: $distanceKm km');
       state = state.copyWith(fee: fee, isLoading: false);
+      _lastDistanceKm = distanceKm;
     } catch (e) {
       AppLogger.error('Failed to estimate delivery fee', error: e);
       state = state.copyWith(

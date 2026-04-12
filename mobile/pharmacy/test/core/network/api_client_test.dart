@@ -13,13 +13,15 @@ void main() {
     try {
       await dotenv.load(fileName: '.env');
     } catch (_) {
-      dotenv.testLoad(fileInput: '''
+      dotenv.testLoad(
+        fileInput: '''
 APP_NAME=DR-PHARMA
 APP_ENV=development
 API_BASE_URL=http://127.0.0.1:8000
 LOCAL_MACHINE_IP=192.168.1.100
 API_TIMEOUT=15000
-''');
+''',
+      );
     }
   });
 
@@ -47,27 +49,6 @@ API_TIMEOUT=15000
       });
     });
 
-    group('setToken', () {
-      test('should set access token', () {
-        // act
-        apiClient.setToken('test_token');
-
-        // The token is private, but we can verify by making a request
-        // For now, just verify it doesn't throw
-        expect(() => apiClient.setToken('test_token'), returnsNormally);
-      });
-    });
-
-    group('clearToken', () {
-      test('should clear access token', () {
-        // arrange
-        apiClient.setToken('test_token');
-
-        // act & assert
-        expect(() => apiClient.clearToken(), returnsNormally);
-      });
-    });
-
     group('authorizedOptions', () {
       test('should return Options with Bearer token', () {
         // act
@@ -75,10 +56,7 @@ API_TIMEOUT=15000
 
         // assert
         expect(options, isA<Options>());
-        expect(
-          options.headers?['Authorization'],
-          equals('Bearer my_token'),
-        );
+        expect(options.headers?['Authorization'], equals('Bearer my_token'));
       });
 
       test('should use different tokens for different calls', () {
@@ -126,17 +104,13 @@ API_TIMEOUT=15000
     // These tests verify the error transformation logic
 
     test('NetworkException should have correct message', () {
-      final exception = NetworkException(
-        message: 'No internet connection',
-      );
+      final exception = NetworkException(message: 'No internet connection');
 
       expect(exception.message, equals('No internet connection'));
     });
 
     test('UnauthorizedException should have correct message', () {
-      final exception = UnauthorizedException(
-        message: 'Session expired',
-      );
+      final exception = UnauthorizedException(message: 'Session expired');
 
       expect(exception.message, equals('Session expired'));
     });

@@ -77,7 +77,8 @@ class VoiceSettings {
       pitch: pitch ?? this.pitch,
       volume: volume ?? this.volume,
       language: language ?? this.language,
-      announceNewDeliveries: announceNewDeliveries ?? this.announceNewDeliveries,
+      announceNewDeliveries:
+          announceNewDeliveries ?? this.announceNewDeliveries,
       announceNavigation: announceNavigation ?? this.announceNavigation,
       announceEarnings: announceEarnings ?? this.announceEarnings,
       voiceCommands: voiceCommands ?? this.voiceCommands,
@@ -110,11 +111,9 @@ class VoiceMessages {
   static String goStraight(String distance) =>
       'Continuez tout droit sur $distance.';
 
-  static String arrival() =>
-      'Vous êtes arrivé à destination.';
+  static String arrival() => 'Vous êtes arrivé à destination.';
 
-  static String rerouting() =>
-      'Recalcul de l\'itinéraire.';
+  static String rerouting() => 'Recalcul de l\'itinéraire.';
 
   // Gains
   static String dailyEarnings(String amount) =>
@@ -130,8 +129,7 @@ class VoiceMessages {
   static String connectionLost() =>
       'Attention, connexion internet perdue. Mode hors-ligne activé.';
 
-  static String connectionRestored() =>
-      'Connexion internet restaurée.';
+  static String connectionRestored() => 'Connexion internet restaurée.';
 }
 
 /// État du service vocal
@@ -187,7 +185,7 @@ class VoiceServiceState {
 class VoiceService extends StateNotifier<VoiceServiceState> {
   final FlutterTts _tts = FlutterTts();
   final stt.SpeechToText _stt = stt.SpeechToText();
-  
+
   Function(VoiceCommand)? onCommandRecognized;
 
   VoiceService() : super(const VoiceServiceState()) {
@@ -223,7 +221,9 @@ class VoiceService extends StateNotifier<VoiceServiceState> {
 
       // Obtenir les langues disponibles
       final languages = await _tts.getLanguages;
-      final languageList = (languages as List).map((l) => l.toString()).toList();
+      final languageList = (languages as List)
+          .map((l) => l.toString())
+          .toList();
 
       state = state.copyWith(
         ttsAvailable: true,
@@ -240,9 +240,7 @@ class VoiceService extends StateNotifier<VoiceServiceState> {
       final available = await _stt.initialize(
         onStatus: (status) {
           debugPrint('STT Status: $status');
-          state = state.copyWith(
-            isListening: status == 'listening',
-          );
+          state = state.copyWith(isListening: status == 'listening');
         },
         onError: (error) {
           debugPrint('STT Error: $error');
@@ -335,7 +333,7 @@ class VoiceService extends StateNotifier<VoiceServiceState> {
     final message = isLeft
         ? VoiceMessages.turnLeft(streetName)
         : VoiceMessages.turnRight(streetName);
-    
+
     await speak(message, type: VoiceAnnouncementType.navigationTurn);
   }
 
@@ -363,7 +361,7 @@ class VoiceService extends StateNotifier<VoiceServiceState> {
     final message = weekly
         ? VoiceMessages.weeklyEarnings(amount)
         : VoiceMessages.dailyEarnings(amount);
-    
+
     await speak(message, type: VoiceAnnouncementType.earnings);
   }
 
@@ -377,7 +375,7 @@ class VoiceService extends StateNotifier<VoiceServiceState> {
 
   /// Démarrer l'écoute (STT)
   Future<void> startListening() async {
-    if (!state.settings.sttEnabled || 
+    if (!state.settings.sttEnabled ||
         !state.settings.voiceCommands ||
         !state.sttAvailable) {
       return;
@@ -414,10 +412,10 @@ class VoiceService extends StateNotifier<VoiceServiceState> {
   /// Traiter le texte reconnu
   void _processRecognizedText(String text) {
     state = state.copyWith(lastRecognizedText: text);
-    
+
     final command = _parseCommand(text.toLowerCase());
     state = state.copyWith(lastCommand: command);
-    
+
     if (command != VoiceCommand.unknown) {
       onCommandRecognized?.call(command);
       _confirmCommand(command);
@@ -430,47 +428,69 @@ class VoiceService extends StateNotifier<VoiceServiceState> {
     if (_matches(text, ['accepter', 'accepte', 'oui', 'ok', 'prendre'])) {
       return VoiceCommand.acceptDelivery;
     }
-    
+
     // Refuser
     if (_matches(text, ['refuser', 'non', 'refuse', 'annuler', 'passer'])) {
       return VoiceCommand.declineDelivery;
     }
-    
+
     // Navigation
-    if (_matches(text, ['navigation', 'naviguer', 'aller', 'itinéraire', 'route'])) {
+    if (_matches(text, [
+      'navigation',
+      'naviguer',
+      'aller',
+      'itinéraire',
+      'route',
+    ])) {
       return VoiceCommand.startNavigation;
     }
-    
+
     // Appeler client
-    if (_matches(text, ['appeler client', 'appelle client', 'téléphone client'])) {
+    if (_matches(text, [
+      'appeler client',
+      'appelle client',
+      'téléphone client',
+    ])) {
       return VoiceCommand.callCustomer;
     }
-    
+
     // Appeler pharmacie
-    if (_matches(text, ['appeler pharmacie', 'appelle pharmacie', 'téléphone pharmacie'])) {
+    if (_matches(text, [
+      'appeler pharmacie',
+      'appelle pharmacie',
+      'téléphone pharmacie',
+    ])) {
       return VoiceCommand.callPharmacy;
     }
-    
+
     // Marquer livré
     if (_matches(text, ['livré', 'terminé', 'fini', 'déposé', 'remis'])) {
       return VoiceCommand.markDelivered;
     }
-    
+
+    // Hors ligne
+    // Important: vérifier AVANT "en ligne" car "déconnecter" contient
+    // le mot "connecter" et "désactiver" contient "activer".
+    if (_matches(text, ['hors ligne', 'déconnecter', 'pause', 'désactiver'])) {
+      return VoiceCommand.goOffline;
+    }
+
     // En ligne
     if (_matches(text, ['en ligne', 'connecter', 'disponible', 'activer'])) {
       return VoiceCommand.goOnline;
     }
-    
-    // Hors ligne
-    if (_matches(text, ['hors ligne', 'déconnecter', 'pause', 'désactiver'])) {
-      return VoiceCommand.goOffline;
-    }
-    
+
     // Statistiques
-    if (_matches(text, ['statistiques', 'gains', 'combien', 'résumé', 'bilan'])) {
+    if (_matches(text, [
+      'statistiques',
+      'gains',
+      'combien',
+      'résumé',
+      'bilan',
+    ])) {
       return VoiceCommand.readStats;
     }
-    
+
     return VoiceCommand.unknown;
   }
 
@@ -481,7 +501,7 @@ class VoiceService extends StateNotifier<VoiceServiceState> {
   /// Confirmer la commande
   Future<void> _confirmCommand(VoiceCommand command) async {
     String confirmation;
-    
+
     switch (command) {
       case VoiceCommand.acceptDelivery:
         confirmation = 'Livraison acceptée.';
@@ -513,7 +533,7 @@ class VoiceService extends StateNotifier<VoiceServiceState> {
       default:
         return;
     }
-    
+
     await speak(confirmation);
   }
 
@@ -523,10 +543,11 @@ class VoiceService extends StateNotifier<VoiceServiceState> {
     required String earningsToday,
     required double rating,
   }) async {
-    final message = 'Aujourd\'hui: $deliveriesToday livraisons, '
+    final message =
+        'Aujourd\'hui: $deliveriesToday livraisons, '
         '$earningsToday francs gagnés. '
         'Note moyenne: ${rating.toStringAsFixed(1)} étoiles.';
-    
+
     await speak(message);
   }
 
@@ -536,12 +557,18 @@ class VoiceService extends StateNotifier<VoiceServiceState> {
     required String distance,
   }) async {
     if (!state.settings.announceNavigation) return;
-    
-    // Simplifier l'instruction pour TTS
-    String simplified = instruction
-        .replaceAll('m', ' mètres')
-        .replaceAll('km', ' kilomètres');
-    
+
+    // Simplifier l'instruction pour TTS sans corrompre "km" en "k mètres".
+    final simplified = instruction
+        .replaceAllMapped(
+          RegExp(r'(\d+(?:[.,]\d+)?)\s*km\b', caseSensitive: false),
+          (match) => '${match.group(1)} kilomètres',
+        )
+        .replaceAllMapped(
+          RegExp(r'(\d+(?:[.,]\d+)?)\s*m\b', caseSensitive: false),
+          (match) => '${match.group(1)} mètres',
+        );
+
     await speak(simplified, type: VoiceAnnouncementType.navigationTurn);
   }
 
@@ -554,9 +581,10 @@ class VoiceService extends StateNotifier<VoiceServiceState> {
 }
 
 /// Provider pour le service
-final voiceServiceProvider = StateNotifierProvider<VoiceService, VoiceServiceState>((ref) {
-  return VoiceService();
-});
+final voiceServiceProvider =
+    StateNotifierProvider<VoiceService, VoiceServiceState>((ref) {
+      return VoiceService();
+    });
 
 /// Provider pour les paramètres vocaux
 final voiceSettingsProvider = Provider<VoiceSettings>((ref) {

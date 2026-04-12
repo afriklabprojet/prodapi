@@ -90,6 +90,7 @@ class OrdersRepositoryImpl implements OrdersRepository {
     String? prescriptionImage,
     String? customerNotes,
     int? prescriptionId,
+    String? promoCode,
   }) async {
     try {
       final itemModels = items
@@ -106,6 +107,7 @@ class OrdersRepositoryImpl implements OrdersRepository {
         prescriptionImage: prescriptionImage,
         customerNotes: customerNotes,
         prescriptionId: prescriptionId,
+        promoCode: promoCode,
       );
 
       // Cache the created order
@@ -164,8 +166,10 @@ class OrdersRepositoryImpl implements OrdersRepository {
       );
 
       return Right(result);
+    } on ValidationException catch (e) {
+      return Left(ValidationFailure(message: e.firstError, errors: e.errors));
     } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
+      return Left(ServerFailure(message: e.message, statusCode: e.statusCode, responseData: e.responseData));
     } on UnauthorizedException catch (e) {
       return Left(UnauthorizedFailure(message: e.message));
     } on NetworkException catch (e) {

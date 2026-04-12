@@ -40,6 +40,7 @@ class OrderDetailsWrapperPage extends ConsumerWidget {
               leading: IconButton(
                 icon: const Icon(Icons.arrow_back),
                 onPressed: () => context.pop(),
+                tooltip: 'Retour',
               ),
             ),
             body: Center(
@@ -79,6 +80,7 @@ class OrderDetailsWrapperPage extends ConsumerWidget {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () => context.pop(),
+            tooltip: 'Retour',
           ),
         ),
         body: const Center(
@@ -98,6 +100,7 @@ class OrderDetailsWrapperPage extends ConsumerWidget {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () => context.pop(),
+            tooltip: 'Retour',
           ),
         ),
         body: Center(

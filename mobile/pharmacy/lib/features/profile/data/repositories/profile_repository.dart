@@ -51,7 +51,7 @@ class ProfileRepositoryImpl implements ProfileRepository {
   @override
   Future<Either<Failure, void>> updatePharmacy(int pharmacyId, Map<String, dynamic> data) async {
     try {
-      await apiClient.put('/pharmacy/pharmacies/$pharmacyId', data: data);
+      await apiClient.post('/pharmacy/profile/$pharmacyId', data: data);
       return const Right(null);
     } on ServerException catch (e) {
       return Left(ServerFailure(e.message));

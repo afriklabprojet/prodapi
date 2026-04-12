@@ -196,6 +196,9 @@ class _SupportTicketChatScreenState extends ConsumerState<SupportTicketChatScree
     final message = _messageController.text.trim();
     if (message.isEmpty) return;
 
+    // Dismiss keyboard
+    FocusScope.of(context).unfocus();
+    
     setState(() => _isSending = true);
 
     try {

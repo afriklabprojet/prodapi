@@ -6,12 +6,15 @@ import '../services/auto_theme_service.dart';
 // Re-export isDarkModeProvider from theme_service
 export '../services/theme_service.dart' show isDarkModeProvider;
 
+// Re-export app colors for easy access
+export 'app_colors.dart';
+
 /// Mode de thème étendu avec option Auto (intelligent)
 enum AppThemeMode {
-  light,    // Toujours clair
-  dark,     // Toujours sombre
-  system,   // Suit le système
-  auto,     // Intelligent (basé sur l'heure) ⭐ NOUVEAU
+  light, // Toujours clair
+  dark, // Toujours sombre
+  system, // Suit le système
+  auto, // Intelligent (basé sur l'heure) ⭐ NOUVEAU
 }
 
 /// Provider pour le mode thème (clair/sombre/auto)
@@ -20,9 +23,10 @@ final themeProvider = NotifierProvider<ThemeNotifier, ThemeMode>(
 );
 
 /// Provider pour le mode de thème de l'app
-final appThemeModeProvider = NotifierProvider<AppThemeModeNotifier, AppThemeMode>(
-  AppThemeModeNotifier.new,
-);
+final appThemeModeProvider =
+    NotifierProvider<AppThemeModeNotifier, AppThemeMode>(
+      AppThemeModeNotifier.new,
+    );
 
 class AppThemeModeNotifier extends Notifier<AppThemeMode> {
   static const String _themeModeKey = 'app_theme_mode';
@@ -38,14 +42,14 @@ class AppThemeModeNotifier extends Notifier<AppThemeMode> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final modeString = prefs.getString(_themeModeKey);
-      
+
       if (modeString != null) {
         state = AppThemeMode.values.firstWhere(
           (e) => e.name == modeString,
           orElse: () => AppThemeMode.light,
         );
       }
-      
+
       // Si mode auto, initialiser le service
       if (state == AppThemeMode.auto) {
         _initAutoTheme();
@@ -59,17 +63,17 @@ class AppThemeModeNotifier extends Notifier<AppThemeMode> {
   Future<void> _initAutoTheme() async {
     final autoService = AutoThemeService.instance;
     await autoService.init();
-    
+
     // Configurer le callback
     autoService.onThemeChange = (isDark) {
       // Notifier le theme provider du changement
-      ref.read(themeProvider.notifier).setTheme(
-        isDark ? ThemeMode.dark : ThemeMode.light,
-      );
+      ref
+          .read(themeProvider.notifier)
+          .setTheme(isDark ? ThemeMode.dark : ThemeMode.light);
     };
-    
+
     await autoService.setEnabled(true);
-    
+
     // Appliquer immédiatement
     if (autoService.isNightTime()) {
       ref.read(themeProvider.notifier).setTheme(ThemeMode.dark);
@@ -82,9 +86,9 @@ class AppThemeModeNotifier extends Notifier<AppThemeMode> {
     state = mode;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_themeModeKey, mode.name);
-    
+
     final autoService = AutoThemeService.instance;
-    
+
     switch (mode) {
       case AppThemeMode.light:
         await autoService.setEnabled(false);
@@ -106,18 +110,25 @@ class AppThemeModeNotifier extends Notifier<AppThemeMode> {
 
   String get modeLabel {
     switch (state) {
-      case AppThemeMode.light: return 'Clair';
-      case AppThemeMode.dark: return 'Sombre';
-      case AppThemeMode.system: return 'Système';
-      case AppThemeMode.auto: return 'Intelligent';
+      case AppThemeMode.light:
+        return 'Clair';
+      case AppThemeMode.dark:
+        return 'Sombre';
+      case AppThemeMode.system:
+        return 'Système';
+      case AppThemeMode.auto:
+        return 'Intelligent';
     }
   }
 
   String get modeDescription {
     switch (state) {
-      case AppThemeMode.light: return 'Toujours en mode clair';
-      case AppThemeMode.dark: return 'Toujours en mode sombre';
-      case AppThemeMode.system: return 'Suit les paramètres de l\'appareil';
+      case AppThemeMode.light:
+        return 'Toujours en mode clair';
+      case AppThemeMode.dark:
+        return 'Toujours en mode sombre';
+      case AppThemeMode.system:
+        return 'Suit les paramètres de l\'appareil';
       case AppThemeMode.auto:
         final autoService = AutoThemeService.instance;
         return autoService.getStatusDescription();
@@ -126,10 +137,14 @@ class AppThemeModeNotifier extends Notifier<AppThemeMode> {
 
   IconData get modeIcon {
     switch (state) {
-      case AppThemeMode.light: return Icons.light_mode;
-      case AppThemeMode.dark: return Icons.dark_mode;
-      case AppThemeMode.system: return Icons.brightness_auto;
-      case AppThemeMode.auto: return Icons.schedule;
+      case AppThemeMode.light:
+        return Icons.light_mode;
+      case AppThemeMode.dark:
+        return Icons.dark_mode;
+      case AppThemeMode.system:
+        return Icons.brightness_auto;
+      case AppThemeMode.auto:
+        return Icons.schedule;
     }
   }
 }
@@ -150,7 +165,7 @@ class ThemeNotifier extends Notifier<ThemeMode> {
       final prefs = await SharedPreferences.getInstance();
       if (!ref.mounted) return; // Provider may have been disposed during await
       final themeString = prefs.getString(_themeKey);
-      
+
       if (themeString != null) {
         state = ThemeMode.values.firstWhere(
           (e) => e.name == themeString,
@@ -192,6 +207,13 @@ ThemeData get lightTheme => ThemeData(
     brightness: Brightness.light,
   ),
   scaffoldBackgroundColor: const Color(0xFFF8F9FD),
+  // PageTransitions pour éviter l'écran noir lors du retour
+  pageTransitionsTheme: const PageTransitionsTheme(
+    builders: {
+      TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+    },
+  ),
   appBarTheme: const AppBarTheme(
     backgroundColor: Colors.white,
     foregroundColor: Colors.black,
@@ -238,10 +260,7 @@ ThemeData get lightTheme => ThemeData(
     surfaceTintColor: Colors.transparent,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
   ),
-  dividerTheme: DividerThemeData(
-    color: Colors.grey.shade200,
-    thickness: 1,
-  ),
+  dividerTheme: DividerThemeData(color: Colors.grey.shade200, thickness: 1),
 );
 
 /// Thème sombre personnalisé
@@ -253,6 +272,13 @@ ThemeData get darkTheme => ThemeData(
     brightness: Brightness.dark,
   ),
   scaffoldBackgroundColor: const Color(0xFF121212),
+  // PageTransitions pour éviter l'écran noir lors du retour
+  pageTransitionsTheme: const PageTransitionsTheme(
+    builders: {
+      TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+    },
+  ),
   textTheme: const TextTheme(
     bodyLarge: TextStyle(color: Colors.white),
     bodyMedium: TextStyle(color: Colors.white),
@@ -316,15 +342,9 @@ ThemeData get darkTheme => ThemeData(
       fontSize: 20,
       fontWeight: FontWeight.bold,
     ),
-    contentTextStyle: const TextStyle(
-      color: Colors.white70,
-      fontSize: 16,
-    ),
+    contentTextStyle: const TextStyle(color: Colors.white70, fontSize: 16),
   ),
-  dividerTheme: const DividerThemeData(
-    color: Color(0xFF2C2C2C),
-    thickness: 1,
-  ),
+  dividerTheme: const DividerThemeData(color: Color(0xFF2C2C2C), thickness: 1),
   listTileTheme: const ListTileThemeData(
     iconColor: Colors.white70,
     textColor: Colors.white,
@@ -361,52 +381,34 @@ ThemeData get darkTheme => ThemeData(
 /// Extension pour accéder facilement aux couleurs du thème
 extension ThemeExtension on BuildContext {
   bool get isDark => Theme.of(this).brightness == Brightness.dark;
-  
-  Color get scaffoldBackground => isDark 
-      ? const Color(0xFF121212) 
-      : const Color(0xFFF8F9FD);
-  
-  Color get cardBackground => isDark 
-      ? const Color(0xFF1E1E1E) 
-      : Colors.white;
-  
-  Color get surfaceColor => isDark 
-      ? const Color(0xFF2C2C2C) 
-      : Colors.grey.shade100;
-  
-  Color get primaryText => isDark 
-      ? Colors.white 
-      : Colors.black;
-  
-  Color get secondaryText => isDark 
-      ? Colors.white70 
-      : Colors.grey.shade600;
-  
-  Color get tertiaryText => isDark 
-      ? Colors.white54 
-      : Colors.grey.shade500;
-  
-  Color get dividerColor => isDark 
-      ? const Color(0xFF2C2C2C) 
-      : Colors.grey.shade200;
-  
-  Color get iconColor => isDark 
-      ? Colors.white70 
-      : Colors.grey.shade700;
 
-  Color get inputFillColor => isDark
-      ? const Color(0xFF2C2C2C)
-      : Colors.grey.shade100;
+  Color get scaffoldBackground =>
+      isDark ? const Color(0xFF121212) : const Color(0xFFF8F9FD);
+
+  Color get cardBackground => isDark ? const Color(0xFF1E1E1E) : Colors.white;
+
+  Color get surfaceColor =>
+      isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade100;
+
+  Color get primaryText => isDark ? Colors.white : Colors.black;
+
+  Color get secondaryText => isDark ? Colors.white70 : Colors.grey.shade600;
+
+  Color get tertiaryText => isDark ? Colors.white54 : Colors.grey.shade500;
+
+  Color get dividerColor =>
+      isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade200;
+
+  Color get iconColor => isDark ? Colors.white70 : Colors.grey.shade700;
+
+  Color get inputFillColor =>
+      isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade100;
 
   Color get shadowColor => isDark
       ? Colors.black.withValues(alpha: 0.3)
       : Colors.black.withValues(alpha: 0.1);
 
-  Color get hintColor => isDark
-      ? Colors.white38
-      : Colors.grey.shade400;
+  Color get hintColor => isDark ? Colors.white38 : Colors.grey.shade400;
 
-  Color get borderColor => isDark
-      ? Colors.white12
-      : Colors.grey.shade300;
+  Color get borderColor => isDark ? Colors.white12 : Colors.grey.shade300;
 }

@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../providers/auth_provider.dart';
 
@@ -43,12 +45,36 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur: ${e.toString()}'),
+            content: Text(_formatError(e)),
             backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
     }
+  }
+
+  String _formatError(Object e) {
+    if (e is SocketException) return 'Vérifiez votre connexion internet';
+    if (e is DioException) {
+      switch (e.type) {
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.sendTimeout:
+        case DioExceptionType.receiveTimeout:
+          return 'Le serveur met trop de temps à répondre';
+        case DioExceptionType.connectionError:
+          return 'Impossible de contacter le serveur';
+        default:
+          if (e.response?.statusCode == 404) return 'Aucun compte trouvé avec cet email';
+          if (e.response?.statusCode == 429) return 'Trop de tentatives. Réessayez dans quelques minutes';
+          if (e.response?.statusCode != null && e.response!.statusCode! >= 500) return 'Erreur serveur. Réessayez plus tard';
+      }
+    }
+    final msg = e.toString();
+    if (msg.contains('SocketException') || msg.contains('No host')) return 'Vérifiez votre connexion internet';
+    if (msg.contains('timeout')) return 'Le serveur met trop de temps à répondre';
+    return 'Une erreur est survenue. Veuillez réessayer';
   }
 
   @override
@@ -95,6 +121,26 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
         SizedBox(
           width: double.infinity,
           height: 56,
+          child: ElevatedButton.icon(
+            onPressed: _isLoading ? null : () {
+              setState(() => _emailSent = false);
+              _submit();
+            },
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Renvoyer l\'email'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          height: 56,
           child: OutlinedButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Retour à la connexion'),
@@ -107,6 +153,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
   Widget _buildFormView(Color primaryColor) {
     return Form(
       key: _formKey,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../core/router/route_names.dart';
 import '../../core/theme/theme_provider.dart';
 import '../../data/models/support_ticket.dart';
 import '../../data/repositories/support_repository.dart';
 import '../widgets/common/common_widgets.dart';
-import 'support_ticket_chat_screen.dart';
-import 'create_ticket_screen.dart';
 import '../../core/utils/responsive.dart';
 
 /// Provider pour la liste des tickets
-final supportTicketsProvider = FutureProvider.autoDispose<List<SupportTicket>>((ref) async {
+final supportTicketsProvider = FutureProvider.autoDispose<List<SupportTicket>>((
+  ref,
+) async {
   final repository = ref.read(supportRepositoryProvider);
   return repository.getTickets();
 });
@@ -18,7 +20,8 @@ class SupportTicketsScreen extends ConsumerStatefulWidget {
   const SupportTicketsScreen({super.key});
 
   @override
-  ConsumerState<SupportTicketsScreen> createState() => _SupportTicketsScreenState();
+  ConsumerState<SupportTicketsScreen> createState() =>
+      _SupportTicketsScreenState();
 }
 
 class _SupportTicketsScreenState extends ConsumerState<SupportTicketsScreen> {
@@ -35,16 +38,14 @@ class _SupportTicketsScreenState extends ConsumerState<SupportTicketsScreen> {
           SliverAppBar(
             expandedHeight: 140,
             pinned: true,
+            foregroundColor: Colors.white,
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      Colors.indigo.shade600,
-                      Colors.indigo.shade800,
-                    ],
+                    colors: [Colors.indigo.shade600, Colors.indigo.shade800],
                   ),
                 ),
                 child: SafeArea(
@@ -126,14 +127,16 @@ class _SupportTicketsScreenState extends ConsumerState<SupportTicketsScreen> {
                   _FilterChip(
                     label: 'En cours',
                     isSelected: _filterStatus == 'in_progress',
-                    onSelected: () => setState(() => _filterStatus = 'in_progress'),
+                    onSelected: () =>
+                        setState(() => _filterStatus = 'in_progress'),
                     color: Colors.blue,
                   ),
                   const SizedBox(width: 8),
                   _FilterChip(
                     label: 'Résolus',
                     isSelected: _filterStatus == 'resolved',
-                    onSelected: () => setState(() => _filterStatus = 'resolved'),
+                    onSelected: () =>
+                        setState(() => _filterStatus = 'resolved'),
                     color: Colors.green,
                   ),
                   const SizedBox(width: 8),
@@ -152,7 +155,7 @@ class _SupportTicketsScreenState extends ConsumerState<SupportTicketsScreen> {
           ticketsAsync.when(
             data: (tickets) {
               final filtered = _filterTickets(tickets);
-              
+
               if (filtered.isEmpty) {
                 return SliverFillRemaining(
                   child: _EmptyState(
@@ -172,9 +175,7 @@ class _SupportTicketsScreenState extends ConsumerState<SupportTicketsScreen> {
                 ),
               );
             },
-            loading: () => const SliverFillRemaining(
-              child: AppLoadingWidget(),
-            ),
+            loading: () => const SliverFillRemaining(child: AppLoadingWidget()),
             error: (error, _) => SliverFillRemaining(
               child: AppErrorWidget(
                 message: error.toString(),
@@ -184,9 +185,7 @@ class _SupportTicketsScreenState extends ConsumerState<SupportTicketsScreen> {
             ),
           ),
 
-          const SliverToBoxAdapter(
-            child: SizedBox(height: 80),
-          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 80)),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -205,20 +204,17 @@ class _SupportTicketsScreenState extends ConsumerState<SupportTicketsScreen> {
   }
 
   Future<void> _navigateToCreateTicket(BuildContext context) async {
-    final result = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(builder: (_) => const CreateTicketScreen()),
-    );
+    final result = await context.push<bool>(AppRoutes.createTicket);
     if (result == true) {
       ref.invalidate(supportTicketsProvider);
     }
   }
 
-  Future<void> _navigateToChat(BuildContext context, SupportTicket ticket) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => SupportTicketChatScreen(ticketId: ticket.id)),
-    );
+  Future<void> _navigateToChat(
+    BuildContext context,
+    SupportTicket ticket,
+  ) async {
+    await context.push(AppRoutes.supportChat, extra: ticket.id);
     ref.invalidate(supportTicketsProvider);
   }
 }
@@ -239,14 +235,16 @@ class _FilterChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final chipColor = color ?? Colors.indigo;
-    
+
     return GestureDetector(
       onTap: onSelected,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? chipColor.withValues(alpha: 0.1) : context.surfaceColor,
+          color: isSelected
+              ? chipColor.withValues(alpha: 0.1)
+              : context.surfaceColor,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected ? chipColor : context.dividerColor,
@@ -269,10 +267,7 @@ class _EmptyState extends StatelessWidget {
   final String filterStatus;
   final VoidCallback onCreateTicket;
 
-  const _EmptyState({
-    required this.filterStatus,
-    required this.onCreateTicket,
-  });
+  const _EmptyState({required this.filterStatus, required this.onCreateTicket});
 
   @override
   Widget build(BuildContext context) {
@@ -299,10 +294,7 @@ class _EmptyState extends StatelessWidget {
               filterStatus == 'all'
                   ? 'Aucune demande'
                   : 'Aucun ticket ${_getStatusLabel(filterStatus)}',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
@@ -310,9 +302,7 @@ class _EmptyState extends StatelessWidget {
                   ? 'Vous n\'avez pas encore créé de ticket de support'
                   : 'Aucun ticket avec ce statut',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: context.secondaryText,
-              ),
+              style: TextStyle(color: context.secondaryText),
             ),
             if (filterStatus == 'all') ...[
               const SizedBox(height: 24),
@@ -323,7 +313,10 @@ class _EmptyState extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.indigo.shade600,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
                 ),
               ),
             ],
@@ -353,10 +346,7 @@ class _TicketCard extends StatelessWidget {
   final SupportTicket ticket;
   final VoidCallback onTap;
 
-  const _TicketCard({
-    required this.ticket,
-    required this.onTap,
-  });
+  const _TicketCard({required this.ticket, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -417,7 +407,10 @@ class _TicketCard extends StatelessWidget {
                   const Spacer(),
                   if (ticket.unreadCount != null && ticket.unreadCount! > 0)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.red,
                         borderRadius: BorderRadius.circular(10),
@@ -472,10 +465,7 @@ class _TicketCard extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     _formatDate(ticket.createdAt),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: context.tertiaryText,
-                    ),
+                    style: TextStyle(fontSize: 12, color: context.tertiaryText),
                   ),
                 ],
               ),
@@ -570,10 +560,7 @@ class _CategoryBadge extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             category.label,
-            style: TextStyle(
-              fontSize: 11,
-              color: context.secondaryText,
-            ),
+            style: TextStyle(fontSize: 11, color: context.secondaryText),
           ),
         ],
       ),

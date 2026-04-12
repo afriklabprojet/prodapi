@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:drpharma_pharmacy/features/orders/presentation/widgets/order_card.dart';
+import 'package:drpharma_pharmacy/features/orders/domain/enums/order_status.dart';
 import '../../../../test_helpers.dart';
 
 void main() {
@@ -165,7 +166,7 @@ void main() {
 
   group('OrderCard Status Badge', () {
     testWidgets('should display pending status as "En attente"', (tester) async {
-      final order = TestDataFactory.createOrder(status: 'pending');
+      final order = TestDataFactory.createOrder(status: OrderStatus.pending);
 
       await tester.pumpWidget(
         createTestableWidget(
@@ -179,8 +180,8 @@ void main() {
       expect(find.text('En attente'), findsOneWidget);
     });
 
-    testWidgets('should display confirmed status as "Confirmé"', (tester) async {
-      final order = TestDataFactory.createOrder(status: 'confirmed');
+    testWidgets('should display confirmed status as "Confirmée"', (tester) async {
+      final order = TestDataFactory.createOrder(status: OrderStatus.confirmed);
 
       await tester.pumpWidget(
         createTestableWidget(
@@ -191,11 +192,11 @@ void main() {
         ),
       );
 
-      expect(find.text('Confirmé'), findsOneWidget);
+      expect(find.text('Confirmée'), findsOneWidget);
     });
 
-    testWidgets('should display ready status as "Prêt"', (tester) async {
-      final order = TestDataFactory.createOrder(status: 'ready');
+    testWidgets('should display ready status as "Prête"', (tester) async {
+      final order = TestDataFactory.createOrder(status: OrderStatus.ready);
 
       await tester.pumpWidget(
         createTestableWidget(
@@ -206,11 +207,11 @@ void main() {
         ),
       );
 
-      expect(find.text('Prêt'), findsOneWidget);
+      expect(find.text('Prête'), findsOneWidget);
     });
 
-    testWidgets('should display picked_up status as "Récupéré"', (tester) async {
-      final order = TestDataFactory.createOrder(status: 'picked_up');
+    testWidgets('should display inDelivery status as "En livraison"', (tester) async {
+      final order = TestDataFactory.createOrder(status: OrderStatus.inDelivery);
 
       await tester.pumpWidget(
         createTestableWidget(
@@ -221,11 +222,11 @@ void main() {
         ),
       );
 
-      expect(find.text('Récupéré'), findsOneWidget);
+      expect(find.text('En livraison'), findsOneWidget);
     });
 
-    testWidgets('should display delivered status as "Livré"', (tester) async {
-      final order = TestDataFactory.createOrder(status: 'delivered');
+    testWidgets('should display delivered status as "Livrée"', (tester) async {
+      final order = TestDataFactory.createOrder(status: OrderStatus.delivered);
 
       await tester.pumpWidget(
         createTestableWidget(
@@ -236,11 +237,11 @@ void main() {
         ),
       );
 
-      expect(find.text('Livré'), findsOneWidget);
+      expect(find.text('Livrée'), findsOneWidget);
     });
 
-    testWidgets('should display cancelled status as "Annulé"', (tester) async {
-      final order = TestDataFactory.createOrder(status: 'cancelled');
+    testWidgets('should display cancelled status as "Annulée"', (tester) async {
+      final order = TestDataFactory.createOrder(status: OrderStatus.cancelled);
 
       await tester.pumpWidget(
         createTestableWidget(
@@ -251,11 +252,11 @@ void main() {
         ),
       );
 
-      expect(find.text('Annulé'), findsOneWidget);
+      expect(find.text('Annulée'), findsOneWidget);
     });
 
-    testWidgets('should display unknown status as-is', (tester) async {
-      final order = TestDataFactory.createOrder(status: 'custom_status');
+    testWidgets('should display rejected status as "Refusée"', (tester) async {
+      final order = TestDataFactory.createOrder(status: OrderStatus.rejected);
 
       await tester.pumpWidget(
         createTestableWidget(
@@ -266,7 +267,7 @@ void main() {
         ),
       );
 
-      expect(find.text('custom_status'), findsOneWidget);
+      expect(find.text('Refusée'), findsOneWidget);
     });
   });
 

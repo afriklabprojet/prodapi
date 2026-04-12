@@ -3,6 +3,7 @@
 /// Extension pour formater les numéros de téléphone au format international E.164
 extension PhoneFormatExtension on String {
   /// Convertit un numéro au format international E.164
+  /// En Côte d'Ivoire, les numéros ont 10 chiffres (incluant le 0 initial)
   /// Ex: "0574535472" → "+2250574535472"
   /// Ex: "+2250574535472" → "+2250574535472" (déjà correct)
   /// Ex: "225 05 74 53 54 72" → "+2250574535472"
@@ -12,7 +13,6 @@ extension PhoneFormatExtension on String {
     
     // Déjà au format international
     if (cleaned.startsWith('+')) {
-      // Valider qu'il reste des chiffres après le +
       final digits = cleaned.substring(1);
       if (digits.isEmpty || !RegExp(r'^\d+$').hasMatch(digits)) {
         throw FormatException('Numéro de téléphone invalide: $this');
@@ -26,9 +26,9 @@ extension PhoneFormatExtension on String {
       return '+$cleaned';
     }
     
-    // Format local CI: commence par 0 suivi de 9 chiffres
+    // Format local CI: 10 chiffres commençant par 0 (le 0 fait partie du numéro)
     if (cleaned.startsWith('0') && cleaned.length == 10) {
-      return '+225${cleaned.substring(1)}';
+      return '+225$cleaned';
     }
     
     // Déjà avec indicatif pays sans +
@@ -36,12 +36,8 @@ extension PhoneFormatExtension on String {
       return '+$cleaned';
     }
     
-    // Numéro CI sans indicatif pays (9 ou 10 chiffres)
-    if (RegExp(r'^\d{9,10}$').hasMatch(cleaned)) {
-      // Si commence par 0, retirer le 0
-      if (cleaned.startsWith('0')) {
-        cleaned = cleaned.substring(1);
-      }
+    // Numéro CI sans indicatif pays (10 chiffres)
+    if (RegExp(r'^\d{10}$').hasMatch(cleaned)) {
       return '+225$cleaned';
     }
     

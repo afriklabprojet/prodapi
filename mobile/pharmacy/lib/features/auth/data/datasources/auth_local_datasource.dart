@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../models/user_model.dart';
 
@@ -16,11 +17,14 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   final FlutterSecureStorage _secureStorage;
 
   AuthLocalDataSourceImpl({FlutterSecureStorage? secureStorage})
-      : _secureStorage = secureStorage ??
-            const FlutterSecureStorage(
-              aOptions: AndroidOptions(),
-              iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
-            );
+    : _secureStorage =
+          secureStorage ??
+          const FlutterSecureStorage(
+            aOptions: AndroidOptions(),
+            iOptions: IOSOptions(
+              accessibility: KeychainAccessibility.first_unlock,
+            ),
+          );
 
   @override
   Future<void> cacheToken(String token) async {
@@ -53,6 +57,14 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   Future<void> clearAuthData() async {
     await _secureStorage.delete(key: AppConstants.tokenKey);
     await _secureStorage.delete(key: AppConstants.userKey);
+
+    // Nettoyer les credentials "Remember Me" lors du logout
+    // Email sécurisé (clé préfixée par "secure_" par SecurityService)
+    await _secureStorage.delete(key: 'secure_remember_me_email');
+
+    // Flag "Remember Me" dans SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('pharmacy_remember_me');
   }
 
   @override
@@ -61,4 +73,3 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     return token != null && token.isNotEmpty;
   }
 }
-

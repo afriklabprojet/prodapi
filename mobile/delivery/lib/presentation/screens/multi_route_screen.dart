@@ -1,12 +1,16 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/theme_provider.dart';
 import '../../core/services/navigation_service.dart';
 import '../../core/constants/map_constants.dart';
+import '../../core/utils/error_utils.dart';
 import '../../data/repositories/delivery_repository.dart';
 import '../widgets/common/common_widgets.dart';
 
@@ -25,10 +29,45 @@ class _MultiRouteScreenState extends ConsumerState<MultiRouteScreen> {
   Set<Polyline> _polylines = {};
   String? _totalDurationText;
 
+  // Position initiale - sera mise à jour avec la position GPS réelle
+  LatLng _initialPosition = MapConstants.defaultLocation;
+
   @override
   void initState() {
     super.initState();
+    _initializePosition();
     _loadRoute();
+  }
+
+  /// Obtient la position GPS réelle au démarrage
+  Future<void> _initializePosition() async {
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.best,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+      if (mounted) {
+        setState(() {
+          _initialPosition = LatLng(position.latitude, position.longitude);
+        });
+        _mapController?.animateCamera(CameraUpdate.newLatLng(_initialPosition));
+      }
+    } catch (e) {
+      // Essayer la dernière position connue
+      try {
+        final lastPosition = await Geolocator.getLastKnownPosition();
+        if (lastPosition != null && mounted) {
+          setState(() {
+            _initialPosition = LatLng(
+              lastPosition.latitude,
+              lastPosition.longitude,
+            );
+          });
+        }
+      } catch (_) {}
+    }
   }
 
   @override
@@ -37,6 +76,8 @@ class _MultiRouteScreenState extends ConsumerState<MultiRouteScreen> {
     _mapController = null;
     super.dispose();
   }
+
+  static const String _cacheKey = 'cached_optimized_route';
 
   Future<void> _loadRoute() async {
     if (!mounted) return;
@@ -50,45 +91,86 @@ class _MultiRouteScreenState extends ConsumerState<MultiRouteScreen> {
       final data = await repo.getOptimizedRoute();
       if (!mounted) return;
 
-      // Decode polyline from API if available
-      final polylineEncoded = data['polyline'] as String?;
-      Set<Polyline> polylines = {};
-      if (polylineEncoded != null && polylineEncoded.isNotEmpty) {
-        final points = PolylinePoints().decodePolyline(polylineEncoded);
-        final latLngs = points.map((p) => LatLng(p.latitude, p.longitude)).toList();
-        if (latLngs.isNotEmpty) {
-          polylines.add(Polyline(
+      // Sauvegarder en cache pour accès offline
+      _cacheRouteData(data);
+
+      _applyRouteData(data);
+    } catch (e) {
+      if (!mounted) return;
+      // Tenter le fallback depuis le cache
+      final cached = await _loadCachedRoute();
+      if (cached != null && mounted) {
+        _applyRouteData(cached);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Itinéraire chargé depuis le cache (hors-ligne)'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      } else if (mounted) {
+        setState(() {
+          _error = userFriendlyError(e);
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _applyRouteData(Map<String, dynamic> data) {
+    // Decode polyline from API if available
+    final polylineEncoded = data['polyline'] as String?;
+    Set<Polyline> polylines = {};
+    if (polylineEncoded != null && polylineEncoded.isNotEmpty) {
+      final points = PolylinePoints().decodePolyline(polylineEncoded);
+      final latLngs = points
+          .map((p) => LatLng(p.latitude, p.longitude))
+          .toList();
+      if (latLngs.isNotEmpty) {
+        polylines.add(
+          Polyline(
             polylineId: const PolylineId('optimized_route'),
             points: latLngs,
             color: Colors.blue,
             width: 4,
             patterns: const [],
-          ));
-        }
+          ),
+        );
       }
+    }
 
-      // Total duration from API
-      final durationMin = data['total_duration_minutes'] as num?;
-      String? durationText;
-      if (durationMin != null && durationMin > 0) {
-        final hours = durationMin.toInt() ~/ 60;
-        final mins = durationMin.toInt() % 60;
-        durationText = hours > 0 ? '${hours}h ${mins}min' : '$mins min';
-      }
+    // Total duration from API
+    final durationMin = data['total_duration_minutes'] as num?;
+    String? durationText;
+    if (durationMin != null && durationMin > 0) {
+      final hours = durationMin.toInt() ~/ 60;
+      final mins = durationMin.toInt() % 60;
+      durationText = hours > 0 ? '${hours}h ${mins}min' : '$mins min';
+    }
 
-      setState(() {
-        _routeData = data;
-        _polylines = polylines;
-        _totalDurationText = durationText;
-        _isLoading = false;
-      });
-      _fitBounds();
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
+    setState(() {
+      _routeData = data;
+      _polylines = polylines;
+      _totalDurationText = durationText;
+      _isLoading = false;
+    });
+    _fitBounds();
+  }
+
+  Future<void> _cacheRouteData(Map<String, dynamic> data) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_cacheKey, jsonEncode(data));
+    } catch (_) {}
+  }
+
+  Future<Map<String, dynamic>?> _loadCachedRoute() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_cacheKey);
+      if (raw == null) return null;
+      return jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -151,7 +233,8 @@ class _MultiRouteScreenState extends ConsumerState<MultiRouteScreen> {
             isPickup ? BitmapDescriptor.hueBlue : BitmapDescriptor.hueRed,
           ),
           infoWindow: InfoWindow(
-            title: '${isPickup ? "📦 Récup." : "📍 Livr."} $index: ${stop['name']}',
+            title:
+                '${isPickup ? "📦 Récup." : "📍 Livr."} $index: ${stop['name']}',
             snippet: stop['address'],
           ),
         ),
@@ -172,27 +255,22 @@ class _MultiRouteScreenState extends ConsumerState<MultiRouteScreen> {
         foregroundColor: context.primaryText,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadRoute,
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadRoute),
         ],
       ),
       body: _isLoading
           ? const AppLoadingWidget()
           : _error != null
-              ? AppErrorWidget(
-                  message: _error!,
-                  onRetry: _loadRoute,
-                )
-              : _buildContent(currencyFormat),
+          ? AppErrorWidget(message: _error!, onRetry: _loadRoute)
+          : _buildContent(currencyFormat),
     );
   }
 
   Widget _buildContent(NumberFormat currencyFormat) {
     final stops = _routeData?['stops'] as List? ?? [];
     final totalDistance = (_routeData?['total_distance_km'] ?? 0).toDouble();
-    final totalEarnings = (_routeData?['total_estimated_earnings'] ?? 0).toDouble();
+    final totalEarnings = (_routeData?['total_estimated_earnings'] ?? 0)
+        .toDouble();
     final pickupCount = _routeData?['pickup_count'] ?? 0;
     final deliveryCount = _routeData?['delivery_count'] ?? 0;
 
@@ -208,8 +286,8 @@ class _MultiRouteScreenState extends ConsumerState<MultiRouteScreen> {
       children: [
         // Map
         GoogleMap(
-          initialCameraPosition: const CameraPosition(
-            target: MapConstants.defaultLocation,
+          initialCameraPosition: CameraPosition(
+            target: _initialPosition,
             zoom: 14,
           ),
           onMapCreated: (controller) {
@@ -304,7 +382,9 @@ class _MultiRouteScreenState extends ConsumerState<MultiRouteScreen> {
             return Container(
               decoration: BoxDecoration(
                 color: context.cardBackground,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black26,
@@ -382,7 +462,7 @@ class _MultiRouteScreenState extends ConsumerState<MultiRouteScreen> {
 
     final navService = ref.read(navigationServiceProvider);
     final name = stop['name'] as String? ?? 'Destination';
-    
+
     await navService.showAppSelector(
       context,
       destinationLat: lat,
@@ -481,11 +561,7 @@ class _StopCard extends StatelessWidget {
               ),
             ),
             if (!isLast)
-              Container(
-                width: 2,
-                height: 60,
-                color: context.dividerColor,
-              ),
+              Container(width: 2, height: 60, color: context.dividerColor),
           ],
         ),
         const SizedBox(width: 12),
@@ -504,7 +580,10 @@ class _StopCard extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: color.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
@@ -546,11 +625,15 @@ class _StopCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     'Montant: ${currencyFormat.format(stop['total_amount'])} FCFA',
-                    style: TextStyle(fontSize: 12, color: context.secondaryText),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: context.secondaryText,
+                    ),
                   ),
                 ],
                 // Leg distance/duration from Directions API
-                if (stop['leg_distance'] != null || stop['leg_duration'] != null) ...[
+                if (stop['leg_distance'] != null ||
+                    stop['leg_duration'] != null) ...[
                   const SizedBox(height: 4),
                   Row(
                     children: [
@@ -559,7 +642,11 @@ class _StopCard extends StatelessWidget {
                         const SizedBox(width: 2),
                         Text(
                           stop['leg_distance'],
-                          style: TextStyle(fontSize: 11, color: Colors.orange.shade700, fontWeight: FontWeight.w500),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.orange.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                         const SizedBox(width: 8),
                       ],
@@ -568,7 +655,11 @@ class _StopCard extends StatelessWidget {
                         const SizedBox(width: 2),
                         Text(
                           stop['leg_duration'],
-                          style: TextStyle(fontSize: 11, color: Colors.purple.shade700, fontWeight: FontWeight.w500),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.purple.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ],
                     ],
@@ -633,7 +724,11 @@ class _ActionButton extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                fontSize: 12,
+                color: color,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),

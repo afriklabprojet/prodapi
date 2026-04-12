@@ -4,6 +4,7 @@ import 'package:riverpod/legacy.dart';
 import '../../../core/services/tutorial_service.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/utils/snackbar_extension.dart';
 
 /// Provider pour l'état du tutorial en cours
 final activeTutorialProvider = StateProvider<TutorialType?>((ref) => null);
@@ -412,9 +413,7 @@ class TutorialListWidget extends ConsumerWidget {
             onPressed: () async {
               await ref.read(tutorialServiceProvider).resetAll();
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Tous les tutoriels ont été réinitialisés')),
-                );
+                context.showInfo('Tous les tutoriels ont été réinitialisés');
               }
             },
             icon: const Icon(Icons.refresh),

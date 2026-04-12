@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../config/providers.dart';
+import '../../../../core/constants/api_constants.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/providers/theme_provider.dart';
 
@@ -378,7 +379,7 @@ class _RatingBottomSheetState extends ConsumerState<RatingBottomSheet> {
       }
 
       await apiClient.post(
-        '/customer/orders/${widget.orderId}/rate',
+        ApiConstants.rateOrder(widget.orderId),
         data: body,
       );
 
@@ -395,8 +396,8 @@ class _RatingBottomSheetState extends ConsumerState<RatingBottomSheet> {
       if (mounted) {
         setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
+          const SnackBar(
+            content: Text('Impossible d\'envoyer votre avis. Réessayez.'),
             backgroundColor: AppColors.error,
           ),
         );

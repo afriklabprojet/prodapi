@@ -65,6 +65,22 @@
 -keep class com.google.android.gms.maps.** { *; }
 -keep interface com.google.android.gms.maps.** { *; }
 
+# Flutter Secure Storage (encryptedSharedPreferences uses AndroidX Security Crypto)
+-keep class androidx.security.crypto.** { *; }
+-keep class com.google.crypto.tink.** { *; }
+
+# Infobip Mobile Messaging SDK + Flutter plugin wrapper
+-keep class org.infobip.mobile.messaging.** { *; }
+-keep class org.infobip.plugins.mobilemessaging.** { *; }
+-dontwarn org.infobip.mobile.messaging.**
+-dontwarn org.infobip.plugins.mobilemessaging.**
+
+# SharedPreferences plugin
+-keep class io.flutter.plugins.sharedpreferences.** { *; }
+
+# Flutter Local Notifications
+-keep class com.dexterous.** { *; }
+
 # Play Core (deferred components)
 -dontwarn com.google.android.play.core.splitcompat.**
 -dontwarn com.google.android.play.core.splitinstall.**

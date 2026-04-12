@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../domain/entities/order_item_entity.dart';
 import '../../domain/entities/delivery_address_entity.dart';
 import '../../domain/usecases/get_orders_usecase.dart';
 import '../../domain/usecases/get_order_details_usecase.dart';
 import '../../domain/usecases/create_order_usecase.dart';
 import '../../domain/usecases/cancel_order_usecase.dart';
-import '../../domain/usecases/initiate_payment_usecase.dart';
 import 'orders_state.dart';
 
 class OrdersNotifier extends StateNotifier<OrdersState> {
@@ -13,14 +13,12 @@ class OrdersNotifier extends StateNotifier<OrdersState> {
   final GetOrderDetailsUseCase getOrderDetailsUseCase;
   final CreateOrderUseCase createOrderUseCase;
   final CancelOrderUseCase cancelOrderUseCase;
-  final InitiatePaymentUseCase initiatePaymentUseCase;
 
   OrdersNotifier({
     required this.getOrdersUseCase,
     required this.getOrderDetailsUseCase,
     required this.createOrderUseCase,
     required this.cancelOrderUseCase,
-    required this.initiatePaymentUseCase,
   }) : super(const OrdersState.initial());
 
   int _currentPage = 1;
@@ -42,7 +40,7 @@ class OrdersNotifier extends StateNotifier<OrdersState> {
         );
       },
       (orders) {
-        _hasMorePages = orders.length >= 20; // match perPage=20 in datasource
+        _hasMorePages = orders.length >= AppConstants.defaultPageSize; // match perPage in datasource
         state = state.copyWith(
           status: OrdersStatus.loaded,
           orders: orders,
@@ -64,7 +62,7 @@ class OrdersNotifier extends StateNotifier<OrdersState> {
         _currentPage--; // rollback
       },
       (orders) {
-        _hasMorePages = orders.length >= 20;
+        _hasMorePages = orders.length >= AppConstants.defaultPageSize;
         state = state.copyWith(
           orders: [...state.orders, ...orders],
         );
@@ -104,6 +102,7 @@ class OrdersNotifier extends StateNotifier<OrdersState> {
     String? prescriptionImage,
     String? customerNotes,
     int? prescriptionId, // ID de la prescription uploadée via checkout
+    String? promoCode,
   }) async {
     state = state.copyWith(status: OrdersStatus.loading);
 
@@ -115,6 +114,7 @@ class OrdersNotifier extends StateNotifier<OrdersState> {
       prescriptionImage: prescriptionImage,
       customerNotes: customerNotes,
       prescriptionId: prescriptionId,
+      promoCode: promoCode,
     );
 
     result.fold(
@@ -136,43 +136,22 @@ class OrdersNotifier extends StateNotifier<OrdersState> {
   }
 
   // Cancel order
-  Future<void> cancelOrder(int orderId, String reason) async {
-    state = state.copyWith(status: OrdersStatus.loading);
-
+  // Returns error message on failure, null on success
+  Future<String?> cancelOrder(int orderId, String reason) async {
+    // Keep the current order details visible (don't set loading state)
     final result = await cancelOrderUseCase(orderId, reason);
 
-    result.fold(
+    return result.fold(
       (failure) {
-        state = state.copyWith(
-          status: OrdersStatus.error,
-          errorMessage: failure.message,
-        );
+        // Return error message instead of replacing the page with error state
+        return failure.message;
       },
       (_) {
-        // Refresh orders list
+        // Refresh orders list in background (UI will pop immediately)
         loadOrders();
+        return null;
       },
     );
-  }
-
-  // Initiate payment
-  // Returns {'data': Map} on success, {'error': String} on failure, or null
-  Future<Map<String, dynamic>?> initiatePayment({
-    required int orderId,
-    required String provider,
-    String? paymentMethod,
-  }) async {
-    final result = await initiatePaymentUseCase(
-      orderId: orderId,
-      provider: provider,
-      paymentMethod: paymentMethod,
-    );
-
-    return result.fold((failure) {
-      // Do NOT set global error state — the UI handles this via SnackBar
-      // Return a map with the error message so the caller can display it
-      return {'_error': failure.message};
-    }, (data) => data);
   }
 
   // Clear error

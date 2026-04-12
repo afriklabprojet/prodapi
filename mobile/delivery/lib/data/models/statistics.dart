@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import '../../core/utils/safe_json.dart';
 
 part 'statistics.freezed.dart';
 part 'statistics.g.dart';
@@ -24,13 +25,13 @@ abstract class Statistics with _$Statistics {
 @freezed
 abstract class StatsOverview with _$StatsOverview {
   const factory StatsOverview({
-    @JsonKey(name: 'total_deliveries') @Default(0) int totalDeliveries,
-    @JsonKey(name: 'total_earnings') @Default(0.0) double totalEarnings,
-    @JsonKey(name: 'total_distance_km') @Default(0.0) double totalDistanceKm,
-    @JsonKey(name: 'total_duration_minutes') @Default(0) int totalDurationMinutes,
-    @JsonKey(name: 'average_rating') @Default(0.0) double averageRating,
-    @JsonKey(name: 'delivery_trend') @Default(0.0) double deliveryTrend,
-    @JsonKey(name: 'earnings_trend') @Default(0.0) double earningsTrend,
+    @JsonKey(name: 'total_deliveries', fromJson: safeInt) @Default(0) int totalDeliveries,
+    @JsonKey(name: 'total_earnings', fromJson: safeDouble) @Default(0.0) double totalEarnings,
+    @JsonKey(name: 'total_distance_km', fromJson: safeDouble) @Default(0.0) double totalDistanceKm,
+    @JsonKey(name: 'total_duration_minutes', fromJson: safeInt) @Default(0) int totalDurationMinutes,
+    @JsonKey(name: 'average_rating', fromJson: safeDouble) @Default(0.0) double averageRating,
+    @JsonKey(name: 'delivery_trend', fromJson: safeDouble) @Default(0.0) double deliveryTrend,
+    @JsonKey(name: 'earnings_trend', fromJson: safeDouble) @Default(0.0) double earningsTrend,
     @Default('FCFA') String currency,
   }) = _StatsOverview;
 
@@ -41,15 +42,15 @@ abstract class StatsOverview with _$StatsOverview {
 @freezed
 abstract class StatsPerformance with _$StatsPerformance {
   const factory StatsPerformance({
-    @JsonKey(name: 'total_assigned') @Default(0) int totalAssigned,
-    @JsonKey(name: 'total_accepted') @Default(0) int totalAccepted,
-    @JsonKey(name: 'total_delivered') @Default(0) int totalDelivered,
-    @JsonKey(name: 'total_cancelled') @Default(0) int totalCancelled,
-    @JsonKey(name: 'acceptance_rate') @Default(0.0) double acceptanceRate,
-    @JsonKey(name: 'completion_rate') @Default(0.0) double completionRate,
-    @JsonKey(name: 'cancellation_rate') @Default(0.0) double cancellationRate,
-    @JsonKey(name: 'on_time_rate') @Default(0.0) double onTimeRate,
-    @JsonKey(name: 'satisfaction_rate') @Default(0.0) double satisfactionRate,
+    @JsonKey(name: 'total_assigned', fromJson: safeInt) @Default(0) int totalAssigned,
+    @JsonKey(name: 'total_accepted', fromJson: safeInt) @Default(0) int totalAccepted,
+    @JsonKey(name: 'total_delivered', fromJson: safeInt) @Default(0) int totalDelivered,
+    @JsonKey(name: 'total_cancelled', fromJson: safeInt) @Default(0) int totalCancelled,
+    @JsonKey(name: 'acceptance_rate', fromJson: safeDouble) @Default(0.0) double acceptanceRate,
+    @JsonKey(name: 'completion_rate', fromJson: safeDouble) @Default(0.0) double completionRate,
+    @JsonKey(name: 'cancellation_rate', fromJson: safeDouble) @Default(0.0) double cancellationRate,
+    @JsonKey(name: 'on_time_rate', fromJson: safeDouble) @Default(0.0) double onTimeRate,
+    @JsonKey(name: 'satisfaction_rate', fromJson: safeDouble) @Default(0.0) double satisfactionRate,
   }) = _StatsPerformance;
 
   factory StatsPerformance.fromJson(Map<String, dynamic> json) =>
@@ -61,8 +62,8 @@ abstract class DailyStats with _$DailyStats {
   const factory DailyStats({
     required String date,
     @JsonKey(name: 'day_name') required String dayName,
-    @Default(0) int deliveries,
-    @Default(0.0) double earnings,
+    @JsonKey(fromJson: safeInt) @Default(0) int deliveries,
+    @JsonKey(fromJson: safeDouble) @Default(0.0) double earnings,
   }) = _DailyStats;
 
   factory DailyStats.fromJson(Map<String, dynamic> json) =>
@@ -74,8 +75,8 @@ abstract class PeakHour with _$PeakHour {
   const factory PeakHour({
     required String hour,
     required String label,
-    @Default(0) int count,
-    @Default(0.0) double percentage,
+    @JsonKey(fromJson: safeInt) @Default(0) int count,
+    @JsonKey(fromJson: safeDouble) @Default(0.0) double percentage,
   }) = _PeakHour;
 
   factory PeakHour.fromJson(Map<String, dynamic> json) =>
@@ -99,18 +100,18 @@ abstract class RevenueBreakdown with _$RevenueBreakdown {
   factory RevenueBreakdown.fromJson(Map<String, dynamic> json) {
     return RevenueBreakdown(
       deliveryCommissionsAmount:
-          (json['delivery_commissions']?['amount'] as num?)?.toDouble() ?? 0.0,
+          safeDouble(json['delivery_commissions']?['amount']),
       deliveryCommissionsPercent:
-          (json['delivery_commissions']?['percentage'] as num?)?.toDouble() ?? 0.0,
+          safeDouble(json['delivery_commissions']?['percentage']),
       challengeBonusesAmount:
-          (json['challenge_bonuses']?['amount'] as num?)?.toDouble() ?? 0.0,
+          safeDouble(json['challenge_bonuses']?['amount']),
       challengeBonusesPercent:
-          (json['challenge_bonuses']?['percentage'] as num?)?.toDouble() ?? 0.0,
+          safeDouble(json['challenge_bonuses']?['percentage']),
       rushBonusesAmount:
-          (json['rush_bonuses']?['amount'] as num?)?.toDouble() ?? 0.0,
+          safeDouble(json['rush_bonuses']?['amount']),
       rushBonusesPercent:
-          (json['rush_bonuses']?['percentage'] as num?)?.toDouble() ?? 0.0,
-      total: (json['total'] as num?)?.toDouble() ?? 0.0,
+          safeDouble(json['rush_bonuses']?['percentage']),
+      total: safeDouble(json['total']),
     );
   }
 
@@ -134,10 +135,10 @@ abstract class RevenueBreakdown with _$RevenueBreakdown {
 @freezed
 abstract class StatsGoals with _$StatsGoals {
   const factory StatsGoals({
-    @JsonKey(name: 'weekly_target') @Default(0) int weeklyTarget,
-    @JsonKey(name: 'current_progress') @Default(0) int currentProgress,
-    @JsonKey(name: 'progress_percentage') @Default(0.0) double progressPercentage,
-    @Default(0) int remaining,
+    @JsonKey(name: 'weekly_target', fromJson: safeInt) @Default(0) int weeklyTarget,
+    @JsonKey(name: 'current_progress', fromJson: safeInt) @Default(0) int currentProgress,
+    @JsonKey(name: 'progress_percentage', fromJson: safeDouble) @Default(0.0) double progressPercentage,
+    @JsonKey(fromJson: safeInt) @Default(0) int remaining,
   }) = _StatsGoals;
 
   factory StatsGoals.fromJson(Map<String, dynamic> json) =>

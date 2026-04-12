@@ -12,7 +12,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get appName => 'DR-PHARMA Coursier';
 
   @override
-  String get welcome => 'Bienvenue';
+  String get welcome => 'Bienvenue sur';
 
   @override
   String get login => 'Connexion';
@@ -696,5 +696,327 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String levelUp(int level) {
     return 'Félicitations ! Vous êtes passé au niveau $level !';
+  }
+
+  @override
+  String approachingPharmacy(String name) {
+    return 'Vous approchez de la pharmacie $name';
+  }
+
+  @override
+  String approachingClient(String name) {
+    return 'Vous approchez du client $name';
+  }
+
+  @override
+  String get arrivedAtPharmacy => 'Vous êtes arrivé à la pharmacie !';
+
+  @override
+  String get arrivedAtClient => 'Vous êtes arrivé chez le client !';
+
+  @override
+  String get arrivedAtDestination => 'Vous êtes arrivé à destination.';
+
+  @override
+  String get pickupPoint => 'Récupération';
+
+  @override
+  String get deliveryPoint => 'Livraison';
+
+  @override
+  String get pullToRefresh => 'Tirez vers le bas pour actualiser';
+
+  @override
+  String get noDeliveriesFound => 'Aucune course trouvée';
+
+  @override
+  String get geofenceNotificationHint =>
+      'Notification automatique quand vous approchez de la pharmacie ou du client';
+
+  @override
+  String get verificationSuccess => 'Vérification d\'identité réussie !';
+
+  @override
+  String verificationFailed(String error) {
+    return 'Vérification échouée: $error';
+  }
+
+  @override
+  String get selfieCaptured => 'Selfie capturé avec succès';
+
+  @override
+  String get imageTooSmall =>
+      'Image trop petite. Rapprochez-vous de la caméra.';
+
+  @override
+  String get registrationSuccess => 'Inscription réussie !';
+
+  @override
+  String get registrationPending =>
+      'Votre demande a été soumise et est en cours de vérification.';
+
+  @override
+  String get phoneNumberUnavailable => 'Numéro non disponible';
+
+  @override
+  String cannotLaunchNavigation(String app) {
+    return 'Impossible de lancer la navigation avec $app';
+  }
+
+  @override
+  String cannotCall(String phone) {
+    return 'Impossible d\'appeler $phone';
+  }
+
+  @override
+  String get quickMessage => 'Message rapide';
+
+  @override
+  String get enRouteToPharmacy => 'Je suis en route vers votre pharmacie';
+
+  @override
+  String get arrivedAtPharmacyMsg => 'Je suis arrivé devant la pharmacie';
+
+  @override
+  String get isOrderReady => 'La commande est-elle prête ?';
+
+  @override
+  String get cannotFindAddress => 'Je ne trouve pas l\'adresse';
+
+  @override
+  String get arrivingInFiveMin => 'J\'arrive dans 5 minutes';
+
+  @override
+  String get atYourBuilding => 'Je suis en bas de votre immeuble';
+
+  @override
+  String get pleaseComeDown => 'Pouvez-vous descendre svp ?';
+
+  @override
+  String get cannotFindYourAddress => 'Je ne trouve pas votre adresse';
+
+  @override
+  String get customerNotResponding => 'Le client ne répond pas';
+
+  @override
+  String get onboardingTitle1 => 'Bienvenue Livreur';
+
+  @override
+  String get onboardingDesc1 =>
+      'Rejoignez l\'équipe DR-PHARMA et livrez des médicaments essentiels. Chaque livraison compte !';
+
+  @override
+  String get onboardingTitle2 => 'Gagnez plus';
+
+  @override
+  String get onboardingDesc2 =>
+      'Suivez vos gains en temps réel, complétez des défis et montez en niveau pour débloquer des bonus.';
+
+  @override
+  String get onboardingTitle3 => 'Comment ça marche ?';
+
+  @override
+  String get onboardingDesc3 =>
+      'Une commission est déduite de votre wallet à chaque livraison. Le reste est à vous ! Retirez vos gains à tout moment.';
+
+  @override
+  String get getStarted => 'Commencer';
+
+  @override
+  String get skip => 'Passer';
+
+  @override
+  String get errorOccurredRetry =>
+      'Une erreur est survenue. Veuillez réessayer.';
+
+  @override
+  String get connectionTimeout =>
+      'La connexion a pris trop de temps. Veuillez réessayer.';
+
+  @override
+  String get connectionTimeoutCheck =>
+      'La connexion a pris trop de temps. Vérifiez votre connexion.';
+
+  @override
+  String get requestCancelled => 'Requête annulée';
+
+  @override
+  String get securityError => 'Erreur de sécurité. Contactez le support.';
+
+  @override
+  String get unexpectedError => 'Une erreur inattendue est survenue';
+
+  @override
+  String get slowConnection =>
+      'Connexion trop lente. Vérifiez votre connexion internet.';
+
+  @override
+  String get slowUpload => 'Envoi des données trop lent. Réessayez.';
+
+  @override
+  String get serverTimeout => 'Le serveur met trop de temps à répondre.';
+
+  @override
+  String get cannotConnectServer =>
+      'Impossible de se connecter au serveur. Vérifiez votre connexion.';
+
+  @override
+  String get noInternetConnection => 'Pas de connexion internet';
+
+  @override
+  String get unknownConnectionError => 'Erreur de connexion inconnue';
+
+  @override
+  String get serverCommunicationError =>
+      'Erreur de communication avec le serveur';
+
+  @override
+  String get invalidRequest =>
+      'Requête invalide. Vérifiez les données saisies.';
+
+  @override
+  String get accessDenied =>
+      'Accès refusé. Vous n\'avez pas les permissions nécessaires.';
+
+  @override
+  String get resourceNotFound => 'Ressource introuvable.';
+
+  @override
+  String get timeoutRetry => 'Délai d\'attente dépassé. Réessayez.';
+
+  @override
+  String get dataConflict =>
+      'Conflit de données. L\'élément existe peut-être déjà.';
+
+  @override
+  String get invalidData =>
+      'Données invalides. Vérifiez les informations saisies.';
+
+  @override
+  String get tooManyRequests =>
+      'Trop de requêtes. Attendez un moment avant de réessayer.';
+
+  @override
+  String get internalServerError =>
+      'Erreur interne du serveur. Réessayez plus tard.';
+
+  @override
+  String get serviceUnavailable => 'Service temporairement indisponible.';
+
+  @override
+  String get estimatedDuration => 'Durée estimée';
+
+  @override
+  String estimatedDurationMinutes(int minutes) {
+    return '$minutes min estimées';
+  }
+
+  @override
+  String get biometricAuthReason =>
+      'Authentifiez-vous pour accéder à l\'application';
+
+  @override
+  String get loginWithCredentialsFirst =>
+      'Veuillez d\'abord vous connecter avec vos identifiants';
+
+  @override
+  String biometricError(String error) {
+    return 'Erreur biométrique: $error';
+  }
+
+  @override
+  String get pleaseEnterPhoneNumber => 'Veuillez entrer votre numéro';
+
+  @override
+  String get connectionFailed =>
+      'Connexion impossible. Vérifiez votre connexion internet.';
+
+  @override
+  String get incorrectCredentials => 'Identifiants incorrects';
+
+  @override
+  String get checkEmailAndPassword => 'Vérifiez votre email et mot de passe';
+
+  @override
+  String get resetPassword => 'Réinitialiser le mot de passe';
+
+  @override
+  String get resetPasswordPhoneDesc =>
+      'Entrez votre numéro de téléphone. Un code OTP vous sera envoyé par WhatsApp ou SMS.';
+
+  @override
+  String get resetPasswordEmailDesc =>
+      'Entrez votre email et nous vous enverrons un lien pour réinitialiser votre mot de passe.';
+
+  @override
+  String get phoneNumber => 'Numéro de téléphone';
+
+  @override
+  String get phoneHint => '+225 07 00 00 00 00';
+
+  @override
+  String get emailAddress => 'Adresse email';
+
+  @override
+  String get emailHint => 'votre@email.com';
+
+  @override
+  String get pleaseEnterEmail => 'Veuillez entrer votre email';
+
+  @override
+  String get invalidEmail => 'Email invalide';
+
+  @override
+  String get resetLinkSent =>
+      'Un lien de réinitialisation a été envoyé à votre email.';
+
+  @override
+  String get sendOtpCode => 'Envoyer le code OTP';
+
+  @override
+  String get sendLink => 'Envoyer le lien';
+
+  @override
+  String get courierSpace => 'ESPACE LIVREUR';
+
+  @override
+  String get loginSubtitle => 'Connectez-vous pour commencer vos livraisons';
+
+  @override
+  String get emailOrPhone => 'Email ou Téléphone';
+
+  @override
+  String get fieldRequired => 'Ce champ est requis';
+
+  @override
+  String get sendCode => 'ENVOYER LE CODE';
+
+  @override
+  String get signInButton => 'SE CONNECTER';
+
+  @override
+  String get or => 'ou';
+
+  @override
+  String get biometricLogin => 'Connexion biométrique';
+
+  @override
+  String get noAccountYet => 'Pas encore de compte ? ';
+
+  @override
+  String get becomeCourier => 'Devenir livreur';
+
+  @override
+  String get secure => 'Sécurisé';
+
+  @override
+  String get certified => 'Certifié';
+
+  @override
+  String get support247 => 'Support 24/7';
+
+  @override
+  String versionLabel(String version) {
+    return 'Version $version';
   }
 }

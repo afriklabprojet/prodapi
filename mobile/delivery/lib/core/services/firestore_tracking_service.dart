@@ -42,10 +42,14 @@ class FirestoreTrackingService {
   Timer? _heartbeatTimer;
 
   FirestoreTrackingService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   /// Référence à la collection des livreurs
   CollectionReference get _couriersRef => _firestore.collection('couriers');
+
+  /// UID Firebase au format attendu par les security rules
+  /// Le backend génère des custom tokens avec uid = "user_{userId}"
+  String? get _firebaseUid => _courierId != null ? 'user_$_courierId' : null;
 
   /// Référence à la collection des livraisons
   CollectionReference get _deliveriesRef => _firestore.collection('deliveries');
@@ -54,7 +58,9 @@ class FirestoreTrackingService {
   void initialize(int courierId) {
     _courierId = courierId;
     _startHeartbeat();
-    if (kDebugMode) debugPrint('🔥 [Firestore] Tracking initialisé pour livreur #$courierId');
+    if (kDebugMode) {
+      debugPrint('🔥 [Firestore] Tracking initialisé pour livreur #$courierId');
+    }
   }
 
   /// Mettre à jour la position en temps réel dans Firestore
@@ -77,10 +83,7 @@ class FirestoreTrackingService {
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
-      await _couriersRef.doc(_courierId.toString()).set(
-            data,
-            SetOptions(merge: true),
-          );
+      await _couriersRef.doc(_firebaseUid).set(data, SetOptions(merge: true));
 
       // Si une livraison est en cours, mettre à jour aussi le doc de la livraison
       if (currentOrderId != null) {
@@ -98,7 +101,9 @@ class FirestoreTrackingService {
   void setDestination({required double lat, required double lng}) {
     _destinationLat = lat;
     _destinationLng = lng;
-    if (kDebugMode) debugPrint('📍 [Firestore] Destination définie: $lat, $lng');
+    if (kDebugMode) {
+      debugPrint('📍 [Firestore] Destination définie: $lat, $lng');
+    }
   }
 
   /// Effacer la destination (livraison terminée)
@@ -153,12 +158,13 @@ class FirestoreTrackingService {
         data['estimatedArrival'] = Timestamp.fromDate(eta);
       }
 
-      await _deliveriesRef.doc(deliveryId.toString()).set(
-            data,
-            SetOptions(merge: true),
-          );
+      await _deliveriesRef
+          .doc(deliveryId.toString())
+          .set(data, SetOptions(merge: true));
     } catch (e) {
-      if (kDebugMode) debugPrint('❌ [Firestore] Erreur updateDeliveryTracking: $e');
+      if (kDebugMode) {
+        debugPrint('❌ [Firestore] Erreur updateDeliveryTracking: $e');
+      }
     }
   }
 
@@ -182,22 +188,25 @@ class FirestoreTrackingService {
         data['estimatedArrival'] = Timestamp.fromDate(estimatedArrival);
       }
 
-      await _deliveriesRef.doc(deliveryId.toString()).set(
-            data,
-            SetOptions(merge: true),
-          );
+      await _deliveriesRef
+          .doc(deliveryId.toString())
+          .set(data, SetOptions(merge: true));
 
-      if (kDebugMode) debugPrint('🔥 [Firestore] Statut livraison #$deliveryId → $status');
+      if (kDebugMode) {
+        debugPrint('🔥 [Firestore] Statut livraison #$deliveryId → $status');
+      }
     } catch (e) {
-      if (kDebugMode) debugPrint('❌ [Firestore] Erreur updateDeliveryStatus: $e');
+      if (kDebugMode) {
+        debugPrint('❌ [Firestore] Erreur updateDeliveryStatus: $e');
+      }
     }
   }
 
   /// Signaler le livreur comme en ligne
   Future<void> goOnline() async {
-    if (_courierId == null) return;
+    if (_firebaseUid == null) return;
 
-    await _couriersRef.doc(_courierId.toString()).set({
+    await _couriersRef.doc(_firebaseUid).set({
       'isOnline': true,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
@@ -208,11 +217,11 @@ class FirestoreTrackingService {
 
   /// Signaler le livreur comme hors ligne
   Future<void> goOffline() async {
-    if (_courierId == null) return;
+    if (_firebaseUid == null) return;
 
     _heartbeatTimer?.cancel();
 
-    await _couriersRef.doc(_courierId.toString()).set({
+    await _couriersRef.doc(_firebaseUid).set({
       'isOnline': false,
       'isDelivering': false,
       'currentOrderId': null,
@@ -226,9 +235,9 @@ class FirestoreTrackingService {
   void _startHeartbeat() {
     _heartbeatTimer?.cancel();
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 60), (_) async {
-      if (_courierId == null) return;
+      if (_firebaseUid == null) return;
       try {
-        await _couriersRef.doc(_courierId.toString()).update({
+        await _couriersRef.doc(_firebaseUid).update({
           'updatedAt': FieldValue.serverTimestamp(),
           'isOnline': true,
         });
@@ -241,7 +250,12 @@ class FirestoreTrackingService {
   /// Nettoyer à la déconnexion
   void dispose() {
     _heartbeatTimer?.cancel();
-    // Fire-and-forget goOffline — ne PAS await dans dispose()
-    goOffline().catchError((_) {});
+    _heartbeatTimer = null;
+    // Fire-and-forget goOffline avec logging des erreurs
+    goOffline().catchError((e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ [Firestore] Error going offline on dispose: $e');
+      }
+    });
   }
 }

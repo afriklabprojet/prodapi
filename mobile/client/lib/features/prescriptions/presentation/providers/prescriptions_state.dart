@@ -16,6 +16,9 @@ class PrescriptionsState extends Equatable {
   final PrescriptionEntity? selectedPrescription;
   final PrescriptionEntity? uploadedPrescription;
   final String? errorMessage;
+  final bool lastUploadIsDuplicate;
+  final int? lastUploadExistingId;
+  final String? lastUploadExistingStatus;
 
   const PrescriptionsState({
     this.status = PrescriptionsStatus.initial,
@@ -23,6 +26,9 @@ class PrescriptionsState extends Equatable {
     this.selectedPrescription,
     this.uploadedPrescription,
     this.errorMessage,
+    this.lastUploadIsDuplicate = false,
+    this.lastUploadExistingId,
+    this.lastUploadExistingStatus,
   });
 
   PrescriptionsState copyWith({
@@ -34,6 +40,10 @@ class PrescriptionsState extends Equatable {
     bool clearUploaded = false,
     String? errorMessage,
     bool clearError = false,
+    bool? lastUploadIsDuplicate,
+    int? lastUploadExistingId,
+    String? lastUploadExistingStatus,
+    bool clearDuplicateInfo = false,
   }) {
     return PrescriptionsState(
       status: status ?? this.status,
@@ -45,15 +55,27 @@ class PrescriptionsState extends Equatable {
           ? null
           : (uploadedPrescription ?? this.uploadedPrescription),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      lastUploadIsDuplicate: clearDuplicateInfo
+          ? false
+          : (lastUploadIsDuplicate ?? this.lastUploadIsDuplicate),
+      lastUploadExistingId: clearDuplicateInfo
+          ? null
+          : (lastUploadExistingId ?? this.lastUploadExistingId),
+      lastUploadExistingStatus: clearDuplicateInfo
+          ? null
+          : (lastUploadExistingStatus ?? this.lastUploadExistingStatus),
     );
   }
 
   @override
   List<Object?> get props => [
-        status,
-        prescriptions,
-        selectedPrescription,
-        uploadedPrescription,
-        errorMessage,
-      ];
+    status,
+    prescriptions,
+    selectedPrescription,
+    uploadedPrescription,
+    errorMessage,
+    lastUploadIsDuplicate,
+    lastUploadExistingId,
+    lastUploadExistingStatus,
+  ];
 }

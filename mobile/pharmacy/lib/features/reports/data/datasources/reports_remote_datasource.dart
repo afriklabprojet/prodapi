@@ -99,6 +99,10 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       if (data is Map<String, dynamic>) {
         return data;
       }
+      // Si data est une List, on l'enveloppe dans une Map
+      if (data is List) {
+        return {'items': data};
+      }
     }
     
     throw Exception(

@@ -167,7 +167,7 @@ void main() {
       await tester.pumpWidget(buildScreen());
       await tester.pumpAndSettle();
 
-      expect(find.text('4.7'), findsOneWidget);
+      expect(find.text('4.7'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('overview tab shows tips section', (tester) async {

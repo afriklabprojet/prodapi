@@ -44,22 +44,19 @@ class AddressesNotifier extends StateNotifier<AddressesState> {
   final AddressRemoteDataSource remoteDataSource;
 
   AddressesNotifier({required this.remoteDataSource})
-      : super(const AddressesState());
+    : super(const AddressesState());
 
   Future<void> loadAddresses() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final models = await remoteDataSource.getAddresses();
       final addresses = models.map((m) => m.toEntity()).toList();
-      state = state.copyWith(
-        addresses: addresses,
-        isLoading: false,
-      );
+      state = state.copyWith(addresses: addresses, isLoading: false);
     } catch (e) {
       AppLogger.error('Failed to load addresses', error: e);
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: 'Impossible de charger vos adresses',
       );
     }
   }
@@ -98,10 +95,34 @@ class AddressesNotifier extends StateNotifier<AddressesState> {
       AppLogger.error('Failed to create address', error: e);
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: 'Impossible de créer l\'adresse',
       );
       return null;
     }
+  }
+
+  /// Convenience method used by the checkout flow to persist a manually entered
+  /// address without duplicating the label-generation logic in the UI layer.
+  Future<AddressEntity?> saveFromCheckout({
+    required String address,
+    required String city,
+    required String phone,
+    String labelHint = '',
+    double? latitude,
+    double? longitude,
+  }) {
+    final label = labelHint.isNotEmpty
+        ? labelHint
+        : 'Adresse ${DateTime.now().day}/${DateTime.now().month}';
+    return createAddress(
+      label: label,
+      address: address,
+      city: city,
+      phone: phone,
+      latitude: latitude,
+      longitude: longitude,
+      isDefault: state.addresses.isEmpty,
+    );
   }
 
   Future<void> deleteAddress(int id) async {
@@ -111,7 +132,7 @@ class AddressesNotifier extends StateNotifier<AddressesState> {
       state = state.copyWith(addresses: updated);
     } catch (e) {
       AppLogger.error('Failed to delete address', error: e);
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: 'Impossible de supprimer l\'adresse');
     }
   }
 
@@ -124,7 +145,48 @@ class AddressesNotifier extends StateNotifier<AddressesState> {
       state = state.copyWith(addresses: updated);
     } catch (e) {
       AppLogger.error('Failed to set default address', error: e);
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(
+        error: 'Impossible de définir l\'adresse par défaut',
+      );
+    }
+  }
+
+  Future<void> updateAddress({
+    required int id,
+    String? label,
+    String? address,
+    String? city,
+    String? phone,
+    String? instructions,
+    double? latitude,
+    double? longitude,
+    bool? isDefault,
+  }) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final model = await remoteDataSource.updateAddress(
+        id: id,
+        label: label,
+        address: address,
+        city: city,
+        phone: phone,
+        instructions: instructions,
+        latitude: latitude,
+        longitude: longitude,
+        isDefault: isDefault,
+      );
+      final entity = model.toEntity();
+      final updated = state.addresses
+          .map((a) => a.id == id ? entity : a)
+          .toList();
+      state = state.copyWith(addresses: updated, isLoading: false);
+    } catch (e) {
+      AppLogger.error('Failed to update address', error: e);
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Impossible de mettre à jour l\'adresse',
+      );
+      rethrow;
     }
   }
 }

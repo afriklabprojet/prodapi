@@ -1,14 +1,18 @@
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../config/providers.dart';
+import '../../../../core/constants/api_constants.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/services/whatsapp_service.dart';
+import '../../../../core/services/messaging/messaging.dart';
 import '../../data/models/chat_message.dart';
 
 class CourierChatPage extends ConsumerStatefulWidget {
+  final int orderId;
   final int deliveryId;
   final int courierId;
   final String courierName;
@@ -16,6 +20,7 @@ class CourierChatPage extends ConsumerStatefulWidget {
 
   const CourierChatPage({
     super.key,
+    required this.orderId,
     required this.deliveryId,
     required this.courierId,
     required this.courierName,
@@ -29,7 +34,7 @@ class CourierChatPage extends ConsumerStatefulWidget {
 class _CourierChatPageState extends ConsumerState<CourierChatPage> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  Timer? _refreshTimer;
+  StreamSubscription<QuerySnapshot>? _chatSubscription;
   List<ChatMessage> _messages = [];
   bool _isLoading = true;
   bool _isSending = false;
@@ -38,33 +43,55 @@ class _CourierChatPageState extends ConsumerState<CourierChatPage> {
   @override
   void initState() {
     super.initState();
-    _loadMessages();
-    // Rafraîchir toutes les 5 secondes
-    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      _loadMessages(showLoading: false);
-    });
+    _listenToMessages();
   }
 
   @override
   void dispose() {
-    _refreshTimer?.cancel();
+    _chatSubscription?.cancel();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadMessages({bool showLoading = true}) async {
-    if (showLoading) {
-      setState(() {
-        _isLoading = true;
-        _error = null;
-      });
-    }
+  void _listenToMessages() {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
 
+    _chatSubscription = FirebaseFirestore.instance
+        .collection('orders')
+        .doc(widget.orderId.toString())
+        .collection('messages')
+        .orderBy('created_at', descending: false)
+        .snapshots()
+        .listen(
+          (snapshot) {
+            if (!mounted) return;
+            final messages = snapshot.docs
+                .map((doc) => ChatMessage.fromFirestore(doc.data(), doc.id))
+                .toList();
+            setState(() {
+              _messages = messages;
+              _isLoading = false;
+            });
+            _scrollToBottom();
+          },
+          onError: (error) {
+            if (!mounted) return;
+            // Fallback to HTTP if Firestore fails
+            _loadMessagesHttp();
+          },
+        );
+  }
+
+  /// HTTP fallback for loading messages
+  Future<void> _loadMessagesHttp() async {
     try {
       final apiClient = ref.read(apiClientProvider);
       final response = await apiClient.get(
-        '/customer/deliveries/${widget.deliveryId}/chat',
+        ApiConstants.deliveryChat(widget.deliveryId),
         queryParameters: {
           'participant_type': 'courier',
           'participant_id': widget.courierId.toString(),
@@ -82,13 +109,23 @@ class _CourierChatPageState extends ConsumerState<CourierChatPage> {
       });
     } catch (e) {
       if (!mounted) return;
-      if (showLoading) {
-        setState(() {
-          _error = e.toString();
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _error = 'Impossible de charger les messages';
+        _isLoading = false;
+      });
     }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   Future<void> _sendMessage() async {
@@ -100,7 +137,7 @@ class _CourierChatPageState extends ConsumerState<CourierChatPage> {
     try {
       final apiClient = ref.read(apiClientProvider);
       await apiClient.post(
-        '/customer/deliveries/${widget.deliveryId}/chat',
+        ApiConstants.deliveryChat(widget.deliveryId),
         data: {
           'receiver_type': 'courier',
           'receiver_id': widget.courierId,
@@ -110,21 +147,17 @@ class _CourierChatPageState extends ConsumerState<CourierChatPage> {
 
       if (!mounted) return;
       _controller.clear();
-      await _loadMessages(showLoading: false);
+      HapticFeedback.lightImpact();
 
-      // Scroll vers le bas
-      if (!mounted) return;
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          0,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
+      // Firestore stream handles message updates automatically — no reload needed
+      _scrollToBottom();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Impossible d\'envoyer le message. Réessayez.'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       if (mounted) setState(() => _isSending = false);
@@ -141,9 +174,13 @@ class _CourierChatPageState extends ConsumerState<CourierChatPage> {
 
   Future<void> _openWhatsApp() async {
     if (widget.courierPhone == null) return;
-    await WhatsAppService.contactCourier(
-      courierPhone: widget.courierPhone!,
-      courierName: widget.courierName,
+    final messaging = ref.read(messagingServiceProvider);
+    await MessagingUiHelper.sendWithFeedback(
+      context: context,
+      action: () => messaging.contactCourier(
+        courierPhone: widget.courierPhone!,
+        courierName: widget.courierName,
+      ),
     );
   }
 
@@ -151,7 +188,9 @@ class _CourierChatPageState extends ConsumerState<CourierChatPage> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF5F5F5),
+      backgroundColor: isDark
+          ? const Color(0xFF121212)
+          : const Color(0xFFF5F5F5),
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         title: Row(
@@ -159,7 +198,11 @@ class _CourierChatPageState extends ConsumerState<CourierChatPage> {
             CircleAvatar(
               backgroundColor: Colors.white.withValues(alpha: 0.2),
               radius: 18,
-              child: const Icon(Icons.delivery_dining, color: Colors.white, size: 20),
+              child: const Icon(
+                Icons.delivery_dining,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
             const SizedBox(width: 12),
             Column(
@@ -203,110 +246,152 @@ class _CourierChatPageState extends ConsumerState<CourierChatPage> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _error != null
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
-                            const SizedBox(height: 16),
-                            Text('Erreur: $_error'),
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: _loadMessages,
-                              child: const Text('Réessayer'),
-                            ),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 48,
+                          color: Colors.red.shade300,
                         ),
-                      )
-                    : _messages.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.chat_bubble_outline, size: 64, color: isDark ? Colors.grey.shade600 : Colors.grey.shade300),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Aucun message',
-                                  style: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey.shade500, fontSize: 16),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Envoyez un message à votre livreur',
-                                  style: TextStyle(color: isDark ? Colors.grey.shade500 : Colors.grey.shade400, fontSize: 14),
-                                ),
-                              ],
-                            ),
-                          )
-                        : ListView.builder(
-                            controller: _scrollController,
-                            reverse: true,
-                            padding: const EdgeInsets.all(16),
-                            itemCount: _messages.length,
-                            itemBuilder: (context, index) {
-                              final msg = _messages[_messages.length - 1 - index];
-                              final isMe = msg.isMine;
-
-                              return Align(
-                                alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                                child: Container(
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                  constraints: BoxConstraints(
-                                    maxWidth: MediaQuery.of(context).size.width * 0.75,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isMe ? AppColors.primary : (isDark ? const Color(0xFF1E1E1E) : Colors.white),
-                                    borderRadius: BorderRadius.only(
-                                      topLeft: const Radius.circular(16),
-                                      topRight: const Radius.circular(16),
-                                      bottomLeft: isMe ? const Radius.circular(16) : Radius.zero,
-                                      bottomRight: isMe ? Radius.zero : const Radius.circular(16),
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.05),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        msg.message,
-                                        style: TextStyle(
-                                          color: isMe ? Colors.white : (isDark ? Colors.white : Colors.black87),
-                                          fontSize: 15,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            DateFormat('HH:mm').format(msg.createdAt),
-                                            style: TextStyle(
-                                              color: isMe ? Colors.white70 : (isDark ? Colors.grey.shade400 : Colors.grey.shade500),
-                                              fontSize: 11,
-                                            ),
-                                          ),
-                                          if (isMe && msg.readAt != null) ...[
-                                            const SizedBox(width: 4),
-                                            Icon(
-                                              Icons.done_all,
-                                              size: 14,
-                                              color: Colors.white70,
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
+                        const SizedBox(height: 16),
+                        Text(_error ?? 'Erreur inconnue'),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _listenToMessages,
+                          child: const Text('Réessayer'),
+                        ),
+                      ],
+                    ),
+                  )
+                : _messages.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.chat_bubble_outline,
+                          size: 64,
+                          color: isDark
+                              ? Colors.grey.shade600
+                              : Colors.grey.shade300,
+                          semanticLabel: 'Aucun message',
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Aucun message',
+                          style: TextStyle(
+                            color: isDark
+                                ? Colors.grey.shade400
+                                : Colors.grey.shade500,
+                            fontSize: 16,
                           ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Envoyez un message à votre livreur',
+                          style: TextStyle(
+                            color: isDark
+                                ? Colors.grey.shade500
+                                : Colors.grey.shade400,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    controller: _scrollController,
+                    reverse: true,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final msg = _messages[_messages.length - 1 - index];
+                      final isMe = msg.isMine;
+
+                      return Align(
+                        alignment: isMe
+                            ? Alignment.centerRight
+                            : Alignment.centerLeft,
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          constraints: BoxConstraints(
+                            maxWidth: MediaQuery.sizeOf(context).width * 0.75,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isMe
+                                ? AppColors.primary
+                                : (isDark
+                                      ? const Color(0xFF1E1E1E)
+                                      : Colors.white),
+                            borderRadius: BorderRadius.only(
+                              topLeft: const Radius.circular(16),
+                              topRight: const Radius.circular(16),
+                              bottomLeft: isMe
+                                  ? const Radius.circular(16)
+                                  : Radius.zero,
+                              bottomRight: isMe
+                                  ? Radius.zero
+                                  : const Radius.circular(16),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                msg.message,
+                                style: TextStyle(
+                                  color: isMe
+                                      ? Colors.white
+                                      : (isDark
+                                            ? Colors.white
+                                            : Colors.black87),
+                                  fontSize: 15,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    DateFormat('HH:mm').format(msg.createdAt),
+                                    style: TextStyle(
+                                      color: isMe
+                                          ? Colors.white70
+                                          : (isDark
+                                                ? Colors.grey.shade400
+                                                : Colors.grey.shade500),
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                  if (isMe && msg.readAt != null) ...[
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.done_all,
+                                      size: 14,
+                                      color: Colors.white70,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
           ),
 
           // Input Area
@@ -315,7 +400,7 @@ class _CourierChatPageState extends ConsumerState<CourierChatPage> {
               16,
               16,
               16,
-              MediaQuery.of(context).padding.bottom + 16,
+              MediaQuery.paddingOf(context).bottom + 16,
             ),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
@@ -337,8 +422,13 @@ class _CourierChatPageState extends ConsumerState<CourierChatPage> {
                       hintText: 'Votre message...',
                       hintStyle: TextStyle(color: Colors.grey.shade400),
                       filled: true,
-                      fillColor: isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade100,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      fillColor: isDark
+                          ? const Color(0xFF2C2C2C)
+                          : Colors.grey.shade100,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
                         borderSide: BorderSide.none,
@@ -357,9 +447,17 @@ class _CourierChatPageState extends ConsumerState<CourierChatPage> {
                       ? const SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
                         )
-                      : const Icon(Icons.send, color: Colors.white, size: 20),
+                      : const Icon(
+                          Icons.send,
+                          color: Colors.white,
+                          size: 20,
+                          semanticLabel: 'Envoyer',
+                        ),
                 ),
               ],
             ),

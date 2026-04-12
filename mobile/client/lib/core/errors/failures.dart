@@ -13,8 +13,10 @@ abstract class Failure extends Equatable {
 /// Échec serveur
 class ServerFailure extends Failure {
   final int? statusCode;
+  /// Données brutes de la réponse (ex: redirect_url pour PAYMENT_IN_PROGRESS)
+  final Map<String, dynamic>? responseData;
 
-  const ServerFailure({required super.message, this.statusCode});
+  const ServerFailure({required super.message, this.statusCode, this.responseData});
 
   @override
   List<Object?> get props => [message, statusCode];

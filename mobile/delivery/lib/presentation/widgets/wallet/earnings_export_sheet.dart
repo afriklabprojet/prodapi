@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:riverpod/legacy.dart';
 import 'package:intl/intl.dart';
+import 'package:riverpod/legacy.dart';
 import '../../../core/services/earnings_export_service.dart';
 import '../../../core/theme/theme_provider.dart';
+import '../../../core/utils/error_utils.dart';
+import '../../../core/utils/snackbar_extension.dart';
 import '../../../data/repositories/delivery_repository.dart';
 
 /// Provider pour l'export des revenus
@@ -368,49 +370,17 @@ class _EarningsExportSheetState extends ConsumerState<EarningsExportSheet> {
         }
       } else {
         // Transactions - fonctionnalité en développement
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.info_outline, color: Colors.white),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text('L\'export des transactions sera disponible dans une prochaine mise à jour.'),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.orange.shade700,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+        context.showInfo('L\'export des transactions sera disponible dans une prochaine mise à jour.');
         return; // Ne pas afficher le message de succès
       }
       
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: 12),
-                Text('Export réussi !'),
-              ],
-            ),
-            backgroundColor: Colors.green.shade600,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        context.showSuccess('Export réussi !');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        context.showErrorMessage(userFriendlyError(e));
       }
     } finally {
       if (mounted) {

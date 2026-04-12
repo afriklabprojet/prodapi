@@ -36,13 +36,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
-    }
-
     defaultConfig {
         applicationId = "com.drpharma.courier"
-        minSdk = flutter.minSdkVersion  // Pinned: geolocator, google_maps, local_auth require 23+
+        minSdk = flutter.minSdkVersion  // API 23+ requis par geolocator, google_maps, local_auth
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -52,6 +48,13 @@ android {
         
         // Google Maps API Key depuis local.properties
         manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = localProperties.getProperty("GOOGLE_MAPS_API_KEY", "")
+    }
+
+    // Support 16 KB page size (Android 15+/API 35+)
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
+        }
     }
 
     signingConfigs {
@@ -71,9 +74,8 @@ android {
         }
         
         getByName("release") {
-            // Désactivé temporairement pour debug
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -88,20 +90,33 @@ android {
         }
     }
     
-    // ABI splits only for APK builds, not for appbundles
-    // App Bundles handle ABI splitting automatically
+    // ============================================================================
+    // OPTIMISATION TAILLE APK/AAB
+    // ============================================================================
+    // RECOMMANDATION PRODUCTION: Utiliser `flutter build appbundle --release`
+    // Le Play Store génère automatiquement des APKs optimisés par device (-50% taille)
+    //
+    // POUR TESTS: `flutter build apk --release --target-platform android-arm64`
+    // Cible uniquement arm64 (99% des devices modernes) = ~35 MB au lieu de 79 MB
+    // ============================================================================
+    
+    // Les splits APK sont désactivés car Flutter gère automatiquement via ndk
+    // Utiliser App Bundle pour la production (meilleure optimisation)
     splits {
         abi {
-            isEnable = project.hasProperty("enableAbiSplits")
-            reset()
-            include("armeabi-v7a", "arm64-v8a", "x86_64")
-            isUniversalApk = true
+            isEnable = false  // Désactivé - utiliser flutter build appbundle
         }
     }
 }
 
 flutter {
     source = "../.."
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
 }
 
 dependencies {

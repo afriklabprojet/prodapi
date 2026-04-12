@@ -2,20 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:courier/presentation/providers/dashboard_tab_provider.dart';
 import 'package:courier/presentation/screens/wallet_screen.dart';
 import 'package:courier/presentation/screens/dashboard_screen.dart';
+
+import 'helpers/e2e_test_helpers.dart';
 
 /// Tests d'intégration pour le flux du portefeuille
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
+  setUpAll(() async {
+    await initializeDateFormatting('fr_FR');
+  });
+
   group('Wallet Screen', () {
     testWidgets('Wallet screen should display title', (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: WalletScreen(),
-          ),
+        ProviderScope(
+          overrides: createWalletOverrides(),
+          child: const MaterialApp(home: WalletScreen()),
         ),
       );
       await tester.pumpAndSettle(const Duration(seconds: 3));
@@ -26,25 +33,23 @@ void main() {
 
     testWidgets('Wallet should have action buttons', (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: WalletScreen(),
-          ),
+        ProviderScope(
+          overrides: createWalletOverrides(),
+          child: const MaterialApp(home: WalletScreen()),
         ),
       );
       await tester.pumpAndSettle(const Duration(seconds: 3));
 
-      // Vérifier les boutons d'action dans l'AppBar
+      // Vérifier les boutons d'action dans l'en-tête
       expect(find.byIcon(Icons.download_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.refresh), findsOneWidget);
+      expect(find.byIcon(Icons.refresh_rounded), findsOneWidget);
     });
 
     testWidgets('Wallet should display balance section', (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: WalletScreen(),
-          ),
+        ProviderScope(
+          overrides: createWalletOverrides(),
+          child: const MaterialApp(home: WalletScreen()),
         ),
       );
       await tester.pumpAndSettle(const Duration(seconds: 3));
@@ -56,10 +61,9 @@ void main() {
 
     testWidgets('Wallet should have operator shortcuts', (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: WalletScreen(),
-          ),
+        ProviderScope(
+          overrides: createWalletOverrides(),
+          child: const MaterialApp(home: WalletScreen()),
         ),
       );
       await tester.pumpAndSettle(const Duration(seconds: 3));
@@ -73,16 +77,15 @@ void main() {
 
     testWidgets('Refresh button should refresh wallet data', (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: WalletScreen(),
-          ),
+        ProviderScope(
+          overrides: createWalletOverrides(),
+          child: const MaterialApp(home: WalletScreen()),
         ),
       );
       await tester.pumpAndSettle(const Duration(seconds: 3));
 
       // Taper sur le bouton refresh
-      await tester.tap(find.byIcon(Icons.refresh));
+      await tester.tap(find.byIcon(Icons.refresh_rounded));
       await tester.pump();
 
       // L'écran devrait se rafraîchir
@@ -91,10 +94,9 @@ void main() {
 
     testWidgets('Top up button should open dialog', (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: WalletScreen(),
-          ),
+        ProviderScope(
+          overrides: createWalletOverrides(),
+          child: const MaterialApp(home: WalletScreen()),
         ),
       );
       await tester.pumpAndSettle(const Duration(seconds: 3));
@@ -112,10 +114,9 @@ void main() {
 
     testWidgets('Export button should open export sheet', (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: WalletScreen(),
-          ),
+        ProviderScope(
+          overrides: createWalletOverrides(),
+          child: const MaterialApp(home: WalletScreen()),
         ),
       );
       await tester.pumpAndSettle(const Duration(seconds: 3));
@@ -124,66 +125,75 @@ void main() {
       await tester.tap(find.byIcon(Icons.download_rounded));
       await tester.pumpAndSettle();
 
-      // Un bottom sheet ou dialogue devrait s'ouvrir
+      // Le bottom sheet d'export doit s'ouvrir
+      expect(find.text('Exporter mes revenus'), findsOneWidget);
     });
 
     testWidgets('Wallet should display stats', (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: WalletScreen(),
-          ),
+        ProviderScope(
+          overrides: createWalletOverrides(),
+          child: const MaterialApp(home: WalletScreen()),
         ),
       );
       await tester.pumpAndSettle(const Duration(seconds: 3));
 
-      // Vérifier les statistiques
+      // Vérifier les cartes statistiques affichées
+      expect(find.text('Disponible'), findsOneWidget);
+      expect(find.text('Aujourd’hui'), findsOneWidget);
+      expect(find.text('Total gains'), findsOneWidget);
       expect(find.text('Livraisons'), findsOneWidget);
-      expect(find.text('Gains'), findsOneWidget);
-      expect(find.text('Commissions'), findsOneWidget);
     });
   });
 
   group('Wallet Flow from Dashboard', () {
     testWidgets('Navigate to wallet from dashboard', (tester) async {
+      final container = ProviderContainer(overrides: createWalletOverrides());
+      addTearDown(container.dispose);
+
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: DashboardScreen(),
-          ),
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: DashboardScreen()),
         ),
       );
-      await tester.pumpAndSettle(const Duration(seconds: 2));
+      await tester.pump(const Duration(seconds: 2));
 
-      // Taper sur l'onglet Wallet dans la bottom nav
-      await tester.tap(find.text('Wallet'));
-      await tester.pumpAndSettle(const Duration(seconds: 2));
+      // Basculer sur l'onglet wallet via le vrai provider du dashboard
+      container.read(dashboardTabProvider.notifier).setTab(3);
+      await tester.pump(const Duration(seconds: 1));
+      await E2ETestHelpers.waitFor(tester, find.text('Mon Portefeuille'));
 
       // Vérifier qu'on est bien sur l'écran du wallet
       expect(find.text('Mon Portefeuille'), findsOneWidget);
     });
 
-    testWidgets('Wallet should preserve state when switching tabs', (tester) async {
+    testWidgets('Wallet should preserve state when switching tabs', (
+      tester,
+    ) async {
+      final container = ProviderContainer(overrides: createWalletOverrides());
+      addTearDown(container.dispose);
+
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: DashboardScreen(),
-          ),
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: DashboardScreen()),
         ),
       );
-      await tester.pumpAndSettle(const Duration(seconds: 2));
+      await tester.pump(const Duration(seconds: 2));
 
       // Aller sur Wallet
-      await tester.tap(find.text('Wallet'));
-      await tester.pumpAndSettle(const Duration(seconds: 2));
+      container.read(dashboardTabProvider.notifier).setTab(3);
+      await tester.pump(const Duration(seconds: 1));
 
       // Aller sur Carte
-      await tester.tap(find.text('Carte'));
-      await tester.pumpAndSettle();
+      container.read(dashboardTabProvider.notifier).setTab(0);
+      await tester.pump(const Duration(milliseconds: 600));
 
       // Revenir sur Wallet
-      await tester.tap(find.text('Wallet'));
-      await tester.pumpAndSettle();
+      container.read(dashboardTabProvider.notifier).setTab(3);
+      await tester.pump(const Duration(seconds: 1));
+      await E2ETestHelpers.waitFor(tester, find.text('Mon Portefeuille'));
 
       // Le wallet devrait toujours afficher le contenu
       expect(find.text('Mon Portefeuille'), findsOneWidget);
@@ -193,26 +203,24 @@ void main() {
   group('Wallet Loading States', () {
     testWidgets('Wallet should show loading state initially', (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: WalletScreen(),
-          ),
+        ProviderScope(
+          overrides: createWalletOverrides(),
+          child: const MaterialApp(home: WalletScreen()),
         ),
       );
-      
+
       // Immédiatement après le pump, devrait montrer loading
       await tester.pump();
-      
+
       // Attendre que le chargement se termine
       await tester.pumpAndSettle(const Duration(seconds: 5));
     });
 
     testWidgets('Wallet should handle error state', (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: WalletScreen(),
-          ),
+        ProviderScope(
+          overrides: createWalletOverrides(),
+          child: const MaterialApp(home: WalletScreen()),
         ),
       );
       await tester.pumpAndSettle(const Duration(seconds: 5));
@@ -225,10 +233,9 @@ void main() {
   group('Wallet Interactions', () {
     testWidgets('Scroll through wallet content', (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: WalletScreen(),
-          ),
+        ProviderScope(
+          overrides: createWalletOverrides(),
+          child: const MaterialApp(home: WalletScreen()),
         ),
       );
       await tester.pumpAndSettle(const Duration(seconds: 3));
@@ -250,10 +257,9 @@ void main() {
 
     testWidgets('Tap on operator icon', (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: WalletScreen(),
-          ),
+        ProviderScope(
+          overrides: createWalletOverrides(),
+          child: const MaterialApp(home: WalletScreen()),
         ),
       );
       await tester.pumpAndSettle(const Duration(seconds: 3));

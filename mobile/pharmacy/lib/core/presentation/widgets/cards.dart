@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Carte moderne avec ombre douce
 class ModernCard extends StatelessWidget {
@@ -26,11 +27,12 @@ class ModernCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Container(
       margin: margin ?? const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: backgroundColor ?? (isDark ? Colors.grey.shade900 : Colors.white),
+        color:
+            backgroundColor ?? (isDark ? Colors.grey.shade900 : Colors.white),
         borderRadius: BorderRadius.circular(borderRadius),
         border: border,
         boxShadow: hasShadow
@@ -87,61 +89,62 @@ class StatCard extends StatelessWidget {
     final primaryColor = Theme.of(context).colorScheme.primary;
     final primaryLight = primaryColor.withValues(alpha: 0.1);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    return ModernCard(
-      onTap: onTap,
-      child: Row(
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: iconBackgroundColor ?? primaryLight,
-              borderRadius: BorderRadius.circular(16),
+
+    return Semantics(
+      button: onTap != null,
+      label:
+          '$title: $value${subtitle != null ? '. $subtitle' : ''}${onTap != null ? '. Appuyez pour plus de détails' : ''}',
+      excludeSemantics: true,
+      child: ModernCard(
+        onTap: onTap,
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: iconBackgroundColor ?? primaryLight,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, color: iconColor ?? primaryColor, size: 28),
             ),
-            child: Icon(
-              icon,
-              color: iconColor ?? primaryColor,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: TextStyle(
-                    color: isDark ? Colors.white : Colors.black87,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    subtitle!,
+                    title,
                     style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 12,
+                      color: isDark
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade600,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    value,
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black87,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle!,
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-          if (trailing != null) trailing!,
-        ],
+            if (trailing != null) trailing!,
+          ],
+        ),
       ),
     );
   }
@@ -170,64 +173,67 @@ class ListItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ModernCard(
-      onTap: onTap,
-      child: Row(
-        children: [
-          if (statusColor != null)
-            Container(
-              width: 4,
-              height: 48,
-              margin: const EdgeInsets.only(right: 12),
-              decoration: BoxDecoration(
-                color: statusColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          if (leading != null) ...[
-            leading!,
-            const SizedBox(width: 12),
-          ],
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).brightness == Brightness.dark 
-                        ? Colors.white 
-                        : Colors.black87,
-                  ),
+    return Semantics(
+      button: onTap != null,
+      label:
+          '$title${subtitle != null ? '. $subtitle' : ''}${trailing != null ? '. $trailing' : ''}',
+      excludeSemantics: true,
+      child: ModernCard(
+        onTap: onTap,
+        child: Row(
+          children: [
+            if (statusColor != null)
+              Container(
+                width: 4,
+                height: 48,
+                margin: const EdgeInsets.only(right: 12),
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 4),
+              ),
+            if (leading != null) ...[leading!, const SizedBox(width: 12)],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    subtitle!,
+                    title,
                     style: TextStyle(
-                      fontSize: 14,
-                      color: Theme.of(context).brightness == Brightness.dark 
-                          ? Colors.grey.shade400 
-                          : Colors.grey.shade600,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white
+                          : Colors.black87,
                     ),
                   ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle!,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.grey.shade400
+                            : Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
-            ),
-          ),
-          if (trailing != null)
-            Text(
-              trailing!,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: Theme.of(context).colorScheme.primary,
               ),
             ),
-          if (trailingWidget != null) trailingWidget!,
-        ],
+            if (trailing != null)
+              Text(
+                trailing!,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            if (trailingWidget != null) trailingWidget!,
+          ],
+        ),
       ),
     );
   }
@@ -252,58 +258,88 @@ class AlertCard extends StatelessWidget {
     this.actionLabel,
   });
 
+  String _getAlertTypeLabel() {
+    switch (type) {
+      case AlertType.success:
+        return 'Succès';
+      case AlertType.warning:
+        return 'Avertissement';
+      case AlertType.error:
+        return 'Erreur';
+      case AlertType.info:
+        return 'Information';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = _getColors();
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.backgroundColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colors.borderColor, width: 1),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: colors.iconBackgroundColor,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              icon ?? colors.defaultIcon,
-              color: colors.iconColor,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(
-                color: colors.textColor,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+    return Semantics(
+      label:
+          '${_getAlertTypeLabel()}: $message${actionLabel != null ? '. Action: $actionLabel' : ''}${onDismiss != null ? '. Peut être fermé' : ''}',
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colors.backgroundColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colors.borderColor, width: 1),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: colors.iconBackgroundColor,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon ?? colors.defaultIcon,
+                color: colors.iconColor,
+                size: 20,
               ),
             ),
-          ),
-          if (onAction != null && actionLabel != null)
-            TextButton(
-              onPressed: onAction,
-              style: TextButton.styleFrom(
-                foregroundColor: colors.iconColor,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(
+                  color: colors.textColor,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-              child: Text(actionLabel!),
             ),
-          if (onDismiss != null)
-            IconButton(
-              icon: const Icon(Icons.close, size: 18),
-              color: colors.textColor.withValues(alpha: 0.6),
-              onPressed: onDismiss,
-            ),
-        ],
+            if (onAction != null && actionLabel != null)
+              Semantics(
+                button: true,
+                label: actionLabel,
+                child: TextButton(
+                  onPressed: onAction,
+                  style: TextButton.styleFrom(
+                    foregroundColor: colors.iconColor,
+                  ),
+                  child: Text(actionLabel!),
+                ),
+              ),
+            if (onDismiss != null)
+              Semantics(
+                button: true,
+                label: AppLocalizations.of(context).close,
+                child: IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  color: colors.textColor.withValues(alpha: 0.6),
+                  onPressed: onDismiss,
+                  tooltip: AppLocalizations.of(context).close,
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

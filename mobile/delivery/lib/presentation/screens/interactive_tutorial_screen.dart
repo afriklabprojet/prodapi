@@ -15,13 +15,16 @@ class InteractiveTutorialScreen extends ConsumerWidget {
     final progress = ref.watch(tutorialProgressProvider);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8F9FD),
+      backgroundColor: isDark
+          ? const Color(0xFF121212)
+          : const Color(0xFFF8F9FD),
       appBar: AppBar(
         title: const Text(
           'Tutoriels',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        foregroundColor: isDark ? Colors.white : Colors.black,
         elevation: 0,
         actions: [
           if (tutorialState.completedTutorials.isNotEmpty)
@@ -39,7 +42,7 @@ class InteractiveTutorialScreen extends ConsumerWidget {
             // Progression globale
             _ProgressCard(progress: progress, tutorialState: tutorialState),
             const SizedBox(height: 24),
-            
+
             // Liste des tutoriels
             Text(
               'Tutoriels disponibles',
@@ -50,14 +53,18 @@ class InteractiveTutorialScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-            
-            ...InteractiveTutorials.all.map((tutorial) => _TutorialCard(
-              tutorial: tutorial,
-              isCompleted: tutorialState.completedTutorials.contains(tutorial.id),
-            )),
-            
+
+            ...InteractiveTutorials.all.map(
+              (tutorial) => _TutorialCard(
+                tutorial: tutorial,
+                isCompleted: tutorialState.completedTutorials.contains(
+                  tutorial.id,
+                ),
+              ),
+            ),
+
             const SizedBox(height: 32),
-            
+
             // Section d'aide
             _HelpSection(),
           ],
@@ -81,7 +88,9 @@ class InteractiveTutorialScreen extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () {
-              ref.read(interactiveTutorialProvider.notifier).resetAllTutorials();
+              ref
+                  .read(interactiveTutorialProvider.notifier)
+                  .resetAllTutorials();
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -104,10 +113,7 @@ class _ProgressCard extends StatelessWidget {
   final double progress;
   final InteractiveTutorialState tutorialState;
 
-  const _ProgressCard({
-    required this.progress,
-    required this.tutorialState,
-  });
+  const _ProgressCard({required this.progress, required this.tutorialState});
 
   @override
   Widget build(BuildContext context) {
@@ -128,7 +134,9 @@ class _ProgressCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: (isComplete ? Colors.green : Colors.blue).withValues(alpha: 0.3),
+            color: (isComplete ? Colors.green : Colors.blue).withValues(
+              alpha: 0.3,
+            ),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -209,10 +217,7 @@ class _TutorialCard extends ConsumerWidget {
   final InteractiveTutorial tutorial;
   final bool isCompleted;
 
-  const _TutorialCard({
-    required this.tutorial,
-    required this.isCompleted,
-  });
+  const _TutorialCard({required this.tutorial, required this.isCompleted});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -224,7 +229,9 @@ class _TutorialCard extends ConsumerWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: () {
-          ref.read(interactiveTutorialProvider.notifier).startTutorial(tutorial.id);
+          ref
+              .read(interactiveTutorialProvider.notifier)
+              .startTutorial(tutorial.id);
           Navigator.pop(context);
         },
         borderRadius: BorderRadius.circular(16),
@@ -239,11 +246,7 @@ class _TutorialCard extends ConsumerWidget {
                   color: tutorial.color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  tutorial.icon,
-                  color: tutorial.color,
-                  size: 28,
-                ),
+                child: Icon(tutorial.icon, color: tutorial.color, size: 28),
               ),
               const SizedBox(width: 16),
               // Infos
@@ -380,11 +383,7 @@ class _HelpSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(
-                Icons.lightbulb_outline,
-                color: Colors.amber,
-                size: 24,
-              ),
+              Icon(Icons.lightbulb_outline, color: Colors.amber, size: 24),
               const SizedBox(width: 12),
               Text(
                 'Conseils',
@@ -422,9 +421,14 @@ class _HelpSection extends StatelessWidget {
     );
   }
 
-  Widget _buildTip(BuildContext context, IconData icon, String title, String desc) {
+  Widget _buildTip(
+    BuildContext context,
+    IconData icon,
+    String title,
+    String desc,
+  ) {
     final isDark = context.isDark;
-    
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -492,30 +496,32 @@ class TutorialListWidget extends ConsumerWidget {
           const SizedBox(height: 8),
           Text(
             'Apprenez à utiliser l\'app avec des guides pas à pas',
-            style: TextStyle(
-              color: isDark ? Colors.white60 : Colors.black54,
-            ),
+            style: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
           ),
           const SizedBox(height: 20),
-          
+
           // Mini progression
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 6,
-              backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+              backgroundColor: isDark
+                  ? Colors.grey.shade800
+                  : Colors.grey.shade200,
               valueColor: AlwaysStoppedAnimation(
                 progress == 1.0 ? Colors.green : Colors.blue,
               ),
             ),
           ),
           const SizedBox(height: 20),
-          
+
           // Liste compacte
           ...InteractiveTutorials.all.map((tutorial) {
-            final isCompleted = tutorialState.completedTutorials.contains(tutorial.id);
-            
+            final isCompleted = tutorialState.completedTutorials.contains(
+              tutorial.id,
+            );
+
             return ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Container(
@@ -541,10 +547,20 @@ class TutorialListWidget extends ConsumerWidget {
                 ),
               ),
               trailing: isCompleted
-                  ? const Icon(Icons.check_circle, color: Colors.green, size: 20)
-                  : Icon(Icons.play_circle_outline, color: tutorial.color, size: 24),
+                  ? const Icon(
+                      Icons.check_circle,
+                      color: Colors.green,
+                      size: 20,
+                    )
+                  : Icon(
+                      Icons.play_circle_outline,
+                      color: tutorial.color,
+                      size: 24,
+                    ),
               onTap: () {
-                ref.read(interactiveTutorialProvider.notifier).startTutorial(tutorial.id);
+                ref
+                    .read(interactiveTutorialProvider.notifier)
+                    .startTutorial(tutorial.id);
                 Navigator.pop(context);
               },
             );

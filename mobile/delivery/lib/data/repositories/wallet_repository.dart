@@ -5,6 +5,7 @@ import '../../core/constants/api_constants.dart';
 import '../../core/network/api_client.dart';
 import '../../core/services/cache_service.dart';
 import '../../core/utils/error_handler.dart';
+import '../../core/utils/safe_json_utils.dart';
 import '../models/wallet_data.dart';
 
 final walletRepositoryProvider = Provider<WalletRepository>((ref) {
@@ -15,13 +16,6 @@ class WalletRepository {
   final Dio _dio;
 
   WalletRepository(this._dio);
-
-  /// Parse sécurisé des réponses API (protège contre data qui n'est pas un Map)
-  static Map<String, dynamic> _safeData(dynamic data) {
-    if (data is Map<String, dynamic>) return data;
-    if (data is Map) return Map<String, dynamic>.from(data);
-    return {};
-  }
 
   /// Récupérer les données du wallet (solde, transactions, stats)
   Future<WalletData> getWalletData() async {
@@ -34,11 +28,17 @@ class WalletRepository {
     }
 
     try {
-      if (kDebugMode) debugPrint('📱 [WALLET] Fetching wallet data from: ${ApiConstants.wallet}');
+      if (kDebugMode) {
+        debugPrint(
+          '📱 [WALLET] Fetching wallet data from: ${ApiConstants.wallet}',
+        );
+      }
       final response = await _dio.get(ApiConstants.wallet);
       if (kDebugMode) debugPrint('✅ [WALLET] Data received successfully');
       final rawData = response.data['data'];
-      final data = rawData is Map<String, dynamic> ? rawData : _safeData(rawData);
+      final data = rawData is Map<String, dynamic>
+          ? rawData
+          : SafeJsonUtils.safeData(rawData);
 
       // Sauvegarder dans le cache
       await cache.cacheWallet(data);
@@ -48,23 +48,44 @@ class WalletRepository {
       if (kDebugMode) debugPrint('❌ [WALLET] Error: $e');
       if (e is DioException) {
         final statusCode = e.response?.statusCode;
-        final message = _safeData(e.response?.data)['message'];
-        
-        if (kDebugMode) debugPrint('   Status code: $statusCode');
-        if (kDebugMode) debugPrint('   Message: $message');
-        if (kDebugMode) debugPrint('   URL: ${e.requestOptions.baseUrl}${e.requestOptions.path}');
-        
+        final message = SafeJsonUtils.safeData(e.response?.data)['message'];
+
+        if (kDebugMode) {
+          debugPrint('   Status code: $statusCode');
+          debugPrint('   Message: $message');
+          debugPrint(
+            '   URL: ${e.requestOptions.baseUrl}${e.requestOptions.path}',
+          );
+        }
+
         if (statusCode == 404) {
-          throw Exception('Endpoint wallet non trouvé. Vérifiez la configuration du serveur.');
+          throw Exception(
+            'Endpoint wallet non trouvé. Vérifiez la configuration du serveur.',
+          );
         } else if (statusCode == 403) {
-          throw Exception(message ?? 'Profil coursier non trouvé. Veuillez vous connecter avec un compte livreur.');
+          final errorCode = SafeJsonUtils.safeData(
+            e.response?.data,
+          )['error_code'];
+          if (errorCode == 'INCOMPLETE_KYC') {
+            // Retourner un wallet vide pour que l'écran charge normalement
+            return const WalletData(balance: 0.0, canDeliver: false);
+          }
+          throw Exception(
+            message ??
+                'Profil coursier non trouvé. Veuillez vous connecter avec un compte livreur.',
+          );
         } else if (statusCode == 401) {
           throw Exception('Session expirée. Veuillez vous reconnecter.');
         } else if (message != null) {
           throw Exception(message);
         }
       }
-      throw Exception(ErrorHandler.getReadableMessage(e, defaultMessage: 'Impossible de charger le portefeuille.'));
+      throw Exception(
+        ErrorHandler.getReadableMessage(
+          e,
+          defaultMessage: 'Impossible de charger le portefeuille.',
+        ),
+      );
     }
   }
 
@@ -75,7 +96,10 @@ class WalletRepository {
       return response.data['data'];
     } catch (e) {
       if (e is DioException && e.response?.statusCode == 403) {
-        throw Exception(_safeData(e.response?.data)['message'] ?? 'Profil coursier non trouvé.');
+        throw Exception(
+          SafeJsonUtils.safeData(e.response?.data)['message'] ??
+              'Profil coursier non trouvé.',
+        );
       }
       throw Exception('Impossible de vérifier l\'éligibilité aux livraisons.');
     }
@@ -88,19 +112,30 @@ class WalletRepository {
     String? paymentReference,
   }) async {
     try {
-      final response = await _dio.post(ApiConstants.walletTopUp, data: {
-        'amount': amount,
-        'payment_method': paymentMethod,
-        'payment_reference': paymentReference,
-      });
+      final response = await _dio.post(
+        ApiConstants.walletTopUp,
+        data: {
+          'amount': amount,
+          'payment_method': paymentMethod,
+          'payment_reference': paymentReference,
+        },
+      );
       // Invalider le cache wallet après rechargement
       await CacheService.instance.invalidateWallet();
       return response.data['data'];
     } catch (e) {
       if (e is DioException) {
-        throw Exception(_safeData(e.response?.data)['message'] ?? 'Erreur lors du rechargement');
+        throw Exception(
+          SafeJsonUtils.safeData(e.response?.data)['message'] ??
+              'Erreur lors du rechargement',
+        );
       }
-      throw Exception(ErrorHandler.getReadableMessage(e, defaultMessage: 'Impossible d\'effectuer le rechargement.'));
+      throw Exception(
+        ErrorHandler.getReadableMessage(
+          e,
+          defaultMessage: 'Impossible d\'effectuer le rechargement.',
+        ),
+      );
     }
   }
 
@@ -111,19 +146,30 @@ class WalletRepository {
     required String phoneNumber,
   }) async {
     try {
-      final response = await _dio.post(ApiConstants.walletWithdraw, data: {
-        'amount': amount,
-        'payment_method': paymentMethod,
-        'phone_number': phoneNumber,
-      });
+      final response = await _dio.post(
+        ApiConstants.walletWithdraw,
+        data: {
+          'amount': amount,
+          'payment_method': paymentMethod,
+          'phone_number': phoneNumber,
+        },
+      );
       // Invalider le cache wallet après retrait
       await CacheService.instance.invalidateWallet();
       return response.data['data'];
     } catch (e) {
       if (e is DioException) {
-        throw Exception(_safeData(e.response?.data)['message'] ?? 'Erreur lors de la demande de retrait');
+        throw Exception(
+          SafeJsonUtils.safeData(e.response?.data)['message'] ??
+              'Erreur lors de la demande de retrait',
+        );
       }
-      throw Exception(ErrorHandler.getReadableMessage(e, defaultMessage: 'Impossible d\'effectuer le retrait.'));
+      throw Exception(
+        ErrorHandler.getReadableMessage(
+          e,
+          defaultMessage: 'Impossible d\'effectuer le retrait.',
+        ),
+      );
     }
   }
 
@@ -149,9 +195,17 @@ class WalletRepository {
       return response.data['data'];
     } catch (e) {
       if (e is DioException) {
-        throw Exception(_safeData(e.response?.data)['message'] ?? 'Erreur lors de la récupération de l\'historique');
+        throw Exception(
+          SafeJsonUtils.safeData(e.response?.data)['message'] ??
+              'Erreur lors de la récupération de l\'historique',
+        );
       }
-      throw Exception(ErrorHandler.getReadableMessage(e, defaultMessage: 'Impossible de charger l\'historique.'));
+      throw Exception(
+        ErrorHandler.getReadableMessage(
+          e,
+          defaultMessage: 'Impossible de charger l\'historique.',
+        ),
+      );
     }
   }
 }

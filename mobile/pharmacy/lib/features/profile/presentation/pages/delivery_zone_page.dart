@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../../core/providers/core_providers.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 
 /// Écran de définition de la zone de livraison de la pharmacie
@@ -26,14 +29,19 @@ class _DeliveryZonePageState extends ConsumerState<DeliveryZonePage> {
   bool _isLoading = true;
   bool _isSaving = false;
   bool _hasExistingZone = false;
+  LatLng _initialCenter = _abidjanFallback;
 
-  // Default: Abidjan center  
-  static const LatLng _defaultCenter = LatLng(5.3600, -4.0083);
+  // Fallback: Abidjan center (used only if geolocation unavailable)
+  static const LatLng _abidjanFallback = LatLng(5.3600, -4.0083);
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadExistingZone());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      _initialCenter = await _getPharmacyCenter();
+      if (mounted) setState(() {});
+      _loadExistingZone();
+    });
   }
 
   @override
@@ -136,12 +144,12 @@ class _DeliveryZonePageState extends ConsumerState<DeliveryZonePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Annuler'),
+            child: Text(AppLocalizations.of(ctx).cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Supprimer'),
+            child: Text(AppLocalizations.of(ctx).delete),
           ),
         ],
       ),
@@ -266,14 +274,26 @@ class _DeliveryZonePageState extends ConsumerState<DeliveryZonePage> {
     ));
   }
 
-  /// Obtenir la position initiale depuis le profil pharma
-  LatLng _getPharmacyCenter() {
+  /// Obtenir la position initiale depuis le profil pharma, puis géolocalisation, puis fallback
+  Future<LatLng> _getPharmacyCenter() async {
     final authState = ref.read(authProvider);
     final pharmacy = authState.user?.pharmacy;
     if (pharmacy != null && pharmacy.latitude != null && pharmacy.longitude != null) {
       return LatLng(pharmacy.latitude!, pharmacy.longitude!);
     }
-    return _defaultCenter;
+    // Fallback: position GPS du device
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+      return LatLng(position.latitude, position.longitude);
+    } catch (e) {
+      if (kDebugMode) debugPrint('⚠️ Géolocalisation indisponible: $e');
+    }
+    return _abidjanFallback;
   }
 
   @override
@@ -300,7 +320,7 @@ class _DeliveryZonePageState extends ConsumerState<DeliveryZonePage> {
           // Google Map
           GoogleMap(
             initialCameraPosition: CameraPosition(
-              target: _getPharmacyCenter(),
+              target: _initialCenter,
               zoom: 14,
             ),
             onMapCreated: (controller) {
@@ -436,6 +456,7 @@ class _DeliveryZonePageState extends ConsumerState<DeliveryZonePage> {
                         onPressed:
                             _polygonPoints.isNotEmpty ? _undoLastPoint : null,
                         icon: const Icon(Icons.undo),
+                        tooltip: 'Annuler le dernier point',
                         style: IconButton.styleFrom(
                           backgroundColor: isDark
                               ? Colors.grey.shade800
@@ -448,6 +469,7 @@ class _DeliveryZonePageState extends ConsumerState<DeliveryZonePage> {
                         onPressed:
                             _polygonPoints.isNotEmpty ? _clearAllPoints : null,
                         icon: const Icon(Icons.delete_sweep),
+                        tooltip: 'Tout effacer',
                         style: IconButton.styleFrom(
                           backgroundColor: Colors.red.withValues(alpha: 0.1),
                           foregroundColor: Colors.red,

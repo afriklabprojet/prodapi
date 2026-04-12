@@ -4,6 +4,24 @@
 
 part of 'product_model.dart';
 
+/// Extract category name from API response.
+/// API returns category as a Map (eager-loaded relation) or category_name as String.
+String _extractCategoryName(dynamic category, dynamic categoryName) {
+  // Prefer category_name appended attribute
+  if (categoryName != null && categoryName.toString().isNotEmpty) {
+    return categoryName.toString();
+  }
+  // If category is a Map (eager-loaded relation), extract the name
+  if (category is Map) {
+    return category['name']?.toString() ?? 'Non classé';
+  }
+  // Fallback: raw string column
+  if (category != null && category.toString().isNotEmpty) {
+    return category.toString();
+  }
+  return 'Non classé';
+}
+
 ProductModel _$ProductModelFromJson(Map<String, dynamic> json) => ProductModel(
   id: _toInt(json['id']),
   name: json['name']?.toString() ?? '',
@@ -11,7 +29,8 @@ ProductModel _$ProductModelFromJson(Map<String, dynamic> json) => ProductModel(
   price: _toDouble(json['price']),
   stockQuantity: _toInt(json['stock_quantity']),
   imageUrl: json['image']?.toString(),
-  category: json['category']?.toString() ?? '',
+  category: _extractCategoryName(json['category'], json['category_name']),
+
   barcode: json['barcode']?.toString(),
   requiresPrescription: _toBool(json['requires_prescription']),
   isAvailable: _toBool(json['is_available']),

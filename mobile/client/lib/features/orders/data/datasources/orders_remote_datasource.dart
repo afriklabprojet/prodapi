@@ -1,6 +1,7 @@
 import '../../../../core/constants/api_constants.dart';
-import '../../../../core/network/api_client.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/errors/exceptions.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../core/services/app_logger.dart';
 import '../models/order_model.dart';
 import '../models/order_item_model.dart';
@@ -14,7 +15,7 @@ class OrdersRemoteDataSource {
   Future<List<OrderModel>> getOrders({
     String? status,
     int page = 1,
-    int perPage = 20,
+    int perPage = AppConstants.defaultPageSize,
   }) async {
     final queryParams = <String, dynamic>{'page': page, 'per_page': perPage};
 
@@ -37,7 +38,7 @@ class OrdersRemoteDataSource {
   /// Get order details by ID
   Future<OrderModel> getOrderDetails(int orderId) async {
     AppLogger.debug('[GetOrderDetails] Fetching order $orderId');
-    final response = await apiClient.get('/customer/orders/$orderId');
+    final response = await apiClient.get(ApiConstants.orderDetails(orderId));
     final rawData = response.data['data'];
     if (rawData == null || rawData is! Map<String, dynamic>) {
       throw Exception('Réponse invalide du serveur');
@@ -55,9 +56,11 @@ class OrdersRemoteDataSource {
     String? prescriptionImage,
     String? customerNotes,
     int? prescriptionId, // ID de la prescription uploadée via checkout
+    String? promoCode,
   }) async {
     // Ensure customer_phone is present (required by API)
-    final customerPhone = deliveryAddress['phone'] as String?;
+    // toJson() uses 'customer_phone' key, but also check 'phone' for safety
+    final customerPhone = (deliveryAddress['customer_phone'] ?? deliveryAddress['phone']) as String?;
     if (customerPhone == null || customerPhone.isEmpty) {
       throw ValidationException(
         errors: {'customer_phone': ['Le numéro de téléphone est requis']},
@@ -67,18 +70,20 @@ class OrdersRemoteDataSource {
     final data = {
       'pharmacy_id': pharmacyId,
       'items': items.map((item) => item.toJson()).toList(),
-      'delivery_address': deliveryAddress['address'],
+      // toJson() outputs 'delivery_address', fallback to 'address'
+      'delivery_address': deliveryAddress['delivery_address'] ?? deliveryAddress['address'],
       'customer_phone': customerPhone,
-      if (deliveryAddress['city'] != null)
-        'delivery_city': deliveryAddress['city'],
-      if (deliveryAddress['latitude'] != null)
-        'delivery_latitude': deliveryAddress['latitude'],
-      if (deliveryAddress['longitude'] != null)
-        'delivery_longitude': deliveryAddress['longitude'],
+      if ((deliveryAddress['delivery_city'] ?? deliveryAddress['city']) != null)
+        'delivery_city': deliveryAddress['delivery_city'] ?? deliveryAddress['city'],
+      if ((deliveryAddress['delivery_latitude'] ?? deliveryAddress['latitude']) != null)
+        'delivery_latitude': deliveryAddress['delivery_latitude'] ?? deliveryAddress['latitude'],
+      if ((deliveryAddress['delivery_longitude'] ?? deliveryAddress['longitude']) != null)
+        'delivery_longitude': deliveryAddress['delivery_longitude'] ?? deliveryAddress['longitude'],
       'payment_mode': paymentMode,
       if (prescriptionImage != null) 'prescription_image': prescriptionImage,
       if (prescriptionId != null) 'prescription_id': prescriptionId,
       if (customerNotes != null) 'customer_notes': customerNotes,
+      if (promoCode != null) 'promo_code': promoCode,
     };
 
     AppLogger.debug('[CreateOrder] Creating order for pharmacy $pharmacyId with ${items.length} items');
@@ -158,9 +163,10 @@ class OrdersRemoteDataSource {
     String? paymentMethod,
   }) async {
     final response = await apiClient.post(
-      '${ApiConstants.orderDetails(orderId)}/payment/initiate',
+      ApiConstants.paymentInitiate, // /customer/payments/initiate
       data: {
-        'provider': provider,
+        'type': 'order',
+        'order_id': orderId,
         if (paymentMethod != null) 'payment_method': paymentMethod,
       },
     );
@@ -169,6 +175,13 @@ class OrdersRemoteDataSource {
     if (rawPaymentData == null || rawPaymentData is! Map<String, dynamic>) {
       throw Exception('Réponse paiement invalide');
     }
+
+    // Map redirect_url → payment_url for downstream compatibility
+    if (rawPaymentData.containsKey('redirect_url') &&
+        !rawPaymentData.containsKey('payment_url')) {
+      rawPaymentData['payment_url'] = rawPaymentData['redirect_url'];
+    }
+
     return rawPaymentData;
   }
 

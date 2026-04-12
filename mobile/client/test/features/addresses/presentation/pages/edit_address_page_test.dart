@@ -12,7 +12,7 @@ void main() {
   late SharedPreferences sharedPreferences;
 
   setUp(() async {
-  SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({});
     sharedPreferences = await SharedPreferences.getInstance();
   });
 

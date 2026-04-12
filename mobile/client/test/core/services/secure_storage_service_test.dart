@@ -8,8 +8,8 @@ import 'package:drpharma_client/core/services/secure_storage_service.dart';
 
 void main() {
   group('SecureStorageService Tests', () {
-    test('should have saveToken method', () {
-      expect(SecureStorageService.saveToken, isA<Function>());
+    test('should have setToken method', () {
+      expect(SecureStorageService.setToken, isA<Function>());
     });
 
     test('should have getToken method', () {
@@ -20,32 +20,32 @@ void main() {
       expect(SecureStorageService.deleteToken, isA<Function>());
     });
 
-    test('should have saveRefreshToken method', () {
-      expect(SecureStorageService.saveRefreshToken, isA<Function>());
+    test('should have setCachedUserJson method', () {
+      expect(SecureStorageService.setCachedUserJson, isA<Function>());
     });
 
-    test('should have getRefreshToken method', () {
-      expect(SecureStorageService.getRefreshToken, isA<Function>());
+    test('should have getCachedUserJson method', () {
+      expect(SecureStorageService.getCachedUserJson, isA<Function>());
     });
 
-    test('should have deleteRefreshToken method', () {
-      expect(SecureStorageService.deleteRefreshToken, isA<Function>());
-    });
-
-    test('should have saveUserId method', () {
-      expect(SecureStorageService.saveUserId, isA<Function>());
-    });
-
-    test('should have getUserId method', () {
-      expect(SecureStorageService.getUserId, isA<Function>());
+    test('should have deleteCachedUser method', () {
+      expect(SecureStorageService.deleteCachedUser, isA<Function>());
     });
 
     test('should have clearAll method', () {
       expect(SecureStorageService.clearAll, isA<Function>());
     });
 
-    test('should have hasToken method', () {
-      expect(SecureStorageService.hasToken, isA<Function>());
+    test('should have read method', () {
+      expect(SecureStorageService.read, isA<Function>());
+    });
+
+    test('should have write method', () {
+      expect(SecureStorageService.write, isA<Function>());
+    });
+
+    test('should have delete method', () {
+      expect(SecureStorageService.delete, isA<Function>());
     });
   });
 }

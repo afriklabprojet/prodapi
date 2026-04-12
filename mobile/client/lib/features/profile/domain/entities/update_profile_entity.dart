@@ -34,14 +34,19 @@ class UpdateProfileEntity extends Equatable {
     return map;
   }
 
+  bool get hasPasswordChange =>
+      currentPassword != null &&
+      currentPassword!.isNotEmpty &&
+      newPassword != null &&
+      newPassword!.isNotEmpty;
+
   @override
   List<Object?> get props => [
-        name,
-        email,
-        phone,
-        address,
-        currentPassword,
-        newPassword,
-        newPasswordConfirmation,
-      ];
+    name,
+    email,
+    phone,
+    address,
+    currentPassword,
+    newPassword,
+  ];
 }

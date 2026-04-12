@@ -147,7 +147,7 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
               children: [
                 const Icon(Icons.error_outline, color: Colors.white),
                 const SizedBox(width: 12),
-                Expanded(child: Text('Erreur: ${e.toString()}')),
+                const Expanded(child: Text('Impossible de modifier le mot de passe. Réessayez.')),
               ],
             ),
             backgroundColor: Colors.red.shade600,

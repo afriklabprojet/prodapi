@@ -42,9 +42,10 @@ class _PrimaryButtonState extends State<PrimaryButton>
       duration: const Duration(milliseconds: 100),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.95,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -78,56 +79,63 @@ class _PrimaryButtonState extends State<PrimaryButton>
     final fgColor = widget.foregroundColor ?? Colors.white;
     final isEnabled = widget.onPressed != null && !widget.isLoading;
 
-    return GestureDetector(
-      onTapDown: _handleTapDown,
-      onTapUp: _handleTapUp,
-      onTapCancel: _handleTapCancel,
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: widget.width,
-          height: widget.height,
-          decoration: BoxDecoration(
-            color: isEnabled ? bgColor : bgColor.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(widget.borderRadius),
-            boxShadow: isEnabled
-                ? [
-                    BoxShadow(
-                      color: bgColor.withValues(alpha: 0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 6),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Center(
-            child: widget.isLoading
-                ? SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      valueColor: AlwaysStoppedAnimation<Color>(fgColor),
-                    ),
-                  )
-                : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (widget.icon != null) ...[
-                        Icon(widget.icon, color: fgColor, size: 20),
-                        const SizedBox(width: 8),
-                      ],
-                      Text(
-                        widget.label,
-                        style: TextStyle(
-                          color: fgColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
+    return Semantics(
+      button: true,
+      enabled: isEnabled,
+      label: widget.isLoading
+          ? '${widget.label}, chargement en cours'
+          : widget.label,
+      child: GestureDetector(
+        onTapDown: _handleTapDown,
+        onTapUp: _handleTapUp,
+        onTapCancel: _handleTapCancel,
+        child: ScaleTransition(
+          scale: _scaleAnimation,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: widget.width,
+            height: widget.height,
+            decoration: BoxDecoration(
+              color: isEnabled ? bgColor : bgColor.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(widget.borderRadius),
+              boxShadow: isEnabled
+                  ? [
+                      BoxShadow(
+                        color: bgColor.withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
                       ),
-                    ],
-                  ),
+                    ]
+                  : null,
+            ),
+            child: Center(
+              child: widget.isLoading
+                  ? SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        valueColor: AlwaysStoppedAnimation<Color>(fgColor),
+                      ),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (widget.icon != null) ...[
+                          Icon(widget.icon, color: fgColor, size: 20),
+                          const SizedBox(width: 8),
+                        ],
+                        Text(
+                          widget.label,
+                          style: TextStyle(
+                            color: fgColor,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
           ),
         ),
       ),
@@ -174,9 +182,10 @@ class _SecondaryButtonState extends State<SecondaryButton>
       duration: const Duration(milliseconds: 100),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.95,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -192,59 +201,68 @@ class _SecondaryButtonState extends State<SecondaryButton>
     final fgColor = widget.foregroundColor ?? primaryColor;
     final isEnabled = widget.onPressed != null && !widget.isLoading;
 
-    return GestureDetector(
-      onTapDown: (_) {
-        if (isEnabled) {
-          _controller.forward();
-          HapticFeedback.lightImpact();
-        }
-      },
-      onTapUp: (_) {
-        _controller.reverse();
-        if (isEnabled) widget.onPressed!();
-      },
-      onTapCancel: () => _controller.reverse(),
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: widget.width,
-          height: widget.height,
-          decoration: BoxDecoration(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isEnabled ? borderColor : borderColor.withValues(alpha: 0.5),
-              width: 2,
+    return Semantics(
+      button: true,
+      enabled: isEnabled,
+      label: widget.isLoading
+          ? '${widget.label}, chargement en cours'
+          : widget.label,
+      child: GestureDetector(
+        onTapDown: (_) {
+          if (isEnabled) {
+            _controller.forward();
+            HapticFeedback.lightImpact();
+          }
+        },
+        onTapUp: (_) {
+          _controller.reverse();
+          if (isEnabled) widget.onPressed!();
+        },
+        onTapCancel: () => _controller.reverse(),
+        child: ScaleTransition(
+          scale: _scaleAnimation,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: widget.width,
+            height: widget.height,
+            decoration: BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isEnabled
+                    ? borderColor
+                    : borderColor.withValues(alpha: 0.5),
+                width: 2,
+              ),
             ),
-          ),
-          child: Center(
-            child: widget.isLoading
-                ? SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      valueColor: AlwaysStoppedAnimation<Color>(fgColor),
-                    ),
-                  )
-                : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (widget.icon != null) ...[
-                        Icon(widget.icon, color: fgColor, size: 20),
-                        const SizedBox(width: 8),
-                      ],
-                      Text(
-                        widget.label,
-                        style: TextStyle(
-                          color: fgColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
+            child: Center(
+              child: widget.isLoading
+                  ? SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        valueColor: AlwaysStoppedAnimation<Color>(fgColor),
                       ),
-                    ],
-                  ),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (widget.icon != null) ...[
+                          Icon(widget.icon, color: fgColor, size: 20),
+                          const SizedBox(width: 8),
+                        ],
+                        Text(
+                          widget.label,
+                          style: TextStyle(
+                            color: fgColor,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
           ),
         ),
       ),
@@ -275,7 +293,7 @@ class AnimatedIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final primaryColor = Theme.of(context).colorScheme.primary;
     final primaryLight = primaryColor.withValues(alpha: 0.1);
-    
+
     return GestureDetector(
       onTap: () {
         HapticFeedback.lightImpact();
@@ -306,10 +324,7 @@ class AnimatedIconButton extends StatelessWidget {
                   color: Colors.red,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                constraints: const BoxConstraints(
-                  minWidth: 18,
-                  minHeight: 18,
-                ),
+                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
                 child: Text(
                   badgeCount! > 99 ? '99+' : badgeCount.toString(),
                   style: const TextStyle(
@@ -358,9 +373,10 @@ class _AnimatedFABState extends State<AnimatedFAB>
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
     _controller.forward();
   }
 
@@ -373,7 +389,7 @@ class _AnimatedFABState extends State<AnimatedFAB>
   @override
   Widget build(BuildContext context) {
     final primaryColor = Theme.of(context).colorScheme.primary;
-    
+
     return ScaleTransition(
       scale: _scaleAnimation,
       child: widget.extended && widget.label != null
@@ -394,6 +410,203 @@ class _AnimatedFABState extends State<AnimatedFAB>
               backgroundColor: primaryColor,
               child: Icon(widget.icon),
             ),
+    );
+  }
+}
+
+/// État du bouton async compact
+enum _AsyncButtonState { idle, loading, success, error }
+
+/// Bouton async compact pour utilisation dans les cartes
+/// Affiche un spinner pendant l'action et feedback visuel succès/erreur
+class AsyncSmallButton extends StatefulWidget {
+  /// Callback async qui retourne true si succès
+  final Future<bool> Function()? onPressed;
+
+  /// Label du bouton
+  final String label;
+
+  /// Icône du bouton
+  final IconData icon;
+
+  /// Couleur du bouton
+  final Color color;
+
+  /// Style outline (bordure) ou filled
+  final bool isOutlined;
+
+  /// Prend toute la largeur
+  final bool isFullWidth;
+
+  /// Callback appelé après succès
+  final VoidCallback? onSuccess;
+
+  /// Callback appelé après erreur
+  final VoidCallback? onError;
+
+  const AsyncSmallButton({
+    super.key,
+    required this.onPressed,
+    required this.label,
+    required this.icon,
+    required this.color,
+    this.isOutlined = false,
+    this.isFullWidth = false,
+    this.onSuccess,
+    this.onError,
+  });
+
+  @override
+  State<AsyncSmallButton> createState() => _AsyncSmallButtonState();
+}
+
+class _AsyncSmallButtonState extends State<AsyncSmallButton> {
+  _AsyncButtonState _state = _AsyncButtonState.idle;
+
+  Future<void> _handlePress() async {
+    if (_state != _AsyncButtonState.idle || widget.onPressed == null) return;
+
+    setState(() => _state = _AsyncButtonState.loading);
+    HapticFeedback.lightImpact();
+
+    try {
+      final success = await widget.onPressed!();
+
+      if (!mounted) return;
+
+      setState(
+        () => _state = success
+            ? _AsyncButtonState.success
+            : _AsyncButtonState.error,
+      );
+
+      if (success) {
+        HapticFeedback.mediumImpact();
+      } else {
+        HapticFeedback.heavyImpact();
+      }
+
+      // Feedback visuel pendant 800ms
+      await Future.delayed(const Duration(milliseconds: 800));
+
+      if (!mounted) return;
+
+      if (success) {
+        widget.onSuccess?.call();
+      } else {
+        widget.onError?.call();
+      }
+
+      setState(() => _state = _AsyncButtonState.idle);
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => _state = _AsyncButtonState.error);
+      HapticFeedback.heavyImpact();
+
+      await Future.delayed(const Duration(milliseconds: 800));
+
+      if (!mounted) return;
+
+      widget.onError?.call();
+      setState(() => _state = _AsyncButtonState.idle);
+    }
+  }
+
+  Color get _backgroundColor {
+    if (_state == _AsyncButtonState.success) return Colors.green;
+    if (_state == _AsyncButtonState.error) return Colors.red;
+    return widget.color;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isEnabled =
+        widget.onPressed != null && _state == _AsyncButtonState.idle;
+    final bgColor = _backgroundColor;
+    final fgColor = widget.isOutlined ? bgColor : Colors.white;
+
+    return Semantics(
+      button: true,
+      enabled: isEnabled,
+      label: switch (_state) {
+        _AsyncButtonState.idle => widget.label,
+        _AsyncButtonState.loading => 'Chargement en cours',
+        _AsyncButtonState.success => 'Action réussie',
+        _AsyncButtonState.error => 'Erreur',
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        child: Material(
+          color: widget.isOutlined ? Colors.transparent : bgColor,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            onTap: isEnabled ? _handlePress : null,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: widget.isOutlined
+                    ? Border.all(color: bgColor, width: 1.5)
+                    : null,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: widget.isFullWidth
+                    ? MainAxisSize.max
+                    : MainAxisSize.min,
+                children: [
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: _state == _AsyncButtonState.loading
+                        ? SizedBox(
+                            key: const ValueKey('loading'),
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                fgColor,
+                              ),
+                            ),
+                          )
+                        : Icon(
+                            key: ValueKey(_state),
+                            _state == _AsyncButtonState.success
+                                ? Icons.check_circle
+                                : _state == _AsyncButtonState.error
+                                ? Icons.error
+                                : widget.icon,
+                            size: 18,
+                            color: fgColor,
+                          ),
+                  ),
+                  const SizedBox(width: 8),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: Text(
+                      key: ValueKey(_state),
+                      _state == _AsyncButtonState.loading
+                          ? 'Chargement...'
+                          : _state == _AsyncButtonState.success
+                          ? 'Fait !'
+                          : _state == _AsyncButtonState.error
+                          ? 'Erreur'
+                          : widget.label,
+                      style: TextStyle(
+                        color: fgColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

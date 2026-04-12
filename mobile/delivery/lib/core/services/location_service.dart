@@ -6,7 +6,9 @@ import '../../data/repositories/delivery_repository.dart';
 import 'firestore_tracking_service.dart';
 
 /// Provider pour le service Firestore de tracking
-final firestoreTrackingServiceProvider = Provider<FirestoreTrackingService>((ref) {
+final firestoreTrackingServiceProvider = Provider<FirestoreTrackingService>((
+  ref,
+) {
   return FirestoreTrackingService();
 });
 
@@ -99,31 +101,45 @@ class LocationService {
       await requestPermission();
 
       _isTracking = true;
-      const locationSettings = LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 10, // Update every 10 meters for better real-time tracking
+      final locationSettings = LocationSettings(
+        accuracy: LocationAccuracy.best, // Meilleure précision GPS possible
+        distanceFilter:
+            5, // Mise à jour tous les 5 mètres pour plus de précision
       );
 
       _positionStreamSubscription =
           Geolocator.getPositionStream(
             locationSettings: locationSettings,
-          ).listen((Position position) {
-            // Envoyer la position à l'API backend
-            _repository.updateLocation(position.latitude, position.longitude);
-            
-            // Envoyer la position à Firestore en temps réel
-            _firestoreTracking.updateLocation(
-              position,
-              currentOrderId: currentOrderId,
-            );
-            
-            _locationController.add(position);
-            if (kDebugMode) {
-              debugPrint(
-                '📍 Location updated: ${position.latitude}, ${position.longitude}',
+          ).listen(
+            (Position position) {
+              // Envoyer la position à l'API backend
+              _repository.updateLocation(position.latitude, position.longitude);
+
+              // Envoyer la position à Firestore en temps réel
+              _firestoreTracking.updateLocation(
+                position,
+                currentOrderId: currentOrderId,
               );
-            }
-          });
+
+              if (!_locationController.isClosed) {
+                _locationController.add(position);
+              }
+              if (kDebugMode) {
+                debugPrint(
+                  '📍 Location updated: ${position.latitude}, ${position.longitude}',
+                );
+              }
+            },
+            onError: (error) {
+              if (kDebugMode) debugPrint('📍 Location stream error: $error');
+              if (!_locationController.isClosed) {
+                _locationController.addError(error);
+              }
+            },
+            onDone: () {
+              _isTracking = false;
+            },
+          );
     } catch (e) {
       if (kDebugMode) debugPrint('Error starting location tracking: $e');
       _isTracking = false;

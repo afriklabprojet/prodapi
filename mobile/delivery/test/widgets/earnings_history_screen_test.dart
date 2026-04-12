@@ -2,165 +2,127 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:courier/presentation/screens/earnings_history_screen.dart';
-import 'package:courier/data/models/wallet_data.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:courier/presentation/screens/history_export_screen.dart';
+import 'package:courier/data/models/delivery.dart';
+import 'package:courier/presentation/providers/history_providers.dart';
+import 'package:courier/core/services/delivery_export_service.dart'
+    show ExportedFile, savedExportsProvider;
+import '../helpers/widget_test_helpers.dart';
 
-WalletTransaction _tx({
+Delivery _delivery({
   int id = 1,
-  double amount = 1000,
-  String type = 'credit',
-  String? category = 'delivery_earning',
-  String? description,
-  String? reference,
+  String reference = 'REF-001',
+  String status = 'delivered',
+  double totalAmount = 5000,
 }) {
-  return WalletTransaction(
+  return Delivery(
     id: id,
-    amount: amount,
-    type: type,
-    category: category,
-    description: description,
     reference: reference,
-    createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+    pharmacyName: 'Pharmacie Test',
+    pharmacyAddress: '123 Rue Test',
+    customerName: 'Client Test',
+    deliveryAddress: '456 Avenue Test',
+    totalAmount: totalAmount,
+    status: status,
+    createdAt: DateTime.now()
+        .subtract(const Duration(hours: 2))
+        .toIso8601String(),
   );
 }
 
-WalletData _wallet({
-  double balance = 15000,
-  String currency = 'XOF',
-  List<WalletTransaction> transactions = const [],
-  int commissionAmount = 200,
-}) {
-  return WalletData(
-    balance: balance,
-    currency: currency,
-    transactions: transactions,
-    commissionAmount: commissionAmount,
-  );
-}
-
-Widget buildTestWidget({required WalletData wallet}) {
+Widget buildTestWidget({List<Delivery> deliveries = const []}) {
   return ProviderScope(
-    overrides: [
-      walletDataProvider.overrideWith((ref) => Future.value(wallet)),
-    ],
-    child: const MaterialApp(home: EarningsHistoryScreen()),
+    overrides: commonWidgetTestOverrides(
+      extra: [
+        filteredHistoryProvider.overrideWith((ref) async => deliveries),
+        historyStatsProvider.overrideWith(
+          (ref) async => HistoryStats(
+            totalDeliveries: deliveries.length,
+            delivered: deliveries.length,
+            cancelled: 0,
+            totalEarnings: deliveries.fold<double>(
+              0.0,
+              (sum, d) => sum + d.totalAmount,
+            ),
+          ),
+        ),
+        savedExportsProvider.overrideWith(
+          (ref) => Future.value(<ExportedFile>[]),
+        ),
+      ],
+    ),
+    child: const MaterialApp(home: HistoryExportScreen()),
   );
 }
 
 void main() {
   setUpAll(() async {
     await initializeDateFormatting('fr_FR', null);
+    await initHiveForTests();
   });
 
-  group('EarningsHistoryScreen', () {
+  tearDownAll(() async {
+    await cleanupHiveForTests();
+  });
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
+  group('HistoryExportScreen', () {
     testWidgets('shows app bar title', (tester) async {
-      await tester.pumpWidget(buildTestWidget(wallet: _wallet()));
+      await tester.pumpWidget(buildTestWidget());
       await tester.pumpAndSettle();
-      expect(find.text('Historique des Revenus'), findsOneWidget);
+      expect(find.textContaining('Historique'), findsAtLeastNWidgets(1));
     });
 
-    testWidgets('shows net earnings card', (tester) async {
-      await tester.pumpWidget(buildTestWidget(wallet: _wallet()));
+    testWidgets('shows filter icon in app bar', (tester) async {
+      await tester.pumpWidget(buildTestWidget());
       await tester.pumpAndSettle();
-      expect(find.text('Gains Nets'), findsOneWidget);
+      expect(find.byIcon(Icons.filter_list), findsOneWidget);
     });
 
-    testWidgets('shows total gains and commissions', (tester) async {
-      final txs = [
-        _tx(id: 1, amount: 3000, type: 'credit', category: 'delivery_earning'),
-        _tx(id: 2, amount: 500, type: 'debit', category: 'commission'),
+    testWidgets('shows more options menu', (tester) async {
+      await tester.pumpWidget(buildTestWidget());
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.more_vert), findsOneWidget);
+    });
+
+    testWidgets('shows empty state when no deliveries', (tester) async {
+      await tester.pumpWidget(buildTestWidget(deliveries: []));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.history), findsAtLeastNWidgets(1));
+    });
+
+    testWidgets('renders with deliveries override', (tester) async {
+      final deliveries = [
+        _delivery(id: 1, reference: 'REF-001', totalAmount: 5000),
+        _delivery(id: 2, reference: 'REF-002', totalAmount: 3000),
       ];
-      await tester.pumpWidget(buildTestWidget(wallet: _wallet(transactions: txs)));
-      await tester.pumpAndSettle();
-      expect(find.text('Total Gains'), findsOneWidget);
-      expect(find.text('Commissions'), findsOneWidget);
-    });
-
-    testWidgets('shows period cards', (tester) async {
-      await tester.pumpWidget(buildTestWidget(wallet: _wallet()));
-      await tester.pumpAndSettle();
-      expect(find.text("Aujourd'hui"), findsOneWidget);
-      expect(find.text('Cette semaine'), findsOneWidget);
-      expect(find.text('Ce mois'), findsOneWidget);
-    });
-
-    testWidgets('shows commission detail', (tester) async {
-      await tester.pumpWidget(buildTestWidget(
-        wallet: _wallet(commissionAmount: 200),
-      ));
-      await tester.pumpAndSettle();
-
-      await tester.scrollUntilVisible(
-        find.text('Commission Plateforme'),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.text('Commission Plateforme'), findsOneWidget);
-    });
-
-    testWidgets('shows empty transactions state', (tester) async {
-      await tester.pumpWidget(buildTestWidget(wallet: _wallet()));
-      await tester.pumpAndSettle();
-
-      await tester.scrollUntilVisible(
-        find.text('Aucune transaction'),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.text('Aucune transaction'), findsOneWidget);
-    });
-
-    testWidgets('shows transaction history header', (tester) async {
-      await tester.pumpWidget(buildTestWidget(wallet: _wallet()));
-      await tester.pumpAndSettle();
-
-      await tester.scrollUntilVisible(
-        find.text('Historique des Transactions'),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.text('Historique des Transactions'), findsOneWidget);
-    });
-
-    testWidgets('shows transactions when available', (tester) async {
-      final txs = [
-        _tx(id: 1, amount: 2000, type: 'credit', category: 'delivery_earning'),
-        _tx(id: 2, amount: 300, type: 'debit', category: 'commission'),
-      ];
-      await tester.pumpWidget(buildTestWidget(wallet: _wallet(transactions: txs)));
-      await tester.pumpAndSettle();
-
-      await tester.scrollUntilVisible(
-        find.text('Gain livraison'),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.text('Gain livraison'), findsOneWidget);
-    });
-
-    testWidgets('shows Livraisons count card', (tester) async {
-      await tester.pumpWidget(buildTestWidget(wallet: _wallet()));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('Livraisons'), findsAtLeastNWidgets(1));
-    });
-
-    testWidgets('loading state shows indicator', (tester) async {
-      late Future<WalletData> completer;
-      completer = Future(() async {
-        await Future.delayed(const Duration(milliseconds: 100));
-        return _wallet();
-      });
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            walletDataProvider.overrideWith((ref) => completer),
-          ],
-          child: const MaterialApp(home: EarningsHistoryScreen()),
-        ),
-      );
+      await tester.pumpWidget(buildTestWidget(deliveries: deliveries));
       await tester.pump();
-      expect(find.byType(CircularProgressIndicator), findsAtLeastNWidgets(1));
+      await tester.pump(const Duration(seconds: 1));
+
+      // The screen should render a TabBar with Historique/Exports tabs
+      expect(find.byType(TabBar), findsOneWidget);
+    });
+
+    testWidgets('shows TabBar', (tester) async {
+      await tester.pumpWidget(buildTestWidget());
       await tester.pumpAndSettle();
+      expect(find.byType(TabBar), findsOneWidget);
+    });
+
+    testWidgets('shows export options in menu', (tester) async {
+      await tester.pumpWidget(buildTestWidget());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Exporter en PDF'), findsOneWidget);
+      expect(find.text('Exporter en CSV'), findsOneWidget);
     });
   });
 }

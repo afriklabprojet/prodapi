@@ -66,6 +66,7 @@ class OrderEntity extends Equatable {
   final String? pharmacyPhone;
   final String? pharmacyAddress;
   final List<OrderItemEntity> items;
+  final int itemsCount;
   final double subtotal;
   final double deliveryFee;
   final double totalAmount;
@@ -92,6 +93,7 @@ class OrderEntity extends Equatable {
     this.pharmacyPhone,
     this.pharmacyAddress,
     required this.items,
+    this.itemsCount = 0,
     required this.subtotal,
     required this.deliveryFee,
     required this.totalAmount,
@@ -109,14 +111,15 @@ class OrderEntity extends Equatable {
 
   bool get isPending => status == OrderStatus.pending;
   bool get isConfirmed => status == OrderStatus.confirmed;
+  bool get isPreparing => status == OrderStatus.preparing;
   bool get isDelivering => status == OrderStatus.delivering;
   bool get isDelivered => status == OrderStatus.delivered;
   bool get isCancelled => status == OrderStatus.cancelled;
   bool get isPaid => paymentStatus == 'paid';
-  bool get canCancel => isPending || isConfirmed;
+  bool get canCancel => isPending || isConfirmed || isPreparing;
   bool get canBeCancelled => canCancel;
   bool get needsPayment => paymentMode == PaymentMode.platform && !isPaid && !isCancelled;
-  int get itemCount => items.length;
+  int get itemCount => items.isNotEmpty ? items.length : itemsCount;
   double get total => totalAmount;
 
   String get statusLabel {

@@ -41,33 +41,34 @@ class _PharmaciesMapPageState extends State<PharmaciesMapPage> {
 
   void _createMarkers() {
     final Set<Marker> markers = {};
-    
+
     if (kDebugMode) {
       developer.log(
         '📍 Creating markers for ${widget.pharmacies.length} pharmacies',
         name: 'PharmaciesMap',
       );
     }
-    
+
     int validCount = 0;
     int invalidCount = 0;
-    
+
     for (final pharmacy in widget.pharmacies) {
       // Vérifier que les coordonnées sont valides
-      final hasValidCoords = pharmacy.latitude != null && 
+      final hasValidCoords =
+          pharmacy.latitude != null &&
           pharmacy.longitude != null &&
           pharmacy.latitude != 0.0 &&
           pharmacy.longitude != 0.0 &&
           _isValidLatitude(pharmacy.latitude!) &&
           _isValidLongitude(pharmacy.longitude!);
-      
+
       if (kDebugMode) {
         developer.log(
           '  - ${pharmacy.name}: lat=${pharmacy.latitude}, lng=${pharmacy.longitude} => ${hasValidCoords ? "✅ VALID" : "❌ INVALID"}',
           name: 'PharmaciesMap',
         );
       }
-      
+
       if (hasValidCoords) {
         validCount++;
         markers.add(
@@ -77,7 +78,7 @@ class _PharmaciesMapPageState extends State<PharmaciesMapPage> {
             infoWindow: InfoWindow(
               title: pharmacy.name,
               snippet: pharmacy.isOnDuty == true
-                  ? 'Garde ${pharmacy.dutyType != null ? "- ${pharmacy.dutyType}" : ""}' 
+                  ? 'Garde ${pharmacy.dutyType != null ? "- ${pharmacy.dutyType}" : ""}'
                   : (pharmacy.isOpen ? 'Ouverte' : 'Fermée'),
               onTap: () {
                 context.goToPharmacyDetails(pharmacy.id);
@@ -87,8 +88,8 @@ class _PharmaciesMapPageState extends State<PharmaciesMapPage> {
               pharmacy.isOnDuty == true
                   ? BitmapDescriptor.hueOrange
                   : (pharmacy.isOpen
-                      ? BitmapDescriptor.hueGreen
-                      : BitmapDescriptor.hueRed),
+                        ? BitmapDescriptor.hueGreen
+                        : BitmapDescriptor.hueRed),
             ),
           ),
         );
@@ -96,14 +97,14 @@ class _PharmaciesMapPageState extends State<PharmaciesMapPage> {
         invalidCount++;
       }
     }
-    
+
     if (kDebugMode) {
       developer.log(
         '📊 Markers summary: $validCount valid, $invalidCount invalid',
         name: 'PharmaciesMap',
       );
     }
-    
+
     // Mettre à jour les markers avec setState pour rafraîchir l'affichage
     if (mounted) {
       setState(() {
@@ -111,12 +112,12 @@ class _PharmaciesMapPageState extends State<PharmaciesMapPage> {
       });
     }
   }
-  
+
   /// Vérifie si la latitude est dans les limites valides (-90 à 90)
   bool _isValidLatitude(double lat) {
     return lat >= -90.0 && lat <= 90.0;
   }
-  
+
   /// Vérifie si la longitude est dans les limites valides (-180 à 180)
   bool _isValidLongitude(double lng) {
     return lng >= -180.0 && lng <= 180.0;
@@ -156,7 +157,9 @@ class _PharmaciesMapPageState extends State<PharmaciesMapPage> {
               margin: const EdgeInsets.only(right: 16),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: _markers.isEmpty ? Colors.orange : Colors.white.withValues(alpha: 0.2),
+                color: _markers.isEmpty
+                    ? Colors.orange
+                    : Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
@@ -171,7 +174,7 @@ class _PharmaciesMapPageState extends State<PharmaciesMapPage> {
           ),
         ],
       ),
-      body: kIsWeb 
+      body: kIsWeb
           ? _buildWebFallback()
           : Stack(
               children: [
@@ -194,19 +197,24 @@ class _PharmaciesMapPageState extends State<PharmaciesMapPage> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.orange.shade100,
+                        color: AppColors.warning.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.orange.shade300),
+                        border: Border.all(
+                          color: AppColors.warning.withValues(alpha: 0.4),
+                        ),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.warning_amber_rounded, color: Colors.orange.shade800),
+                          const Icon(
+                            Icons.warning_amber_rounded,
+                            color: AppColors.warning,
+                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
                               'Aucune pharmacie avec coordonnées GPS valides.\n${widget.pharmacies.length} pharmacie(s) sans localisation.',
-                              style: TextStyle(
-                                color: Colors.orange.shade900,
+                              style: const TextStyle(
+                                color: AppColors.textPrimary,
                                 fontSize: 13,
                               ),
                             ),
@@ -225,15 +233,15 @@ class _PharmaciesMapPageState extends State<PharmaciesMapPage> {
       children: [
         Container(
           padding: const EdgeInsets.all(16),
-          color: Colors.amber.shade100,
+          color: AppColors.info.withValues(alpha: 0.1),
           child: Row(
             children: [
-              Icon(Icons.info_outline, color: Colors.amber.shade800),
+              const Icon(Icons.info_outline, color: AppColors.info),
               const SizedBox(width: 12),
-              Expanded(
+              const Expanded(
                 child: Text(
                   'La carte n\'est pas disponible sur la version web. Utilisez la liste ci-dessous.',
-                  style: TextStyle(color: Colors.amber.shade900),
+                  style: TextStyle(color: AppColors.textPrimary),
                 ),
               ),
             ],
@@ -250,16 +258,23 @@ class _PharmaciesMapPageState extends State<PharmaciesMapPage> {
                 child: ListTile(
                   leading: CircleAvatar(
                     backgroundColor: pharmacy.isOnDuty == true
-                        ? Colors.orange
-                        : (pharmacy.isOpen ? Colors.green : Colors.red),
-                    child: const Icon(Icons.local_pharmacy, color: Colors.white),
+                        ? AppColors.onDuty
+                        : (pharmacy.isOpen
+                              ? AppColors.pharmacyOpen
+                              : AppColors.pharmacyClosed),
+                    child: const Icon(
+                      Icons.local_pharmacy,
+                      color: Colors.white,
+                    ),
                   ),
                   title: Text(
                     pharmacy.name,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   subtitle: Text(
-                    pharmacy.address.isNotEmpty ? pharmacy.address : 'Adresse non disponible',
+                    pharmacy.address.isNotEmpty
+                        ? pharmacy.address
+                        : 'Adresse non disponible',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -268,7 +283,10 @@ class _PharmaciesMapPageState extends State<PharmaciesMapPage> {
                     children: [
                       if (pharmacy.isOnDuty == true)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.orange,
                             borderRadius: BorderRadius.circular(12),
@@ -282,7 +300,9 @@ class _PharmaciesMapPageState extends State<PharmaciesMapPage> {
                         Text(
                           pharmacy.isOpen ? 'Ouverte' : 'Fermée',
                           style: TextStyle(
-                            color: pharmacy.isOpen ? Colors.green : Colors.red,
+                            color: pharmacy.isOpen
+                                ? AppColors.pharmacyOpen
+                                : AppColors.pharmacyClosed,
                             fontWeight: FontWeight.w600,
                           ),
                         ),

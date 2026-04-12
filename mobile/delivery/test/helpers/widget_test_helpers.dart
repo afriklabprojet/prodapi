@@ -43,10 +43,13 @@ Future<void> cleanupHiveForTests() async {
 /// ```
 List<Override> commonWidgetTestOverrides({
   List<Override> extra = const [],
+  bool isDark = false,
+  RichNotificationService? customRichNotif,
+  BiometricService? biometricService,
 }) {
   return [
     // Avoid Hive initialization in ThemeService
-    isDarkModeProvider.overrideWithValue(false),
+    isDarkModeProvider.overrideWithValue(isDark),
     textScaleProvider.overrideWithValue(1.0),
     reducedMotionProvider.overrideWithValue(false),
 
@@ -54,9 +57,11 @@ List<Override> commonWidgetTestOverrides({
     unreadNotificationCountProvider.overrideWithValue(0),
 
     // Avoid RichNotificationService (uses FlutterLocalNotificationsPlugin)
-    richNotificationProvider.overrideWith((ref) {
-      return FakeRichNotificationService();
-    }),
+    richNotificationProvider.overrideWith(
+      customRichNotif != null
+          ? (ref) => customRichNotif
+          : (ref) => FakeRichNotificationService(),
+    ),
 
     // Override dependent notification providers
     notificationPreferencesProvider.overrideWithValue(
@@ -64,14 +69,16 @@ List<Override> commonWidgetTestOverrides({
     ),
 
     // Avoid Battery platform channel
-    batteryStateProvider.overrideWith((ref) => Stream.value(
-      BatteryStatus(
-        level: 80,
-        mode: BatterySaverMode.normal,
-        isCharging: false,
-        lastUpdated: DateTime.now(),
+    batteryStateProvider.overrideWith(
+      (ref) => Stream.value(
+        BatteryStatus(
+          level: 80,
+          mode: BatterySaverMode.normal,
+          isCharging: false,
+          lastUpdated: DateTime.now(),
+        ),
       ),
-    )),
+    ),
 
     // Avoid Firebase Firestore - enhanced chat
     totalUnreadCountProvider.overrideWith((ref) => Stream.value(0)),
@@ -87,7 +94,9 @@ List<Override> commonWidgetTestOverrides({
     }),
 
     // Avoid biometric platform channel
-    biometricServiceProvider.overrideWithValue(FakeBiometricService()),
+    biometricServiceProvider.overrideWithValue(
+      biometricService ?? FakeBiometricService(),
+    ),
 
     ...extra,
   ];
@@ -98,7 +107,7 @@ List<Override> commonWidgetTestOverrides({
 class FakeConnectivityService extends StateNotifier<ConnectivityState>
     implements ConnectivityService {
   FakeConnectivityService()
-      : super(const ConnectivityState(status: ConnectivityStatus.online));
+    : super(const ConnectivityState(status: ConnectivityStatus.online));
 
   @override
   Future<void> checkConnectivity() async {}
@@ -145,6 +154,9 @@ class FakeRichNotificationService extends StateNotifier<List<RichNotification>>
 
   @override
   Stream<NotificationActionEvent> get actionStream => const Stream.empty();
+
+  @override
+  Future<void> savePreferences(NotificationPreferences newPrefs) async {}
 
   @override
   dynamic noSuchMethod(Invocation invocation) => null;

@@ -170,5 +170,130 @@ void main() {
       final tx = WalletTransaction.fromJson(json);
       expect(tx.type, 'debit');
     });
+
+    test('fromJson with invalid date falls back to now', () {
+      final before = DateTime.now();
+      final tx = WalletTransaction.fromJson({
+        'id': 1,
+        'amount': '100',
+        'created_at': 'not-a-date',
+      });
+      final after = DateTime.now();
+      expect(
+        tx.createdAt.isAfter(before.subtract(const Duration(seconds: 1))),
+        true,
+      );
+      expect(
+        tx.createdAt.isBefore(after.add(const Duration(seconds: 1))),
+        true,
+      );
+    });
+
+    test('fromJson with null date falls back to now', () {
+      final before = DateTime.now();
+      final tx = WalletTransaction.fromJson({'id': 1, 'amount': '100'});
+      final after = DateTime.now();
+      expect(
+        tx.createdAt.isAfter(before.subtract(const Duration(seconds: 1))),
+        true,
+      );
+      expect(
+        tx.createdAt.isBefore(after.add(const Duration(seconds: 1))),
+        true,
+      );
+    });
+
+    test('fromJson defaults id to 0 when missing', () {
+      final tx = WalletTransaction.fromJson({
+        'amount': '100',
+        'created_at': '2025-01-01T00:00:00.000Z',
+      });
+      expect(tx.id, 0);
+    });
+  });
+
+  group('WalletData statistics fallback', () {
+    test('picks values from nested statistics when not at top level', () {
+      final json = {
+        'balance': '10000',
+        'statistics': {
+          'total_topups': '5000',
+          'total_earnings': '8000',
+          'total_commissions': '1200',
+          'deliveries_count': 20,
+          'today_earnings': '500',
+        },
+      };
+      final wallet = WalletData.fromJson(json);
+      expect(wallet.totalTopups, 5000.0);
+      expect(wallet.totalEarnings, 8000.0);
+      expect(wallet.totalCommissions, 1200.0);
+      expect(wallet.deliveriesCount, 20);
+      expect(wallet.todayEarnings, 500.0);
+    });
+
+    test('top-level values take priority over statistics', () {
+      final json = {
+        'balance': '10000',
+        'total_topups': '9000',
+        'statistics': {'total_topups': '5000'},
+      };
+      final wallet = WalletData.fromJson(json);
+      expect(wallet.totalTopups, 9000.0);
+    });
+
+    test('total_delivery_earnings takes priority over total_earnings', () {
+      final json = {
+        'balance': '10000',
+        'total_delivery_earnings': '15000',
+        'total_earnings': '8000',
+      };
+      final wallet = WalletData.fromJson(json);
+      expect(wallet.totalEarnings, 15000.0);
+    });
+
+    test('falls back to total_earnings when total_delivery_earnings is 0', () {
+      final json = {
+        'balance': '10000',
+        'total_delivery_earnings': '0',
+        'total_earnings': '8000',
+      };
+      final wallet = WalletData.fromJson(json);
+      expect(wallet.totalEarnings, 8000.0);
+    });
+
+    test('pendingPayouts parses string', () {
+      final wallet = WalletData.fromJson({
+        'balance': '0',
+        'pending_payouts': '3500',
+      });
+      expect(wallet.pendingPayouts, 3500.0);
+    });
+
+    test('pendingPayouts null defaults to 0', () {
+      final wallet = WalletData.fromJson({'balance': '0'});
+      expect(wallet.pendingPayouts, 0.0);
+    });
+
+    test('availableBalance parses when present', () {
+      final wallet = WalletData.fromJson({
+        'balance': '10000',
+        'available_balance': '8000',
+      });
+      expect(wallet.availableBalance, 8000.0);
+    });
+
+    test('availableBalance is null when missing', () {
+      final wallet = WalletData.fromJson({'balance': '10000'});
+      expect(wallet.availableBalance, isNull);
+    });
+
+    test('todayEarnings from statistics', () {
+      final wallet = WalletData.fromJson({
+        'balance': '0',
+        'statistics': {'today_earnings': '1250'},
+      });
+      expect(wallet.todayEarnings, 1250.0);
+    });
   });
 }

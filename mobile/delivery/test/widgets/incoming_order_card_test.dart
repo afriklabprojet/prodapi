@@ -61,7 +61,9 @@ void main() {
       await tester.pumpWidget(buildCard());
       await tester.pumpAndSettle();
 
-      expect(find.text('2500.0 F'), findsOneWidget);
+      final hasCompactAmount = find.text('2500 F').evaluate().isNotEmpty;
+      final hasGroupedAmount = find.text('2 500 F').evaluate().isNotEmpty;
+      expect(hasCompactAmount || hasGroupedAmount, isTrue);
     });
 
     testWidgets('displays pharmacy name', (tester) async {

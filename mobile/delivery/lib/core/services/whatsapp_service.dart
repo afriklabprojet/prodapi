@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../config/app_config.dart';
 
 /// Service centralisé WhatsApp pour l'application coursier
 /// Gère l'ouverture de conversations WhatsApp avec clients, pharmacies, support
@@ -7,8 +8,8 @@ class WhatsAppService {
   /// Code pays par défaut (Côte d'Ivoire)
   static const String _defaultCountryCode = '+225';
 
-  /// Numéro de support par défaut
-  static const String _defaultSupportNumber = '+22507000000000';
+  /// Numéro de support par défaut (depuis AppConfig)
+  static String get _defaultSupportNumber => '+${AppConfig.supportWhatsApp}';
 
   // ============================================================
   // MÉTHODES PUBLIQUES
@@ -25,7 +26,9 @@ class WhatsAppService {
     final cleanPhone = normalizePhone(phoneNumber);
     if (cleanPhone.isEmpty) return false;
 
-    final encodedMessage = message != null ? Uri.encodeComponent(message) : null;
+    final encodedMessage = message != null
+        ? Uri.encodeComponent(message)
+        : null;
     final queryParam = encodedMessage != null ? '?text=$encodedMessage' : '';
 
     // Essayer wa.me d'abord (fonctionne sur tous les appareils)
@@ -53,7 +56,9 @@ class WhatsAppService {
     String? message,
   }) async {
     final number = supportNumber ?? _defaultSupportNumber;
-    final msg = message ?? 'Bonjour, je suis coursier DR-PHARMA et j\'ai besoin d\'aide.';
+    final msg =
+        message ??
+        'Bonjour, je suis coursier DR-PHARMA et j\'ai besoin d\'aide.';
 
     return openChat(phoneNumber: number, message: msg);
   }
@@ -145,9 +150,9 @@ class WhatsAppService {
   }) async {
     if (phoneNumber.isEmpty) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(emptyNumberMessage)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(emptyNumberMessage)));
       }
       return;
     }
@@ -168,9 +173,9 @@ class WhatsAppService {
     }
 
     if (!success && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(errorMessage)));
     }
   }
 

@@ -7,14 +7,15 @@ import '../../domain/usecases/delete_avatar_usecase.dart';
 import 'profile_notifier.dart';
 import 'profile_state.dart';
 
-final profileProvider =
-    StateNotifierProvider<ProfileNotifier, ProfileState>((ref) {
+final profileProvider = StateNotifierProvider<ProfileNotifier, ProfileState>((
+  ref,
+) {
   final repository = ref.watch(profileRepositoryProvider);
 
   return ProfileNotifier(
-    getProfileUseCase: GetProfileUseCase(repository),
-    updateProfileUseCase: UpdateProfileUseCase(repository),
-    uploadAvatarUseCase: UploadAvatarUseCase(repository),
-    deleteAvatarUseCase: DeleteAvatarUseCase(repository),
+    getProfileUseCase: GetProfileUseCase(repository: repository),
+    updateProfileUseCase: UpdateProfileUseCase(repository: repository),
+    uploadAvatarUseCase: UploadAvatarUseCase(repository: repository),
+    deleteAvatarUseCase: DeleteAvatarUseCase(repository: repository),
   );
 });

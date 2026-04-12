@@ -6,7 +6,7 @@ class NotificationEntity extends Equatable {
   final String type;
   final String title;
   final String body;
-  final Map<String, dynamic> data;
+  final Map<String, dynamic>? data;
   final bool isRead;
   final DateTime createdAt;
 
@@ -15,7 +15,7 @@ class NotificationEntity extends Equatable {
     required this.type,
     required this.title,
     required this.body,
-    this.data = const {},
+    this.data,
     required this.isRead,
     required this.createdAt,
   });

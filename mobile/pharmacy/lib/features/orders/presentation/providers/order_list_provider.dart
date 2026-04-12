@@ -1,48 +1,99 @@
+import 'package:dartz/dartz.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/errors/failure.dart';
+import '../../domain/enums/order_status.dart';
 import '../../domain/repositories/order_repository.dart';
 import '../providers/order_di_providers.dart';
 import 'state/order_list_state.dart';
 
-class OrderListNotifier extends StateNotifier<OrderListState> {
-  final OrderRepository _repository;
+/// Gère la liste des commandes avec pagination cursor-based.
+class OrderListNotifier extends AutoDisposeNotifier<OrderListState> {
+  late final OrderRepository _repository;
 
-  OrderListNotifier(this._repository) : super(const OrderListState(activeFilter: 'pending')) {
-    fetchOrders();
+  @override
+  OrderListState build() {
+    _repository = ref.watch(orderRepositoryProvider);
+    // Defer initial fetch to avoid "Bad state: uninitialized" error
+    Future.microtask(fetchOrders);
+    return const OrderListState();
   }
 
-  Future<void> fetchOrders({String? status}) async {
-    // If status passed, update filter, otherwise use current active filter
-    if (status != null) {
-      state = state.copyWith(activeFilter: status);
+  // ============================================================
+  // FETCH & PAGINATION
+  // ============================================================
+
+  Future<void> fetchOrders({OrderStatusFilter? filter}) async {
+    if (filter != null) {
+      state = state.copyWith(activeFilter: filter);
     }
 
-    state = state.copyWith(status: OrderStatus.loading, errorMessage: null);
+    state = state.copyWith(
+      status: OrderLoadStatus.loading,
+      errorMessage: null,
+      pagination: const PaginationMeta(),
+    );
 
-    // If filter is 'all', pass null to repository
-    final filterToSend = state.activeFilter == 'all'
-        ? null
-        : state.activeFilter;
+    final result = await _repository.getOrders(
+      status: state.activeFilter.apiValueOrNull,
+    );
 
-    final result = await _repository.getOrders(status: filterToSend);
+    _handlePaginatedResult(result, replace: true);
+  }
 
+  /// Charge la page suivante (infinite scroll) via cursor
+  Future<void> loadMore() async {
+    if (!state.hasMore || state.isLoadingMore) return;
+
+    state = state.copyWith(status: OrderLoadStatus.loadingMore);
+
+    final result = await _repository.getOrders(
+      status: state.activeFilter.apiValueOrNull,
+      cursor: state.pagination.nextCursor,
+    );
+
+    _handlePaginatedResult(result, replace: false);
+  }
+
+  /// Gère le résultat paginé - `replace: true` remplace, `false` ajoute
+  void _handlePaginatedResult(
+    Either<Failure, PaginatedOrdersResult> result, {
+    required bool replace,
+  }) {
     result.fold(
       (failure) => state = state.copyWith(
-        status: OrderStatus.error,
+        status: replace ? OrderLoadStatus.error : OrderLoadStatus.loaded,
         errorMessage: failure.message,
       ),
-      (orders) =>
-          state = state.copyWith(status: OrderStatus.loaded, orders: orders),
+      (paginated) {
+        state = state.copyWith(
+          status: OrderLoadStatus.loaded,
+          orders: replace
+              ? paginated.orders
+              : [...state.orders, ...paginated.orders],
+          pagination: PaginationMeta(
+            nextCursor: paginated.nextCursor,
+            perPage: paginated.perPage,
+            total: paginated.total,
+            hasMore: paginated.hasMore,
+          ),
+        );
+      },
     );
   }
 
-  void setFilter(String filter) {
+  void setFilter(OrderStatusFilter filter) {
     if (state.activeFilter != filter) {
-      fetchOrders(status: filter);
+      fetchOrders(filter: filter);
     }
   }
 
-  Future<bool> confirmOrder(int orderId) async {
-    final result = await _repository.confirmOrder(orderId);
+  // ============================================================
+  // ORDER ACTIONS
+  // ============================================================
+
+  /// Helper générique pour les actions sur une commande
+  Future<bool> _executeAction(Future<Either<Failure, dynamic>> action) async {
+    final result = await action;
     return result.fold(
       (failure) {
         state = state.copyWith(errorMessage: failure.message);
@@ -55,68 +106,39 @@ class OrderListNotifier extends StateNotifier<OrderListState> {
     );
   }
 
-  Future<bool> markOrderReady(int orderId) async {
-    final result = await _repository.markOrderReady(orderId);
-    return result.fold(
-      (failure) {
-        state = state.copyWith(errorMessage: failure.message);
-        return false;
-      },
-      (_) {
-        fetchOrders();
-        return true;
-      },
-    );
-  }
+  Future<bool> confirmOrder(int orderId) =>
+      _executeAction(_repository.confirmOrder(orderId));
 
-  Future<bool> rejectOrder(int orderId, {String? reason}) async {
-    final result = await _repository.rejectOrder(orderId, reason: reason);
-    return result.fold(
-      (failure) {
-        state = state.copyWith(errorMessage: failure.message);
-        return false;
-      },
-      (_) {
-        fetchOrders();
-        return true;
-      },
-    );
-  }
+  Future<bool> markOrderReady(int orderId) =>
+      _executeAction(_repository.markOrderReady(orderId));
 
-  Future<bool> markOrderDelivered(int orderId) async {
-    final result = await _repository.markOrderDelivered(orderId);
-    return result.fold(
-      (failure) {
-        state = state.copyWith(errorMessage: failure.message);
-        return false;
-      },
-      (_) {
-        fetchOrders();
-        return true;
-      },
-    );
-  }
+  Future<bool> rejectOrder(int orderId, {String? reason}) =>
+      _executeAction(_repository.rejectOrder(orderId, reason: reason));
 
-  Future<void> updateOrderStatus(int orderId, String status) async {
-      // General purpose update if repository supports it, 
-      // or map string status to specific methods
-      if (status == 'ready') {
-          await markOrderReady(orderId);
-      } else if (status == 'confirmed') {
-          await confirmOrder(orderId);
-      } else if (status == 'rejected') {
-          await rejectOrder(orderId);
-      } else if (status == 'delivered') {
-          await markOrderDelivered(orderId);
-      } else {
-        // Fallback or other status not implemented on repo yet
-        // For now, reload orders to reflect changes made elsewhere
-        await fetchOrders(); 
-      }
+  Future<bool> markOrderDelivered(int orderId) =>
+      _executeAction(_repository.markOrderDelivered(orderId));
+
+  Future<void> updateOrderStatus(int orderId, OrderStatus status) async {
+    switch (status) {
+      case OrderStatus.ready:
+        await markOrderReady(orderId);
+      case OrderStatus.confirmed:
+        await confirmOrder(orderId);
+      case OrderStatus.rejected:
+        await rejectOrder(orderId);
+      case OrderStatus.delivered:
+        await markOrderDelivered(orderId);
+      default:
+        await fetchOrders();
+    }
   }
 }
 
+// ============================================================
+// PROVIDER
+// ============================================================
+
 final orderListProvider =
-    StateNotifierProvider.autoDispose<OrderListNotifier, OrderListState>((ref) {
-      return OrderListNotifier(ref.watch(orderRepositoryProvider));
-    });
+    NotifierProvider.autoDispose<OrderListNotifier, OrderListState>(
+      OrderListNotifier.new,
+    );

@@ -5,9 +5,8 @@ import 'package:drpharma_client/features/orders/presentation/providers/delivery_
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-
   setUp(() async {
-  SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({});
   });
 
   group('DeliveryFeeProvider Tests', () {
@@ -16,7 +15,7 @@ void main() {
     });
 
     test('deliveryFeeProvider should be a StateNotifierProvider', () {
-      expect(deliveryFeeProvider, isA<AutoDisposeStateNotifierProvider>());
+      expect(deliveryFeeProvider, isA<StateNotifierProvider>());
     });
   });
 }

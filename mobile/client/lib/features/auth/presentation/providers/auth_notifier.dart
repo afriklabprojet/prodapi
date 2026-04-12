@@ -41,26 +41,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
     );
   }
 
-  Future<void> login({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> login({required String email, required String password}) async {
     _safeSetState(const AuthState.loading());
 
-    final result = await loginUseCase(
-      email: email,
-      password: password,
-    );
+    final result = await loginUseCase(email: email, password: password);
 
     if (!mounted) return;
 
     result.fold(
       (failure) {
         if (failure is ValidationFailure) {
-          _safeSetState(AuthState.error(
-            message: failure.message,
-            errors: failure.errors,
-          ));
+          _safeSetState(
+            AuthState.error(message: failure.message, errors: failure.errors),
+          );
         } else {
           _safeSetState(AuthState.error(message: failure.message));
         }
@@ -95,10 +88,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     result.fold(
       (failure) {
         if (failure is ValidationFailure) {
-          _safeSetState(AuthState.error(
-            message: failure.message,
-            errors: failure.errors,
-          ));
+          _safeSetState(
+            AuthState.error(message: failure.message, errors: failure.errors),
+          );
         } else {
           _safeSetState(AuthState.error(message: failure.message));
         }
@@ -122,16 +114,26 @@ class AuthNotifier extends StateNotifier<AuthState> {
     );
   }
 
+  /// Clear auth state immediately without loading state.
+  /// Use this when navigating back from OTP page to avoid showing splash.
+  void clearAuthStateSync() {
+    _safeSetState(const AuthState.unauthenticated());
+    // Perform logout in background (fire and forget)
+    logoutUseCase();
+  }
+
   /// Vérifie l'OTP Firebase et met à jour l'état d'authentification
   Future<Either<Failure, AuthResponseEntity>> verifyFirebaseOtp({
     required String phone,
     required String firebaseUid,
+    required String firebaseIdToken,
   }) async {
     _safeSetState(const AuthState.loading());
 
     final result = await authRepository.verifyFirebaseOtp(
       phone: phone,
       firebaseUid: firebaseUid,
+      firebaseIdToken: firebaseIdToken,
     );
 
     if (!mounted) return result;
@@ -139,10 +141,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     result.fold(
       (failure) {
         if (failure is ValidationFailure) {
-          _safeSetState(AuthState.error(
-            message: failure.message,
-            errors: failure.errors,
-          ));
+          _safeSetState(
+            AuthState.error(message: failure.message, errors: failure.errors),
+          );
         } else {
           _safeSetState(AuthState.error(message: failure.message));
         }
@@ -172,10 +173,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     result.fold(
       (failure) {
         if (failure is ValidationFailure) {
-          _safeSetState(AuthState.error(
-            message: failure.message,
-            errors: failure.errors,
-          ));
+          _safeSetState(
+            AuthState.error(message: failure.message, errors: failure.errors),
+          );
         } else {
           _safeSetState(AuthState.error(message: failure.message));
         }
@@ -199,5 +199,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (state.status == AuthStatus.error) {
       _safeSetState(const AuthState.unauthenticated());
     }
+  }
+
+  /// Se connecte ou crée un compte via Google Sign-In
+  Future<void> loginWithGoogle() async {
+    _safeSetState(const AuthState.loading());
+
+    final result = await authRepository.loginWithGoogle();
+
+    if (!mounted) return;
+
+    result.fold(
+      (failure) => _safeSetState(AuthState.error(message: failure.message)),
+      (authResponse) =>
+          _safeSetState(AuthState.authenticated(authResponse.user)),
+    );
   }
 }

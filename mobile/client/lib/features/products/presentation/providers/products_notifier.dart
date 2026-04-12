@@ -1,6 +1,5 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../domain/entities/product_entity.dart';
 import '../../domain/usecases/get_product_details_usecase.dart';
 import '../../domain/usecases/get_products_usecase.dart';
 import '../../domain/usecases/search_products_usecase.dart';
@@ -13,8 +12,6 @@ class ProductsNotifier extends StateNotifier<ProductsState> {
   final GetProductDetailsUseCase getProductDetailsUseCase;
   final GetProductsByCategoryUseCase getProductsByCategoryUseCase;
 
-  Timer? _debounce;
-
   ProductsNotifier({
     required this.getProductsUseCase,
     required this.searchProductsUseCase,
@@ -22,12 +19,6 @@ class ProductsNotifier extends StateNotifier<ProductsState> {
     required this.getProductsByCategoryUseCase,
   }) : super(const ProductsState.initial()) {
     loadProducts();
-  }
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    super.dispose();
   }
 
   Future<void> loadProducts({bool refresh = false}) async {
@@ -160,38 +151,36 @@ class ProductsNotifier extends StateNotifier<ProductsState> {
   }
 
   Future<void> searchProducts(String query) async {
-    _debounce?.cancel();
+    // Note: debounce is handled in the UI layer (products_list_page.dart)
+    // No additional debounce here to avoid double delay
 
     if (query.trim().isEmpty) {
       loadProducts(refresh: true);
       return;
     }
 
-    // Debounce 400ms to avoid excessive API calls while typing
-    _debounce = Timer(const Duration(milliseconds: 400), () async {
-      if (!mounted) return;
-      state = const ProductsState.loading();
+    if (!mounted) return;
+    state = const ProductsState.loading();
 
-      final result = await searchProductsUseCase(query: query);
+    final result = await searchProductsUseCase(query: query);
 
-      if (!mounted) return;
-      result.fold(
-        (failure) {
-          state = state.copyWith(
-            status: ProductsStatus.error,
-            errorMessage: failure.message,
-          );
-        },
-        (products) {
-          state = ProductsState(
-            status: ProductsStatus.loaded,
-            products: products,
-            currentPage: 1,
-            hasMore: products.length >= 20,
-          );
-        },
-      );
-    });
+    if (!mounted) return;
+    result.fold(
+      (failure) {
+        state = state.copyWith(
+          status: ProductsStatus.error,
+          errorMessage: failure.message,
+        );
+      },
+      (products) {
+        state = ProductsState(
+          status: ProductsStatus.loaded,
+          products: products,
+          currentPage: 1,
+          hasMore: products.length >= 20,
+        );
+      },
+    );
   }
 
   void clearError() {
@@ -203,5 +192,22 @@ class ProductsNotifier extends StateNotifier<ProductsState> {
             : ProductsStatus.loaded,
       );
     }
+  }
+
+  /// Clears search results without loading more products
+  void clearSearch() {
+    state = state.copyWith(
+      products: [],
+      status: ProductsStatus.initial,
+    );
+  }
+
+  /// Get product by ID - returns product or null if not found  
+  Future<ProductEntity?> getProductById(int productId) async {
+    final result = await getProductDetailsUseCase(productId);
+    return result.fold(
+      (failure) => null,
+      (product) => product,
+    );
   }
 }

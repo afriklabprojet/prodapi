@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../domain/usecases/get_featured_pharmacies_usecase.dart';
 import '../../domain/usecases/get_nearby_pharmacies_usecase.dart';
 import '../../domain/usecases/get_on_duty_pharmacies_usecase.dart';
@@ -37,7 +38,7 @@ class PharmaciesNotifier extends StateNotifier<PharmaciesState> {
 
     final result = await getPharmaciesUseCase(
       page: page,
-      perPage: 20,
+      perPage: AppConstants.defaultPageSize,
     );
 
     result.fold(
@@ -48,7 +49,8 @@ class PharmaciesNotifier extends StateNotifier<PharmaciesState> {
         );
       },
       (pharmacies) {
-        final hasReachedMax = pharmacies.isEmpty || pharmacies.length < 20;
+        // Le backend retourne toutes les pharmacies d'un coup (pas de pagination réelle)
+        // donc hasReachedMax est toujours true pour éviter les requêtes infinies
         final updatedList = refresh
             ? pharmacies
             : [...state.pharmacies, ...pharmacies];
@@ -56,7 +58,7 @@ class PharmaciesNotifier extends StateNotifier<PharmaciesState> {
         state = state.copyWith(
           status: PharmaciesStatus.success,
           pharmacies: updatedList,
-          hasReachedMax: hasReachedMax,
+          hasReachedMax: true,
           currentPage: page + 1,
           errorMessage: null,
         );
@@ -156,7 +158,7 @@ class PharmaciesNotifier extends StateNotifier<PharmaciesState> {
     state = state.copyWith(clearSelectedPharmacy: true);
   }
 
-  Future<void> fetchFeaturedPharmacies() async {
+  Future<void> fetchFeaturedPharmacies({bool isRetry = false}) async {
     // Set loading state for featured pharmacies
     state = state.copyWith(isFeaturedLoading: true);
     
@@ -164,11 +166,16 @@ class PharmaciesNotifier extends StateNotifier<PharmaciesState> {
 
     result.fold(
       (failure) {
-        // Mark as loaded even on failure to stop loading indicator
         state = state.copyWith(
           isFeaturedLoading: false,
-          isFeaturedLoaded: true,
+          isFeaturedLoaded: isRetry, // only mark as loaded on retry, not first attempt
         );
+        // Auto-retry once after 3 seconds on first failure
+        if (!isRetry) {
+          Future.delayed(const Duration(seconds: 3), () {
+            fetchFeaturedPharmacies(isRetry: true);
+          });
+        }
       },
       (pharmacies) {
         state = state.copyWith(

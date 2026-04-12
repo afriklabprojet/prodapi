@@ -1,21 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'package:drpharma_client/core/widgets/empty_state.dart';
-import 'package:drpharma_client/l10n/app_localizations.dart';
 
 void main() {
   Widget createTestWidget(Widget child) {
     return MaterialApp(
       locale: const Locale('fr'),
-      localizationsDelegates: const [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(body: child),
     );
   }
@@ -69,8 +60,9 @@ void main() {
       expect(find.text('Ajoutez des produits pour commencer'), findsOneWidget);
     });
 
-    testWidgets('should not display action button when no callback',
-        (tester) async {
+    testWidgets('should not display action button when no callback', (
+      tester,
+    ) async {
       // Arrange
       await tester.pumpWidget(
         createTestWidget(
@@ -184,24 +176,19 @@ void main() {
   group('EmptyProductsState', () {
     testWidgets('should display products empty state', (tester) async {
       // Arrange
-      await tester.pumpWidget(
-        createTestWidget(
-          const EmptyProductsState(),
-        ),
-      );
+      await tester.pumpWidget(createTestWidget(const EmptyProductsState()));
 
       // Assert
       expect(find.text('Aucun produit'), findsOneWidget);
       expect(find.byIcon(Icons.inventory_2_outlined), findsOneWidget);
     });
 
-    testWidgets('should show refresh button when callback provided',
-        (tester) async {
+    testWidgets('should show refresh button when callback provided', (
+      tester,
+    ) async {
       // Arrange
       await tester.pumpWidget(
-        createTestWidget(
-          EmptyProductsState(onRefresh: () {}),
-        ),
+        createTestWidget(EmptyProductsState(onRefresh: () {})),
       );
 
       // Assert
@@ -212,11 +199,7 @@ void main() {
   group('EmptyOrdersState', () {
     testWidgets('should display orders empty state', (tester) async {
       // Arrange
-      await tester.pumpWidget(
-        createTestWidget(
-          const EmptyOrdersState(),
-        ),
-      );
+      await tester.pumpWidget(createTestWidget(const EmptyOrdersState()));
 
       // Assert
       expect(find.text('Aucune commande'), findsOneWidget);
@@ -227,11 +210,7 @@ void main() {
   group('EmptyCartState', () {
     testWidgets('should display cart empty state', (tester) async {
       // Arrange
-      await tester.pumpWidget(
-        createTestWidget(
-          const EmptyCartState(),
-        ),
-      );
+      await tester.pumpWidget(createTestWidget(const EmptyCartState()));
 
       // Assert
       expect(find.text('Panier vide'), findsOneWidget);

@@ -4,7 +4,7 @@
   "appName": "DR-PHARMA Coursier",
   "@appName": { "description": "Nom de l'application" },
   
-  "welcome": "Bienvenue",
+  "welcome": "Bienvenue sur",
   "login": "Connexion",
   "logout": "Déconnexion",
   "email": "Email",
@@ -282,5 +282,166 @@
     "placeholders": {
       "level": { "type": "int" }
     }
+  },
+  
+  "approachingPharmacy": "Vous approchez de la pharmacie {name}",
+  "@approachingPharmacy": {
+    "description": "Notification géofence pharmacie",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  
+  "approachingClient": "Vous approchez du client {name}",
+  "@approachingClient": {
+    "description": "Notification géofence client",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  
+  "arrivedAtPharmacy": "Vous êtes arrivé à la pharmacie !",
+  "@arrivedAtPharmacy": { "description": "Notification arrivée pharmacie" },
+  
+  "arrivedAtClient": "Vous êtes arrivé chez le client !",
+  "@arrivedAtClient": { "description": "Notification arrivée client" },
+  
+  "arrivedAtDestination": "Vous êtes arrivé à destination.",
+  "@arrivedAtDestination": { "description": "Message TTS arrivée" },
+  
+  "pickupPoint": "Récupération",
+  "@pickupPoint": { "description": "Point de récupération" },
+  
+  "deliveryPoint": "Livraison",
+  "@deliveryPoint": { "description": "Point de livraison" },
+  
+  "pullToRefresh": "Tirez vers le bas pour actualiser",
+  "@pullToRefresh": { "description": "Indication pull-to-refresh" },
+  
+  "noDeliveriesFound": "Aucune course trouvée",
+  "@noDeliveriesFound": { "description": "Liste vide" },
+  
+  "geofenceNotificationHint": "Notification automatique quand vous approchez de la pharmacie ou du client",
+  "@geofenceNotificationHint": { "description": "Description paramètre géofence" },
+  
+  "verificationSuccess": "Vérification d'identité réussie !",
+  "@verificationSuccess": { "description": "Succès liveness" },
+  
+  "verificationFailed": "Vérification échouée: {error}",
+  "@verificationFailed": {
+    "description": "Échec liveness",
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  
+  "selfieCaptured": "Selfie capturé avec succès",
+  "@selfieCaptured": { "description": "Succès capture selfie" },
+  
+  "imageTooSmall": "Image trop petite. Rapprochez-vous de la caméra.",
+  "@imageTooSmall": { "description": "Erreur taille image" },
+  
+  "registrationSuccess": "Inscription réussie !",
+  "@registrationSuccess": { "description": "Succès inscription" },
+  
+  "registrationPending": "Votre demande a été soumise et est en cours de vérification.",
+  "@registrationPending": { "description": "Info inscription" },
+  
+  "phoneNumberUnavailable": "Numéro non disponible",
+  "cannotLaunchNavigation": "Impossible de lancer la navigation avec {app}",
+  "@cannotLaunchNavigation": {
+    "placeholders": { "app": { "type": "String" } }
+  },
+  "cannotCall": "Impossible d'appeler {phone}",
+  "@cannotCall": {
+    "placeholders": { "phone": { "type": "String" } }
+  },
+  "quickMessage": "Message rapide",
+  "enRouteToPharmacy": "Je suis en route vers votre pharmacie",
+  "arrivedAtPharmacyMsg": "Je suis arrivé devant la pharmacie",
+  "isOrderReady": "La commande est-elle prête ?",
+  "cannotFindAddress": "Je ne trouve pas l'adresse",
+  "arrivingInFiveMin": "J'arrive dans 5 minutes",
+  "atYourBuilding": "Je suis en bas de votre immeuble",
+  "pleaseComeDown": "Pouvez-vous descendre svp ?",
+  "cannotFindYourAddress": "Je ne trouve pas votre adresse",
+  "customerNotResponding": "Le client ne répond pas",
+  
+  "onboardingTitle1": "Bienvenue Livreur",
+  "onboardingDesc1": "Rejoignez l'équipe DR-PHARMA et livrez des médicaments essentiels. Chaque livraison compte !",
+  "onboardingTitle2": "Gagnez plus",
+  "onboardingDesc2": "Suivez vos gains en temps réel, complétez des défis et montez en niveau pour débloquer des bonus.",
+  "onboardingTitle3": "Comment ça marche ?",
+  "onboardingDesc3": "Une commission est déduite de votre wallet à chaque livraison. Le reste est à vous ! Retirez vos gains à tout moment.",
+  "getStarted": "Commencer",
+  "skip": "Passer",
+  
+  "errorOccurredRetry": "Une erreur est survenue. Veuillez réessayer.",
+  "connectionTimeout": "La connexion a pris trop de temps. Veuillez réessayer.",
+  "connectionTimeoutCheck": "La connexion a pris trop de temps. Vérifiez votre connexion.",
+  "requestCancelled": "Requête annulée",
+  "securityError": "Erreur de sécurité. Contactez le support.",
+  "unexpectedError": "Une erreur inattendue est survenue",
+  "slowConnection": "Connexion trop lente. Vérifiez votre connexion internet.",
+  "slowUpload": "Envoi des données trop lent. Réessayez.",
+  "serverTimeout": "Le serveur met trop de temps à répondre.",
+  "cannotConnectServer": "Impossible de se connecter au serveur. Vérifiez votre connexion.",
+  "noInternetConnection": "Pas de connexion internet",
+  "unknownConnectionError": "Erreur de connexion inconnue",
+  "serverCommunicationError": "Erreur de communication avec le serveur",
+  "invalidRequest": "Requête invalide. Vérifiez les données saisies.",
+  "accessDenied": "Accès refusé. Vous n'avez pas les permissions nécessaires.",
+  "resourceNotFound": "Ressource introuvable.",
+  "timeoutRetry": "Délai d'attente dépassé. Réessayez.",
+  "dataConflict": "Conflit de données. L'élément existe peut-être déjà.",
+  "invalidData": "Données invalides. Vérifiez les informations saisies.",
+  "tooManyRequests": "Trop de requêtes. Attendez un moment avant de réessayer.",
+  "internalServerError": "Erreur interne du serveur. Réessayez plus tard.",
+  "serviceUnavailable": "Service temporairement indisponible.",
+  
+  "estimatedDuration": "Durée estimée",
+  "estimatedDurationMinutes": "{minutes} min estimées",
+  "@estimatedDurationMinutes": {
+    "placeholders": { "minutes": { "type": "int" } }
+  },
+
+  "biometricAuthReason": "Authentifiez-vous pour accéder à l'application",
+  "loginWithCredentialsFirst": "Veuillez d'abord vous connecter avec vos identifiants",
+  "biometricError": "Erreur biométrique: {error}",
+  "@biometricError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "pleaseEnterPhoneNumber": "Veuillez entrer votre numéro",
+  "connectionFailed": "Connexion impossible. Vérifiez votre connexion internet.",
+  "incorrectCredentials": "Identifiants incorrects",
+  "checkEmailAndPassword": "Vérifiez votre email et mot de passe",
+  "resetPassword": "Réinitialiser le mot de passe",
+  "resetPasswordPhoneDesc": "Entrez votre numéro de téléphone. Un code OTP vous sera envoyé par WhatsApp ou SMS.",
+  "resetPasswordEmailDesc": "Entrez votre email et nous vous enverrons un lien pour réinitialiser votre mot de passe.",
+  "phoneNumber": "Numéro de téléphone",
+  "phoneHint": "+225 07 00 00 00 00",
+  "emailAddress": "Adresse email",
+  "emailHint": "votre@email.com",
+  "pleaseEnterEmail": "Veuillez entrer votre email",
+  "invalidEmail": "Email invalide",
+  "resetLinkSent": "Un lien de réinitialisation a été envoyé à votre email.",
+  "sendOtpCode": "Envoyer le code OTP",
+  "sendLink": "Envoyer le lien",
+  "courierSpace": "ESPACE LIVREUR",
+  "loginSubtitle": "Connectez-vous pour commencer vos livraisons",
+  "emailOrPhone": "Email ou Téléphone",
+  "fieldRequired": "Ce champ est requis",
+  "sendCode": "ENVOYER LE CODE",
+  "signInButton": "SE CONNECTER",
+  "or": "ou",
+  "biometricLogin": "Connexion biométrique",
+  "noAccountYet": "Pas encore de compte ? ",
+  "becomeCourier": "Devenir livreur",
+  "secure": "Sécurisé",
+  "certified": "Certifié",
+  "support247": "Support 24/7",
+  "versionLabel": "Version {version}",
+  "@versionLabel": {
+    "placeholders": { "version": { "type": "String" } }
   }
 }

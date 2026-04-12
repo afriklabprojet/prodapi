@@ -1,4 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
+import '../../../../core/config/env_config.dart';
 import '../../domain/entities/user_entity.dart';
 
 part 'user_model.g.dart';
@@ -21,6 +22,12 @@ class UserModel {
   final String? phoneVerifiedAt;
   @JsonKey(name: 'created_at')
   final String? createdAt;
+  @JsonKey(name: 'total_orders', defaultValue: 0)
+  final int totalOrders;
+  @JsonKey(name: 'completed_orders', defaultValue: 0)
+  final int completedOrders;
+  @JsonKey(name: 'total_spent', defaultValue: 0.0)
+  final dynamic totalSpent;
 
   UserModel({
     required this.id,
@@ -33,6 +40,9 @@ class UserModel {
     this.emailVerifiedAt,
     this.phoneVerifiedAt,
     this.createdAt,
+    this.totalOrders = 0,
+    this.completedOrders = 0,
+    this.totalSpent = 0.0,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) =>
@@ -40,14 +50,27 @@ class UserModel {
 
   Map<String, dynamic> toJson() => _$UserModelToJson(this);
 
+  String? _buildAvatarUrl(String? path) {
+    if (path == null || path.isEmpty) return null;
+    if (path.startsWith('http')) return path;
+    return '${EnvConfig.apiBaseUrl}$path';
+  }
+
+  double _parseDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
+  }
+
   UserEntity toEntity() {
     return UserEntity(
       id: id,
       name: name,
       email: email,
       phone: phone,
-      address: address, // Mapping correct: address → address
-      profilePicture: avatar,
+      address: address,
+      profilePicture: _buildAvatarUrl(avatar),
       emailVerifiedAt: emailVerifiedAt != null
           ? DateTime.tryParse(emailVerifiedAt!)
           : null,
@@ -57,6 +80,9 @@ class UserModel {
       createdAt: createdAt != null
           ? (DateTime.tryParse(createdAt!) ?? DateTime.now())
           : DateTime.now(),
+      totalOrders: totalOrders,
+      completedOrders: completedOrders,
+      totalSpent: _parseDouble(totalSpent),
     );
   }
 }

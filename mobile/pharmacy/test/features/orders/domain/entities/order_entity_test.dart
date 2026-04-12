@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drpharma_pharmacy/features/orders/domain/entities/order_entity.dart';
+import 'package:drpharma_pharmacy/features/orders/domain/enums/order_status.dart';
 
 import '../../../../test_helpers.dart';
 
@@ -9,7 +10,7 @@ void main() {
       final order = OrderEntity(
         id: 1,
         reference: 'DR-TEST001',
-        status: 'pending',
+        status: OrderStatus.pending,
         paymentMode: 'platform',
         totalAmount: 5000.0,
         customerName: 'John Doe',
@@ -19,7 +20,7 @@ void main() {
 
       expect(order.id, 1);
       expect(order.reference, 'DR-TEST001');
-      expect(order.status, 'pending');
+      expect(order.status, OrderStatus.pending);
       expect(order.paymentMode, 'platform');
       expect(order.totalAmount, 5000.0);
       expect(order.customerName, 'John Doe');
@@ -47,7 +48,7 @@ void main() {
       final order = OrderEntity(
         id: 1,
         reference: 'DR-TEST001',
-        status: 'confirmed',
+        status: OrderStatus.confirmed,
         paymentMode: 'delivery',
         totalAmount: 3500.0,
         customerName: 'John Doe',
@@ -73,18 +74,18 @@ void main() {
 
     test('should copy OrderEntity with new values', () {
       final original = TestDataFactory.createOrder(
-        status: 'pending',
+        status: OrderStatus.pending,
         totalAmount: 5000.0,
       );
 
       final updated = original.copyWith(
-        status: 'confirmed',
+        status: OrderStatus.confirmed,
         pharmacyNotes: 'En préparation',
       );
 
       expect(updated.id, original.id);
       expect(updated.reference, original.reference);
-      expect(updated.status, 'confirmed');
+      expect(updated.status, OrderStatus.confirmed);
       expect(updated.pharmacyNotes, 'En préparation');
       expect(updated.totalAmount, original.totalAmount);
     });
@@ -93,11 +94,11 @@ void main() {
       final orders = TestDataFactory.createOrderList(count: 5);
 
       expect(orders.length, 5);
-      expect(orders[0].status, 'pending');
-      expect(orders[1].status, 'confirmed');
-      expect(orders[2].status, 'ready');
-      expect(orders[3].status, 'delivered');
-      expect(orders[4].status, 'cancelled');
+      expect(orders[0].status, OrderStatus.pending);
+      expect(orders[1].status, OrderStatus.confirmed);
+      expect(orders[2].status, OrderStatus.ready);
+      expect(orders[3].status, OrderStatus.delivered);
+      expect(orders[4].status, OrderStatus.cancelled);
     });
   });
 
@@ -132,17 +133,17 @@ void main() {
 
   group('Order Status Tests', () {
     test('should identify different order statuses', () {
-      final pendingOrder = TestDataFactory.createOrder(status: 'pending');
-      final confirmedOrder = TestDataFactory.createOrder(status: 'confirmed');
-      final readyOrder = TestDataFactory.createOrder(status: 'ready');
-      final deliveredOrder = TestDataFactory.createOrder(status: 'delivered');
-      final cancelledOrder = TestDataFactory.createOrder(status: 'cancelled');
+      final pendingOrder = TestDataFactory.createOrder(status: OrderStatus.pending);
+      final confirmedOrder = TestDataFactory.createOrder(status: OrderStatus.confirmed);
+      final readyOrder = TestDataFactory.createOrder(status: OrderStatus.ready);
+      final deliveredOrder = TestDataFactory.createOrder(status: OrderStatus.delivered);
+      final cancelledOrder = TestDataFactory.createOrder(status: OrderStatus.cancelled);
 
-      expect(pendingOrder.status, 'pending');
-      expect(confirmedOrder.status, 'confirmed');
-      expect(readyOrder.status, 'ready');
-      expect(deliveredOrder.status, 'delivered');
-      expect(cancelledOrder.status, 'cancelled');
+      expect(pendingOrder.status, OrderStatus.pending);
+      expect(confirmedOrder.status, OrderStatus.confirmed);
+      expect(readyOrder.status, OrderStatus.ready);
+      expect(deliveredOrder.status, OrderStatus.delivered);
+      expect(cancelledOrder.status, OrderStatus.cancelled);
     });
   });
 

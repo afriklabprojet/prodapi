@@ -12,12 +12,22 @@ class PharmaciesRepositoryImpl implements PharmaciesRepository {
   PharmaciesRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<Either<Failure, List<PharmacyEntity>>> getPharmacies({int page = 1, int perPage = 20}) async {
+  Future<Either<Failure, List<PharmacyEntity>>> getPharmacies({
+    int page = 1,
+    int perPage = 20,
+  }) async {
     try {
-      final models = await remoteDataSource.getPharmacies(page: page, perPage: perPage);
+      final models = await remoteDataSource.getPharmacies(
+        page: page,
+        perPage: perPage,
+      );
       return Right(models.map((m) => m.toEntity()).toList());
+    } on UnauthorizedException catch (e) {
+      return Left(UnauthorizedFailure(message: e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(message: e.message));
     } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message));
+      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
     } catch (e) {
       AppLogger.error('PharmaciesRepository.getPharmacies failed', error: e);
       return Left(ServerFailure(message: e.toString()));
@@ -37,36 +47,67 @@ class PharmaciesRepositoryImpl implements PharmaciesRepository {
         radius: radius,
       );
       return Right(models.map((m) => m.toEntity()).toList());
+    } on UnauthorizedException catch (e) {
+      return Left(UnauthorizedFailure(message: e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(message: e.message));
     } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message));
+      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
     } catch (e) {
-      AppLogger.error('PharmaciesRepository.getNearbyPharmacies failed', error: e);
+      AppLogger.error(
+        'PharmaciesRepository.getNearbyPharmacies failed',
+        error: e,
+      );
       return Left(ServerFailure(message: e.toString()));
     }
   }
 
   @override
-  Future<Either<Failure, List<PharmacyEntity>>> getOnDutyPharmacies() async {
+  Future<Either<Failure, List<PharmacyEntity>>> getOnDutyPharmacies({
+    double? latitude,
+    double? longitude,
+    double? radius,
+  }) async {
     try {
-      final models = await remoteDataSource.getOnDutyPharmacies();
+      final models = await remoteDataSource.getOnDutyPharmacies(
+        latitude: latitude,
+        longitude: longitude,
+        radius: radius,
+      );
       return Right(models.map((m) => m.toEntity()).toList());
+    } on UnauthorizedException catch (e) {
+      return Left(UnauthorizedFailure(message: e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(message: e.message));
     } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message));
+      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
     } catch (e) {
-      AppLogger.error('PharmaciesRepository.getOnDutyPharmacies failed', error: e);
+      AppLogger.error(
+        'PharmaciesRepository.getOnDutyPharmacies failed',
+        error: e,
+      );
       return Left(ServerFailure(message: e.toString()));
     }
   }
 
   @override
-  Future<Either<Failure, PharmacyEntity>> getPharmacyDetails(int pharmacyId) async {
+  Future<Either<Failure, PharmacyEntity>> getPharmacyDetails(
+    int pharmacyId,
+  ) async {
     try {
       final model = await remoteDataSource.getPharmacyDetails(pharmacyId);
       return Right(model.toEntity());
+    } on UnauthorizedException catch (e) {
+      return Left(UnauthorizedFailure(message: e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(message: e.message));
     } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message));
+      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
     } catch (e) {
-      AppLogger.error('PharmaciesRepository.getPharmacyDetails failed', error: e);
+      AppLogger.error(
+        'PharmaciesRepository.getPharmacyDetails failed',
+        error: e,
+      );
       return Left(ServerFailure(message: e.toString()));
     }
   }
@@ -76,10 +117,17 @@ class PharmaciesRepositoryImpl implements PharmaciesRepository {
     try {
       final models = await remoteDataSource.getFeaturedPharmacies();
       return Right(models.map((m) => m.toEntity()).toList());
+    } on UnauthorizedException catch (e) {
+      return Left(UnauthorizedFailure(message: e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(message: e.message));
     } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message));
+      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
     } catch (e) {
-      AppLogger.error('PharmaciesRepository.getFeaturedPharmacies failed', error: e);
+      AppLogger.error(
+        'PharmaciesRepository.getFeaturedPharmacies failed',
+        error: e,
+      );
       return Left(ServerFailure(message: e.toString()));
     }
   }

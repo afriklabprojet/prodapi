@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +12,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/providers/ui_state_providers.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/services/firebase_otp_service.dart';
+import '../../../../config/providers.dart';
 import '../../providers/firebase_otp_provider.dart';
 import '../providers/auth_provider.dart';
 
@@ -49,6 +51,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
   Timer? _resendTimer;
   bool _autoVerified = false;
   String? _lastAutoFilledCode;
+  bool _isNavigatingBack = false;
 
   /// true = backend SMS (Infobip), false = Firebase Phone Auth
   bool _useBackendSms = false;
@@ -234,12 +237,13 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
     final notifier = ref.read(firebaseOtpProvider.notifier);
     await notifier.sendOtp(widget.phoneNumber);
 
-    // Wait for Firebase to actually respond (max 10 seconds)
+    // Wait for Firebase to actually respond (max 30 seconds)
+    // Firebase Phone Auth can take 15-30s to send SMS on real networks
     // UI shows loading state via firebaseOtpProvider.isLoading
     try {
-      await completer.future.timeout(const Duration(seconds: 10));
+      await completer.future.timeout(const Duration(seconds: 30));
     } catch (_) {
-      debugPrint('[OTP] Firebase did not respond within 10s, falling back to backend SMS');
+      debugPrint('[OTP] Firebase did not respond within 30s, falling back to backend SMS');
     }
 
     sub.close();
@@ -354,7 +358,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
           setState(() => _backendLoading = false);
           _successAnim.forward();
           Future.delayed(const Duration(milliseconds: 400), () {
-            if (context.mounted) context.go(AppRoutes.home);
+            if (context.mounted) _navigateAfterAuth();
           });
         },
       );
@@ -385,20 +389,54 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
 
   Future<void> _linkToBackend(String firebaseUid) async {
     try {
+      // Get Firebase ID token for server-side verification
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser == null) {
+        if (mounted) _showSnackBar('Session Firebase expirée. Réessayez.', isError: true);
+        return;
+      }
+      
+      final firebaseIdToken = await firebaseUser.getIdToken();
+      if (firebaseIdToken == null) {
+        if (mounted) _showSnackBar('Impossible d obtenir le token Firebase', isError: true);
+        return;
+      }
+      
       final authNotifier = ref.read(authProvider.notifier);
       final result = await authNotifier.verifyFirebaseOtp(
         phone: widget.phoneNumber,
         firebaseUid: firebaseUid,
+        firebaseIdToken: firebaseIdToken,
       );
       if (!mounted) return;
       result.fold(
         (failure) => _showSnackBar(failure.message, isError: true),
         (success) {
-          if (context.mounted) context.go(AppRoutes.home);
+          if (context.mounted) _navigateAfterAuth();
         },
       );
     } catch (e) {
       if (mounted) _showSnackBar('Erreur de liaison au compte', isError: true);
+    }
+  }
+
+  /// Navigate après authentification, en vérifiant d'abord les deep links en attente
+  Future<void> _navigateAfterAuth() async {
+    try {
+      final deepLinkService = ref.read(deepLinkServiceProvider);
+      final pendingLink = await deepLinkService.consumePendingDeepLink();
+      
+      if (!mounted) return;
+      
+      if (pendingLink != null) {
+        // Navigate to the pending deep link destination
+        context.go(pendingLink.path, extra: pendingLink.extra);
+      } else {
+        // Default navigation to home
+        context.go(AppRoutes.home);
+      }
+    } catch (e) {
+      if (mounted) context.go(AppRoutes.home);
     }
   }
 
@@ -473,7 +511,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
     final isLoading = _useBackendSms ? _backendLoading : otpState.isLoading;
     final errorMessage = _useBackendSms ? _backendError : otpState.errorMessage;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final screenH = MediaQuery.of(context).size.height;
+    final screenH = MediaQuery.sizeOf(context).height;
 
     // Handle Firebase auto-verification (only in Firebase mode)
     if (!_useBackendSms) {
@@ -587,17 +625,17 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
     );
   }
 
-  /// Handle back navigation: logout first to break the redirect loop,
-  /// then navigate to login page.
-  Future<void> _handleBack() async {
+  /// Handle back navigation: clear auth state immediately and navigate.
+  /// Uses clearAuthStateSync() to avoid showing loading/splash screen.
+  void _handleBack() {
+    if (_isNavigatingBack) return; // Prevent double-tap
+    _isNavigatingBack = true;
     // Reset the Firebase OTP state
     ref.read(firebaseOtpProvider.notifier).reset();
-    // Logout to clear authenticated state (phone not verified)
-    // This prevents the router redirect from sending us back to OTP
-    await ref.read(authProvider.notifier).logout();
-    if (mounted) {
-      context.go(AppRoutes.login);
-    }
+    // Clear auth state immediately (no loading state) and navigate
+    // This prevents the router redirect from sending us to splash
+    ref.read(authProvider.notifier).clearAuthStateSync();
+    context.go(AppRoutes.login);
   }
 
   Widget _buildBackButton(bool isDark) {
@@ -760,7 +798,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
     return LayoutBuilder(
       builder: (context, constraints) {
         // Calculate field size based on available width
-        // 6 fields + 5 gaps (4px each) + 1 dash (20px) = need to fit in maxWidth
+        // 4 fields + 3 gaps (4px each) + 1 dash (20px) = need to fit in maxWidth
         final dashWidth = 20.0;
         final gapWidth = 4.0;
         final totalGaps = (_otpLength - 1) * gapWidth + dashWidth;

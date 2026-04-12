@@ -6,13 +6,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../providers/inventory_di_providers.dart';
 
-
 /// Widget de recherche de produits avancée avec filtres et suggestions
 class ProductSearchWidget extends ConsumerStatefulWidget {
   final Function(Map<String, dynamic> product)? onProductSelected;
   final bool showFilters;
   final bool autoFocus;
-  
+
   const ProductSearchWidget({
     super.key,
     this.onProductSelected,
@@ -21,25 +20,26 @@ class ProductSearchWidget extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<ProductSearchWidget> createState() => _ProductSearchWidgetState();
+  ConsumerState<ProductSearchWidget> createState() =>
+      _ProductSearchWidgetState();
 }
 
 class _ProductSearchWidgetState extends ConsumerState<ProductSearchWidget> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  
+
   bool _isSearching = false;
   bool _showFilters = false;
   List<Map<String, dynamic>> _searchResults = [];
   List<String> _searchHistory = [];
   List<String> _suggestions = [];
-  
+
   // Filtres
   String? _selectedCategory;
   RangeValues _priceRange = const RangeValues(0, 50000);
   bool _inStockOnly = false;
   String _sortBy = 'name';
-  
+
   final List<String> _categories = [
     'Tous',
     'Médicaments',
@@ -106,7 +106,7 @@ class _ProductSearchWidgetState extends ConsumerState<ProductSearchWidget> {
         _searchHistory.removeLast();
       }
     });
-    
+
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(_searchHistoryKey, _searchHistory);
@@ -148,12 +148,12 @@ class _ProductSearchWidgetState extends ConsumerState<ProductSearchWidget> {
       });
       return;
     }
-    
+
     setState(() => _isSearching = true);
-    
+
     // Generate suggestions from search terms
     _generateSuggestions(query);
-    
+
     // Debounce search to avoid excessive API calls
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted && _searchController.text == query) {
@@ -188,20 +188,26 @@ class _ProductSearchWidgetState extends ConsumerState<ProductSearchWidget> {
         (products) {
           final lowQuery = query.toLowerCase();
           // Map ProductEntity to Map<String, dynamic> and filter by query
-          var filtered = products.where((p) {
-            return p.name.toLowerCase().contains(lowQuery) ||
-                (p.activeIngredient?.toLowerCase().contains(lowQuery) ?? false) ||
-                p.category.toLowerCase().contains(lowQuery);
-          }).map((p) => <String, dynamic>{
-            'id': p.id.toString(),
-            'name': p.name,
-            'genericName': p.activeIngredient ?? '',
-            'category': p.category,
-            'price': p.price.toInt(),
-            'stock': p.stockQuantity,
-            'image': p.imageUrl,
-            'barcode': p.barcode ?? '',
-          }).toList();
+          var filtered = products
+              .where((p) {
+                return p.name.toLowerCase().contains(lowQuery) ||
+                    (p.activeIngredient?.toLowerCase().contains(lowQuery) ??
+                        false) ||
+                    p.category.toLowerCase().contains(lowQuery);
+              })
+              .map(
+                (p) => <String, dynamic>{
+                  'id': p.id.toString(),
+                  'name': p.name,
+                  'genericName': p.activeIngredient ?? '',
+                  'category': p.category,
+                  'price': p.price.toInt(),
+                  'stock': p.stockQuantity,
+                  'image': p.imageUrl,
+                  'barcode': p.barcode ?? '',
+                },
+              )
+              .toList();
 
           // Apply filters
           filtered = filtered.where((p) {
@@ -270,17 +276,15 @@ class _ProductSearchWidgetState extends ConsumerState<ProductSearchWidget> {
       children: [
         // Search Bar
         _buildSearchBar(),
-        
+
         // Filters (if enabled)
         if (widget.showFilters && _showFilters) ...[
           const SizedBox(height: 12),
           _buildFilters(),
         ],
-        
+
         // Suggestions or Results
-        Expanded(
-          child: _buildContent(),
-        ),
+        Expanded(child: _buildContent()),
       ],
     );
   }
@@ -318,6 +322,11 @@ class _ProductSearchWidgetState extends ConsumerState<ProductSearchWidget> {
                       ? IconButton(
                           icon: const Icon(Icons.clear, size: 20),
                           onPressed: _clearSearch,
+                          tooltip: 'Effacer la recherche',
+                          constraints: const BoxConstraints(
+                            minWidth: 48,
+                            minHeight: 48,
+                          ),
                         )
                       : null,
                   border: InputBorder.none,
@@ -343,9 +352,9 @@ class _ProductSearchWidgetState extends ConsumerState<ProductSearchWidget> {
 
   bool get _hasActiveFilters {
     return _selectedCategory != null && _selectedCategory != 'Tous' ||
-           _inStockOnly ||
-           _priceRange != const RangeValues(0, 50000) ||
-           _sortBy != 'name';
+        _inStockOnly ||
+        _priceRange != const RangeValues(0, 50000) ||
+        _sortBy != 'name';
   }
 
   Widget _buildFilters() {
@@ -365,6 +374,7 @@ class _ProductSearchWidgetState extends ConsumerState<ProductSearchWidget> {
                   child: FilterChip(
                     label: Text(cat),
                     selected: isSelected,
+                    materialTapTargetSize: MaterialTapTargetSize.padded,
                     onSelected: (selected) {
                       setState(() {
                         _selectedCategory = selected ? cat : null;
@@ -373,10 +383,14 @@ class _ProductSearchWidgetState extends ConsumerState<ProductSearchWidget> {
                         _performSearch(_searchController.text);
                       }
                     },
-                    selectedColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                    selectedColor: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.1),
                     checkmarkColor: Theme.of(context).colorScheme.primary,
                     labelStyle: TextStyle(
-                      color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey.shade700,
+                      color: isSelected
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.grey.shade700,
                     ),
                   ),
                 );
@@ -384,7 +398,7 @@ class _ProductSearchWidgetState extends ConsumerState<ProductSearchWidget> {
             ),
           ),
           const SizedBox(height: 12),
-          
+
           // Additional filters
           Row(
             children: [
@@ -402,7 +416,7 @@ class _ProductSearchWidgetState extends ConsumerState<ProductSearchWidget> {
                 ),
               ),
               const SizedBox(width: 12),
-              
+
               // Sort dropdown
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -417,7 +431,10 @@ class _ProductSearchWidgetState extends ConsumerState<ProductSearchWidget> {
                   items: const [
                     DropdownMenuItem(value: 'name', child: Text('Nom')),
                     DropdownMenuItem(value: 'price_asc', child: Text('Prix ↑')),
-                    DropdownMenuItem(value: 'price_desc', child: Text('Prix ↓')),
+                    DropdownMenuItem(
+                      value: 'price_desc',
+                      child: Text('Prix ↓'),
+                    ),
                     DropdownMenuItem(value: 'stock', child: Text('Stock')),
                   ],
                   onChanged: (value) {
@@ -432,7 +449,7 @@ class _ProductSearchWidgetState extends ConsumerState<ProductSearchWidget> {
               ),
             ],
           ),
-          
+
           // Price range slider
           const SizedBox(height: 12),
           Text(
@@ -458,7 +475,7 @@ class _ProductSearchWidgetState extends ConsumerState<ProductSearchWidget> {
               }
             },
           ),
-          
+
           // Reset filters button
           if (_hasActiveFilters)
             TextButton.icon(
@@ -489,26 +506,24 @@ class _ProductSearchWidgetState extends ConsumerState<ProductSearchWidget> {
   Widget _buildContent() {
     // Show loading
     if (_isSearching) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
-    
+
     // Show search history when empty
     if (_searchController.text.isEmpty) {
       return _buildSearchHistory();
     }
-    
+
     // Show suggestions
     if (_suggestions.isNotEmpty && _searchResults.isEmpty) {
       return _buildSuggestions();
     }
-    
+
     // Show results
     if (_searchResults.isNotEmpty) {
       return _buildResults();
     }
-    
+
     // No results
     return _buildNoResults();
   }
@@ -539,32 +554,39 @@ class _ProductSearchWidgetState extends ConsumerState<ProductSearchWidget> {
         const SizedBox(height: 8),
         ...ListTile.divideTiles(
           context: context,
-          tiles: _searchHistory.map((query) => ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.history, color: Colors.grey),
-            title: Text(query),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: Icon(Icons.close, size: 18, color: Colors.grey.shade400),
-                  onPressed: () => _removeFromHistory(query),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-                const SizedBox(width: 8),
-                const Icon(Icons.north_west, size: 16, color: Colors.grey),
-              ],
+          tiles: _searchHistory.map(
+            (query) => ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.history, color: Colors.grey),
+              title: Text(query),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.close,
+                      size: 18,
+                      color: Colors.grey.shade400,
+                    ),
+                    onPressed: () => _removeFromHistory(query),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    tooltip: 'Retirer de l\'historique',
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.north_west, size: 16, color: Colors.grey),
+                ],
+              ),
+              onTap: () {
+                _searchController.text = query;
+                _onSearchChanged(query);
+              },
             ),
-            onTap: () {
-              _searchController.text = query;
-              _onSearchChanged(query);
-            },
-          )),
+          ),
         ),
-        
+
         const SizedBox(height: 24),
-        
+
         // Popular searches
         Row(
           children: [
@@ -583,19 +605,25 @@ class _ProductSearchWidgetState extends ConsumerState<ProductSearchWidget> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: [
-            'Paracétamol',
-            'Ibuprofène',
-            'Vitamine D',
-            'Masques',
-            'Gel hydroalcoolique',
-          ].map((tag) => ActionChip(
-            label: Text(tag),
-            onPressed: () {
-              _searchController.text = tag;
-              _onSearchChanged(tag);
-            },
-          )).toList(),
+          children:
+              [
+                    'Paracétamol',
+                    'Ibuprofène',
+                    'Vitamine D',
+                    'Masques',
+                    'Gel hydroalcoolique',
+                  ]
+                  .map(
+                    (tag) => ActionChip(
+                      label: Text(tag),
+                      materialTapTargetSize: MaterialTapTargetSize.padded,
+                      onPressed: () {
+                        _searchController.text = tag;
+                        _onSearchChanged(tag);
+                      },
+                    ),
+                  )
+                  .toList(),
         ),
       ],
     );
@@ -624,11 +652,11 @@ class _ProductSearchWidgetState extends ConsumerState<ProductSearchWidget> {
     final lowercaseText = text.toLowerCase();
     final lowercaseQuery = query.toLowerCase();
     final startIndex = lowercaseText.indexOf(lowercaseQuery);
-    
+
     if (startIndex == -1) {
       return Text(text);
     }
-    
+
     final endIndex = startIndex + query.length;
     return RichText(
       text: TextSpan(
@@ -665,7 +693,7 @@ class _ProductSearchWidgetState extends ConsumerState<ProductSearchWidget> {
             ),
           );
         }
-        
+
         final product = _searchResults[index - 1];
         return _ProductSearchCard(
           product: product,
@@ -680,26 +708,16 @@ class _ProductSearchWidgetState extends ConsumerState<ProductSearchWidget> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.search_off,
-            size: 64,
-            color: Colors.grey.shade400,
-          ),
+          Icon(Icons.search_off, size: 64, color: Colors.grey.shade400),
           const SizedBox(height: 16),
           Text(
             'Aucun résultat pour "${_searchController.text}"',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey.shade600,
-            ),
+            style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 8),
           Text(
             'Essayez avec d\'autres termes ou vérifiez l\'orthographe',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade500,
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
           ),
         ],
       ),
@@ -712,10 +730,7 @@ class _FilterButton extends StatelessWidget {
   final bool isActive;
   final VoidCallback onTap;
 
-  const _FilterButton({
-    required this.isActive,
-    required this.onTap,
-  });
+  const _FilterButton({required this.isActive, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -724,7 +739,9 @@ class _FilterButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isActive ? Theme.of(context).colorScheme.primary : Colors.grey.shade100,
+          color: isActive
+              ? Theme.of(context).colorScheme.primary
+              : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(
@@ -757,10 +774,14 @@ class _FilterToggle extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           border: Border.all(
-            color: value ? Theme.of(context).colorScheme.primary : Colors.grey.shade300,
+            color: value
+                ? Theme.of(context).colorScheme.primary
+                : Colors.grey.shade300,
           ),
           borderRadius: BorderRadius.circular(8),
-          color: value ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1) : null,
+          color: value
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
+              : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -768,7 +789,9 @@ class _FilterToggle extends StatelessWidget {
             Icon(
               value ? Icons.check_box : Icons.check_box_outline_blank,
               size: 20,
-              color: value ? Theme.of(context).colorScheme.primary : Colors.grey,
+              color: value
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.grey,
             ),
             const SizedBox(width: 8),
             Flexible(
@@ -776,7 +799,9 @@ class _FilterToggle extends StatelessWidget {
                 label,
                 style: TextStyle(
                   fontSize: 13,
-                  color: value ? Theme.of(context).colorScheme.primary : Colors.grey.shade700,
+                  color: value
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.grey.shade700,
                 ),
               ),
             ),
@@ -792,16 +817,13 @@ class _ProductSearchCard extends StatelessWidget {
   final Map<String, dynamic> product;
   final VoidCallback onTap;
 
-  const _ProductSearchCard({
-    required this.product,
-    required this.onTap,
-  });
+  const _ProductSearchCard({required this.product, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final stock = product['stock'] as int;
     final isInStock = stock > 0;
-    
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
@@ -837,7 +859,7 @@ class _ProductSearchCard extends StatelessWidget {
                     : const Icon(Icons.medication, color: Colors.grey),
               ),
               const SizedBox(width: 12),
-              
+
               // Product info
               Expanded(
                 child: Column(
@@ -884,9 +906,7 @@ class _ProductSearchCard extends StatelessWidget {
                             isInStock ? 'Stock: $stock' : 'Rupture',
                             style: TextStyle(
                               fontSize: 11,
-                              color: isInStock
-                                  ? Colors.green
-                                  : Colors.red,
+                              color: isInStock ? Colors.green : Colors.red,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -896,12 +916,9 @@ class _ProductSearchCard extends StatelessWidget {
                   ],
                 ),
               ),
-              
+
               // Action icon
-              Icon(
-                Icons.chevron_right,
-                color: Colors.grey.shade400,
-              ),
+              Icon(Icons.chevron_right, color: Colors.grey.shade400),
             ],
           ),
         ),

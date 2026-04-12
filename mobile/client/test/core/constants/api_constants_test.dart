@@ -99,7 +99,10 @@ void main() {
       });
 
       test('featuredPharmacies endpoint should be correct', () {
-        expect(ApiConstants.featuredPharmacies, '/customer/pharmacies/featured');
+        expect(
+          ApiConstants.featuredPharmacies,
+          '/customer/pharmacies/featured',
+        );
       });
 
       test('nearbyPharmacies endpoint should be correct', () {
@@ -127,8 +130,14 @@ void main() {
       });
 
       test('setDefaultAddress should return correct endpoint', () {
-        expect(ApiConstants.setDefaultAddress(1), '/customer/addresses/1/default');
-        expect(ApiConstants.setDefaultAddress(5), '/customer/addresses/5/default');
+        expect(
+          ApiConstants.setDefaultAddress(1),
+          '/customer/addresses/1/default',
+        );
+        expect(
+          ApiConstants.setDefaultAddress(5),
+          '/customer/addresses/5/default',
+        );
       });
     });
 
@@ -142,12 +151,18 @@ void main() {
       });
 
       test('markNotificationRead should return correct endpoint', () {
-        expect(ApiConstants.markNotificationRead(1), '/notifications/1/read');
-        expect(ApiConstants.markNotificationRead(99), '/notifications/99/read');
+        expect(ApiConstants.markNotificationRead('1'), '/notifications/1/read');
+        expect(
+          ApiConstants.markNotificationRead('99'),
+          '/notifications/99/read',
+        );
       });
 
       test('markAllNotificationsRead endpoint should be correct', () {
-        expect(ApiConstants.markAllNotificationsRead, '/notifications/read-all');
+        expect(
+          ApiConstants.markAllNotificationsRead,
+          '/notifications/read-all',
+        );
       });
     });
 
@@ -169,7 +184,7 @@ void main() {
         expect(ApiConstants.orderDetails(456), contains('456'));
         expect(ApiConstants.pharmacyDetails(789), contains('789'));
         expect(ApiConstants.addressDetails(321), contains('321'));
-        expect(ApiConstants.markNotificationRead(654), contains('654'));
+        expect(ApiConstants.markNotificationRead('654'), contains('654'));
       });
 
       test('endpoints should not have trailing slashes', () {

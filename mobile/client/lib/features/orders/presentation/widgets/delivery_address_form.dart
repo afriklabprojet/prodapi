@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import '../../../../core/constants/app_colors.dart';
 
-/// Labels d'adresse valides (doivent correspondre au backend)
-const List<String> _validAddressLabels = ['Maison', 'Bureau', 'Famille', 'Autre'];
+/// Suggestions rapides pour le label d'adresse
+const List<String> _labelSuggestions = ['Maison', 'Bureau', 'Famille', 'Autre'];
 
 /// Formulaire d'adresse de livraison manuelle
-class DeliveryAddressForm extends StatelessWidget {
+class DeliveryAddressForm extends StatefulWidget {
   final TextEditingController addressController;
   final TextEditingController cityController;
   final TextEditingController phoneController;
@@ -13,6 +15,8 @@ class DeliveryAddressForm extends StatelessWidget {
   final bool saveAddress;
   final ValueChanged<bool> onSaveAddressChanged;
   final bool isDark;
+  /// Callback quand les coordonnées GPS sont obtenues
+  final void Function(double latitude, double longitude)? onLocationDetected;
 
   const DeliveryAddressForm({
     super.key,
@@ -23,12 +27,23 @@ class DeliveryAddressForm extends StatelessWidget {
     required this.saveAddress,
     required this.onSaveAddressChanged,
     required this.isDark,
+    this.onLocationDetected,
   });
+
+  @override
+  State<DeliveryAddressForm> createState() => _DeliveryAddressFormState();
+}
+
+class _DeliveryAddressFormState extends State<DeliveryAddressForm> {
+  bool _isLoadingLocation = false;
+  bool _hasLocation = false;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
+        _buildLocationButton(),
+        const SizedBox(height: 12),
         _buildAddressField(),
         const SizedBox(height: 12),
         _buildCityField(),
@@ -40,10 +55,157 @@ class DeliveryAddressForm extends StatelessWidget {
     );
   }
 
+  Widget _buildLocationButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: _isLoadingLocation ? null : _getCurrentLocation,
+        icon: _isLoadingLocation
+            ? const SizedBox(
+                height: 18,
+                width: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Icon(
+                _hasLocation ? Icons.check_circle : Icons.my_location,
+                color: _hasLocation ? AppColors.success : null,
+              ),
+        label: Text(
+          _isLoadingLocation
+              ? 'Localisation en cours...'
+              : _hasLocation
+                  ? 'Position détectée ✓'
+                  : 'Utiliser ma position actuelle',
+        ),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          side: BorderSide(
+            color: _hasLocation ? AppColors.success : AppColors.primary,
+          ),
+          foregroundColor: _hasLocation ? AppColors.success : AppColors.primary,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _getCurrentLocation() async {
+    setState(() => _isLoadingLocation = true);
+
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Veuillez activer la localisation')),
+          );
+        }
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Permission de localisation refusée')),
+            );
+          }
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('La localisation est désactivée. Activez-la dans les paramètres.'),
+            ),
+          );
+        }
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      // Notify parent of coordinates
+      widget.onLocationDetected?.call(position.latitude, position.longitude);
+
+      // Reverse geocoding
+      try {
+        final placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+
+        if (placemarks.isNotEmpty && mounted) {
+          final place = placemarks.first;
+
+          final streetParts = <String>[];
+          if (place.street != null && place.street!.isNotEmpty) {
+            streetParts.add(place.street!);
+          }
+          if (place.subLocality != null && place.subLocality!.isNotEmpty) {
+            streetParts.add(place.subLocality!);
+          }
+          if (place.thoroughfare != null &&
+              place.thoroughfare!.isNotEmpty &&
+              place.thoroughfare != place.street) {
+            streetParts.add(place.thoroughfare!);
+          }
+
+          if (streetParts.isNotEmpty) {
+            widget.addressController.text = streetParts.join(', ');
+          } else if (place.name != null && place.name!.isNotEmpty) {
+            widget.addressController.text = place.name!;
+          }
+
+          if (place.locality != null && place.locality!.isNotEmpty) {
+            widget.cityController.text = place.locality!;
+          } else if (place.administrativeArea != null &&
+              place.administrativeArea!.isNotEmpty) {
+            widget.cityController.text = place.administrativeArea!;
+          }
+        }
+      } catch (_) {
+        // Reverse geocoding failed but we still have coordinates
+      }
+
+      if (mounted) {
+        setState(() => _hasLocation = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.addressController.text.isNotEmpty
+                  ? 'Position et adresse détectées'
+                  : 'Position GPS détectée',
+            ),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur de localisation: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingLocation = false);
+      }
+    }
+  }
+
   Widget _buildAddressField() {
     return TextFormField(
-      controller: addressController,
-      style: TextStyle(color: isDark ? Colors.white : Colors.black),
+      controller: widget.addressController,
+      style: TextStyle(color: widget.isDark ? Colors.white : Colors.black),
       decoration: const InputDecoration(
         labelText: 'Adresse complète *',
         hintText: 'Ex: 123 Rue des Jardins, Cocody',
@@ -64,8 +226,8 @@ class DeliveryAddressForm extends StatelessWidget {
 
   Widget _buildCityField() {
     return TextFormField(
-      controller: cityController,
-      style: TextStyle(color: isDark ? Colors.white : Colors.black),
+      controller: widget.cityController,
+      style: TextStyle(color: widget.isDark ? Colors.white : Colors.black),
       decoration: const InputDecoration(
         labelText: 'Ville *',
         hintText: 'Ex: Abidjan',
@@ -83,9 +245,9 @@ class DeliveryAddressForm extends StatelessWidget {
 
   Widget _buildPhoneField() {
     return TextFormField(
-      controller: phoneController,
+      controller: widget.phoneController,
       keyboardType: TextInputType.phone,
-      style: TextStyle(color: isDark ? Colors.white : Colors.black),
+      style: TextStyle(color: widget.isDark ? Colors.white : Colors.black),
       decoration: const InputDecoration(
         labelText: 'Téléphone *',
         hintText: '+225 07 00 00 00 00',
@@ -108,32 +270,32 @@ class DeliveryAddressForm extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: saveAddress
+        color: widget.saveAddress
             ? AppColors.primary.withValues(alpha: 0.1)
-            : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade50),
+            : (widget.isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade50),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: saveAddress
+          color: widget.saveAddress
               ? AppColors.primary.withValues(alpha: 0.3)
-              : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade200),
+              : (widget.isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade200),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           InkWell(
-            onTap: () => onSaveAddressChanged(!saveAddress),
+            onTap: () => widget.onSaveAddressChanged(!widget.saveAddress),
             child: Row(
               children: [
                 SizedBox(
                   width: 24,
                   height: 24,
                   child: Checkbox(
-                    value: saveAddress,
-                    onChanged: (value) => onSaveAddressChanged(value ?? false),
+                    value: widget.saveAddress,
+                    onChanged: (value) => widget.onSaveAddressChanged(value ?? false),
                     activeColor: AppColors.primary,
                     side: BorderSide(
-                      color: isDark ? Colors.white60 : Colors.grey,
+                      color: widget.isDark ? Colors.white60 : Colors.grey,
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(4),
@@ -150,73 +312,83 @@ class DeliveryAddressForm extends StatelessWidget {
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
-                          color: isDark ? Colors.white : Colors.black,
+                        color: widget.isDark ? Colors.white : Colors.black,
                         ),
                       ),
                       Text(
                         'Pour vos prochaines commandes',
                         style: TextStyle(
                           fontSize: 12,
-                          color: isDark ? Colors.white60 : AppColors.textHint,
+                        color: widget.isDark ? Colors.white60 : AppColors.textHint,
                         ),
                       ),
                     ],
                   ),
                 ),
                 Icon(
-                  saveAddress ? Icons.bookmark : Icons.bookmark_border,
-                  color: saveAddress
+                  widget.saveAddress ? Icons.bookmark : Icons.bookmark_border,
+                  color: widget.saveAddress
                       ? AppColors.primary
-                      : (isDark ? Colors.white60 : AppColors.textHint),
+                      : (widget.isDark ? Colors.white60 : AppColors.textHint),
                 ),
               ],
             ),
           ),
-          if (saveAddress) ...[
+          if (widget.saveAddress) ...[
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: labelController.text.isEmpty ? null : 
-                (_validAddressLabels.contains(labelController.text) ? labelController.text : null),
+            TextFormField(
+              controller: widget.labelController,
+              style: TextStyle(
+                color: widget.isDark ? Colors.white : Colors.black,
+                fontSize: 14,
+              ),
               decoration: InputDecoration(
                 labelText: 'Nom de l\'adresse',
+                hintText: 'Ex: Chez Maman, Mon appart...',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
                 prefixIcon: const Icon(Icons.label_outline),
                 isDense: true,
               ),
-              dropdownColor: isDark ? Colors.grey.shade800 : Colors.white,
-              style: TextStyle(
-                color: isDark ? Colors.white : Colors.black,
-                fontSize: 14,
-              ),
-              items: _validAddressLabels.map((label) {
-                return DropdownMenuItem<String>(
-                  value: label,
-                  child: Row(
-                    children: [
-                      Icon(
-                        _getLabelIcon(label),
-                        size: 18,
-                        color: isDark ? Colors.white70 : Colors.grey.shade600,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(label),
-                    ],
-                  ),
-                );
-              }).toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  labelController.text = value;
-                }
-              },
               validator: (value) {
-                if (saveAddress && (value == null || value.isEmpty)) {
-                  return 'Choisissez un type d\'adresse';
+                if (widget.saveAddress && (value == null || value.trim().isEmpty)) {
+                  return 'Donnez un nom à cette adresse';
                 }
                 return null;
               },
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: _labelSuggestions.map((suggestion) {
+                final isSelected = widget.labelController.text == suggestion;
+                return ActionChip(
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _getLabelIcon(suggestion),
+                        size: 16,
+                        color: isSelected ? Colors.white : AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(suggestion),
+                    ],
+                  ),
+                  backgroundColor: isSelected ? AppColors.primary : null,
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : null,
+                    fontSize: 12,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      widget.labelController.text = suggestion;
+                    });
+                  },
+                );
+              }).toList(),
             ),
           ],
         ],
@@ -225,7 +397,7 @@ class DeliveryAddressForm extends StatelessWidget {
   }
 
   /// Obtenir l'icône correspondant au label
-  IconData _getLabelIcon(String label) {
+  static IconData _getLabelIcon(String label) {
     switch (label.toLowerCase()) {
       case 'maison':
         return Icons.home;

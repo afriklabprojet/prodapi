@@ -14,6 +14,8 @@ class PrescriptionEntity extends Equatable {
   final int? orderId;
   final String? orderReference;
   final String? source;
+  final String fulfillmentStatus;
+  final int dispensingCount;
 
   const PrescriptionEntity({
     required this.id,
@@ -28,6 +30,8 @@ class PrescriptionEntity extends Equatable {
     this.orderId,
     this.orderReference,
     this.source,
+    this.fulfillmentStatus = 'none',
+    this.dispensingCount = 0,
   });
 
   bool get isPending => status == 'pending';
@@ -35,6 +39,8 @@ class PrescriptionEntity extends Equatable {
   bool get isRejected => status == 'rejected';
   bool get hasQuote => quoteAmount != null && quoteAmount! > 0;
   bool get isLinkedToOrder => orderId != null;
+  bool get isFullyDispensed => fulfillmentStatus == 'full';
+  bool get isPartiallyDispensed => fulfillmentStatus == 'partial';
 
   String get statusLabel {
     switch (status) {

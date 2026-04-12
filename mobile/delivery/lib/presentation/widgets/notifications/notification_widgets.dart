@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../core/router/route_names.dart';
 import '../../../core/services/rich_notification_service.dart';
 import '../../../core/theme/theme_provider.dart';
 
@@ -13,10 +15,12 @@ class NotificationPreferencesCard extends ConsumerStatefulWidget {
   const NotificationPreferencesCard({super.key});
 
   @override
-  ConsumerState<NotificationPreferencesCard> createState() => _NotificationPreferencesCardState();
+  ConsumerState<NotificationPreferencesCard> createState() =>
+      _NotificationPreferencesCardState();
 }
 
-class _NotificationPreferencesCardState extends ConsumerState<NotificationPreferencesCard> {
+class _NotificationPreferencesCardState
+    extends ConsumerState<NotificationPreferencesCard> {
   @override
   Widget build(BuildContext context) {
     final service = ref.watch(richNotificationProvider.notifier);
@@ -41,7 +45,11 @@ class _NotificationPreferencesCardState extends ConsumerState<NotificationPrefer
                     ),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.notifications_active, color: Colors.white, size: 24),
+                  child: const Icon(
+                    Icons.notifications_active,
+                    color: Colors.white,
+                    size: 24,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -50,12 +58,17 @@ class _NotificationPreferencesCardState extends ConsumerState<NotificationPrefer
                     children: [
                       const Text(
                         'Notifications',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
                       ),
                       Text(
                         'Personnalisez vos alertes',
                         style: TextStyle(
-                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                          color: isDark
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade600,
                           fontSize: 12,
                         ),
                       ),
@@ -74,7 +87,8 @@ class _NotificationPreferencesCardState extends ConsumerState<NotificationPrefer
             title: 'Sons',
             subtitle: 'Jouer un son pour les alertes',
             value: prefs.soundEnabled,
-            onChanged: (value) => _updatePrefs(prefs.copyWith(soundEnabled: value)),
+            onChanged: (value) =>
+                _updatePrefs(prefs.copyWith(soundEnabled: value)),
           ),
           _buildSwitchTile(
             icon: Icons.vibration,
@@ -82,7 +96,8 @@ class _NotificationPreferencesCardState extends ConsumerState<NotificationPrefer
             title: 'Vibration',
             subtitle: 'Vibrer à la réception',
             value: prefs.vibrationEnabled,
-            onChanged: (value) => _updatePrefs(prefs.copyWith(vibrationEnabled: value)),
+            onChanged: (value) =>
+                _updatePrefs(prefs.copyWith(vibrationEnabled: value)),
           ),
 
           const Divider(height: 1),
@@ -106,7 +121,8 @@ class _NotificationPreferencesCardState extends ConsumerState<NotificationPrefer
             title: 'Nouvelles commandes',
             subtitle: 'Alertes pour les courses disponibles',
             value: prefs.newOrdersEnabled,
-            onChanged: (value) => _updatePrefs(prefs.copyWith(newOrdersEnabled: value)),
+            onChanged: (value) =>
+                _updatePrefs(prefs.copyWith(newOrdersEnabled: value)),
           ),
           _buildSwitchTile(
             icon: Icons.chat_bubble,
@@ -114,7 +130,8 @@ class _NotificationPreferencesCardState extends ConsumerState<NotificationPrefer
             title: 'Messages',
             subtitle: 'Messages des clients et pharmacies',
             value: prefs.chatEnabled,
-            onChanged: (value) => _updatePrefs(prefs.copyWith(chatEnabled: value)),
+            onChanged: (value) =>
+                _updatePrefs(prefs.copyWith(chatEnabled: value)),
           ),
           _buildSwitchTile(
             icon: Icons.attach_money,
@@ -122,7 +139,8 @@ class _NotificationPreferencesCardState extends ConsumerState<NotificationPrefer
             title: 'Gains',
             subtitle: 'Notifications de paiements et revenus',
             value: prefs.earningsEnabled,
-            onChanged: (value) => _updatePrefs(prefs.copyWith(earningsEnabled: value)),
+            onChanged: (value) =>
+                _updatePrefs(prefs.copyWith(earningsEnabled: value)),
           ),
           _buildSwitchTile(
             icon: Icons.local_offer,
@@ -130,7 +148,8 @@ class _NotificationPreferencesCardState extends ConsumerState<NotificationPrefer
             title: 'Promotions',
             subtitle: 'Offres spéciales et bonus',
             value: prefs.promosEnabled,
-            onChanged: (value) => _updatePrefs(prefs.copyWith(promosEnabled: value)),
+            onChanged: (value) =>
+                _updatePrefs(prefs.copyWith(promosEnabled: value)),
           ),
           _buildSwitchTile(
             icon: Icons.warning_amber,
@@ -138,14 +157,15 @@ class _NotificationPreferencesCardState extends ConsumerState<NotificationPrefer
             title: 'Alertes urgentes',
             subtitle: 'Notifications importantes (recommandé)',
             value: prefs.urgentEnabled,
-            onChanged: (value) => _updatePrefs(prefs.copyWith(urgentEnabled: value)),
+            onChanged: (value) =>
+                _updatePrefs(prefs.copyWith(urgentEnabled: value)),
           ),
 
           const Divider(height: 1),
-          
+
           // Heures calmes
           _buildQuietHoursSection(prefs, isDark),
-          
+
           const SizedBox(height: 8),
         ],
       ),
@@ -161,7 +181,7 @@ class _NotificationPreferencesCardState extends ConsumerState<NotificationPrefer
     required ValueChanged<bool> onChanged,
   }) {
     final isDark = ref.watch(isDarkModeProvider);
-    
+
     return ListTile(
       dense: true,
       leading: Container(
@@ -196,9 +216,16 @@ class _NotificationPreferencesCardState extends ConsumerState<NotificationPrefer
           color: Colors.indigo.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Icon(Icons.nightlight_round, color: Colors.indigo, size: 20),
+        child: const Icon(
+          Icons.nightlight_round,
+          color: Colors.indigo,
+          size: 20,
+        ),
       ),
-      title: const Text('Heures calmes', style: TextStyle(fontWeight: FontWeight.w500)),
+      title: const Text(
+        'Heures calmes',
+        style: TextStyle(fontWeight: FontWeight.w500),
+      ),
       subtitle: Text(
         prefs.quietHoursEnabled
             ? 'Actif: ${prefs.quietHoursStart}h - ${prefs.quietHoursEnd}h'
@@ -213,7 +240,8 @@ class _NotificationPreferencesCardState extends ConsumerState<NotificationPrefer
           title: const Text('Activer les heures calmes'),
           subtitle: const Text('Réduire les notifications pendant la nuit'),
           value: prefs.quietHoursEnabled,
-          onChanged: (value) => _updatePrefs(prefs.copyWith(quietHoursEnabled: value)),
+          onChanged: (value) =>
+              _updatePrefs(prefs.copyWith(quietHoursEnabled: value)),
           activeTrackColor: const Color(0xFF54AB70),
         ),
         if (prefs.quietHoursEnabled) ...[
@@ -225,7 +253,8 @@ class _NotificationPreferencesCardState extends ConsumerState<NotificationPrefer
                   child: _buildTimePicker(
                     label: 'Début',
                     hour: prefs.quietHoursStart,
-                    onChanged: (hour) => _updatePrefs(prefs.copyWith(quietHoursStart: hour)),
+                    onChanged: (hour) =>
+                        _updatePrefs(prefs.copyWith(quietHoursStart: hour)),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -233,7 +262,8 @@ class _NotificationPreferencesCardState extends ConsumerState<NotificationPrefer
                   child: _buildTimePicker(
                     label: 'Fin',
                     hour: prefs.quietHoursEnd,
-                    onChanged: (hour) => _updatePrefs(prefs.copyWith(quietHoursEnd: hour)),
+                    onChanged: (hour) =>
+                        _updatePrefs(prefs.copyWith(quietHoursEnd: hour)),
                   ),
                 ),
               ],
@@ -251,7 +281,7 @@ class _NotificationPreferencesCardState extends ConsumerState<NotificationPrefer
     required ValueChanged<int> onChanged,
   }) {
     final isDark = ref.watch(isDarkModeProvider);
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -273,10 +303,13 @@ class _NotificationPreferencesCardState extends ConsumerState<NotificationPrefer
             value: hour,
             isExpanded: true,
             underline: const SizedBox(),
-            items: List.generate(24, (i) => DropdownMenuItem(
-              value: i,
-              child: Text('${i.toString().padLeft(2, '0')}:00'),
-            )),
+            items: List.generate(
+              24,
+              (i) => DropdownMenuItem(
+                value: i,
+                child: Text('${i.toString().padLeft(2, '0')}:00'),
+              ),
+            ),
             onChanged: (value) => onChanged(value ?? hour),
           ),
         ),
@@ -308,7 +341,7 @@ class NotificationBadge extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final count = ref.watch(unreadNotificationCountProvider);
-    
+
     if (count == 0 && !showZero) return child;
 
     return Stack(
@@ -355,7 +388,9 @@ class NotificationCenterScreen extends ConsumerWidget {
     final isDark = ref.watch(isDarkModeProvider);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8F9FD),
+      backgroundColor: isDark
+          ? const Color(0xFF121212)
+          : const Color(0xFFF8F9FD),
       appBar: AppBar(
         title: const Text('Notifications'),
         backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
@@ -380,11 +415,13 @@ class NotificationCenterScreen extends ConsumerWidget {
                 return NotificationCard(
                   notification: notifications[index],
                   onTap: () {
-                    ref.read(richNotificationProvider.notifier)
+                    ref
+                        .read(richNotificationProvider.notifier)
                         .markAsRead(notifications[index].id);
                   },
                   onDismiss: () {
-                    ref.read(richNotificationProvider.notifier)
+                    ref
+                        .read(richNotificationProvider.notifier)
                         .removeNotification(notifications[index].id);
                   },
                 );
@@ -443,7 +480,7 @@ class NotificationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Dismissible(
       key: Key(notification.id),
       direction: DismissDirection.endToStart,
@@ -468,9 +505,11 @@ class NotificationCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           side: notification.isRead
               ? BorderSide.none
-              : BorderSide(color: notification.type.priority == Priority.max 
-                  ? Colors.orange.shade300 
-                  : Colors.blue.shade200),
+              : BorderSide(
+                  color: notification.type.priority == Priority.max
+                      ? Colors.orange.shade300
+                      : Colors.blue.shade200,
+                ),
         ),
         child: InkWell(
           onTap: onTap,
@@ -483,7 +522,9 @@ class NotificationCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: _getTypeColor(notification.type).withValues(alpha: 0.1),
+                    color: _getTypeColor(
+                      notification.type,
+                    ).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
@@ -502,8 +543,8 @@ class NotificationCard extends StatelessWidget {
                             child: Text(
                               notification.title,
                               style: TextStyle(
-                                fontWeight: notification.isRead 
-                                    ? FontWeight.w500 
+                                fontWeight: notification.isRead
+                                    ? FontWeight.w500
                                     : FontWeight.bold,
                                 fontSize: 15,
                               ),
@@ -526,7 +567,9 @@ class NotificationCard extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                          color: isDark
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade600,
                           fontSize: 13,
                         ),
                       ),
@@ -534,11 +577,13 @@ class NotificationCard extends StatelessWidget {
                       Text(
                         _formatTime(notification.createdAt),
                         style: TextStyle(
-                          color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
+                          color: isDark
+                              ? Colors.grey.shade500
+                              : Colors.grey.shade500,
                           fontSize: 11,
                         ),
                       ),
-                      if (notification.actions != null && 
+                      if (notification.actions != null &&
                           notification.actions!.isNotEmpty &&
                           !notification.isRead) ...[
                         const SizedBox(height: 12),
@@ -598,31 +643,27 @@ class _ActionButton extends ConsumerWidget {
   final NotificationAction action;
   final String notificationId;
 
-  const _ActionButton({
-    required this.action,
-    required this.notificationId,
-  });
+  const _ActionButton({required this.action, required this.notificationId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return OutlinedButton(
       onPressed: () {
         // Trigger l'action
-        ref.read(richNotificationProvider.notifier).onNotificationAction?.call(
-          notificationId,
-          action.id,
-          null,
-        );
+        ref
+            .read(richNotificationProvider.notifier)
+            .onNotificationAction
+            ?.call(notificationId, action.id, null);
         ref.read(richNotificationProvider.notifier).markAsRead(notificationId);
       },
       style: OutlinedButton.styleFrom(
-        foregroundColor: action.destructive ? Colors.red : const Color(0xFF54AB70),
+        foregroundColor: action.destructive
+            ? Colors.red
+            : const Color(0xFF54AB70),
         side: BorderSide(
           color: action.destructive ? Colors.red : const Color(0xFF54AB70),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
       child: Text(
         action.label,
@@ -646,10 +687,7 @@ class NotificationIconButton extends ConsumerWidget {
       child: IconButton(
         icon: const Icon(Icons.notifications_outlined),
         onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const NotificationCenterScreen()),
-          );
+          context.push(AppRoutes.notificationCenter);
         },
       ),
     );

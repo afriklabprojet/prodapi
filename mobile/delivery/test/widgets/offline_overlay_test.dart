@@ -6,9 +6,7 @@ void main() {
   group('OfflineOverlay', () {
     testWidgets('displays offline text', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(body: OfflineOverlay()),
-        ),
+        const MaterialApp(home: Scaffold(body: OfflineOverlay())),
       );
       await tester.pumpAndSettle();
 
@@ -17,25 +15,59 @@ void main() {
 
     testWidgets('displays instruction text', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(body: OfflineOverlay()),
-        ),
+        const MaterialApp(home: Scaffold(body: OfflineOverlay())),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Passez en ligne pour recevoir des commandes'),
-          findsOneWidget);
+      expect(
+        find.text('Passez en ligne pour recevoir des commandes'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('displays cloud_off icon', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(body: OfflineOverlay()),
-        ),
+        const MaterialApp(home: Scaffold(body: OfflineOverlay())),
       );
       await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.cloud_off), findsOneWidget);
+    });
+
+    testWidgets('contains Text widgets', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: OfflineOverlay())),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(Text), findsWidgets);
+    });
+
+    testWidgets('contains Column widgets', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: OfflineOverlay())),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(Column), findsWidgets);
+    });
+
+    testWidgets('contains Icon widgets', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: OfflineOverlay())),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(Icon), findsWidgets);
+    });
+
+    testWidgets('contains Container widgets', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: OfflineOverlay())),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(Container), findsWidgets);
     });
   });
 }

@@ -12,11 +12,11 @@ Widget _buildGridTestApp({required Widget child}) {
       GoRoute(
         path: '/',
         name: 'productsList',
-        builder: (_, _,) => Scaffold(body: child),
+        builder: (_, _) => Scaffold(body: child),
       ),
-      GoRoute(path: '/pharmacies', builder: (_, _,) => const SizedBox()),
-      GoRoute(path: '/on-duty-pharmacies', builder: (_, _,) => const SizedBox()),
-      GoRoute(path: '/prescriptions', builder: (_, _,) => const SizedBox()),
+      GoRoute(path: '/pharmacies', builder: (_, _) => const SizedBox()),
+      GoRoute(path: '/on-duty-pharmacies', builder: (_, _) => const SizedBox()),
+      GoRoute(path: '/prescriptions', builder: (_, _) => const SizedBox()),
     ],
   );
   return MaterialApp.router(routerConfig: router);
@@ -86,7 +86,9 @@ void main() {
       expect(wasTapped, isTrue);
     });
 
-    testWidgets('should have white background when not dark mode', (tester) async {
+    testWidgets('should have white background gradient when not dark mode', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -102,12 +104,25 @@ void main() {
         ),
       );
 
-      final container = tester.widgetList<Container>(
-        find.descendant(
-          of: find.byType(QuickActionCard),
-          matching: find.byType(Container),
-        ),
-      ).firstWhere((c) => c.decoration is BoxDecoration && (c.decoration as BoxDecoration).color == Colors.white);
+      // In light mode, the card uses a gradient that starts with white
+      final container = tester
+          .widgetList<Container>(
+            find.descendant(
+              of: find.byType(QuickActionCard),
+              matching: find.byType(Container),
+            ),
+          )
+          .firstWhere(
+            (c) =>
+                c.decoration is BoxDecoration &&
+                (c.decoration as BoxDecoration).gradient is LinearGradient &&
+                ((c.decoration as BoxDecoration).gradient as LinearGradient)
+                        .colors
+                        .first ==
+                    Colors.white,
+            orElse: () =>
+                throw StateError('No container with white gradient found'),
+          );
 
       expect(container, isNotNull);
     });
@@ -202,7 +217,8 @@ void main() {
               child: QuickActionCard(
                 icon: Icons.category,
                 title: 'Title',
-                subtitle: 'This is a very very very long subtitle that should be truncated',
+                subtitle:
+                    'This is a very very very long subtitle that should be truncated',
                 color: Colors.blue,
                 isDark: false,
                 onTap: () {},
@@ -213,7 +229,9 @@ void main() {
       );
 
       final subtitle = tester.widget<Text>(
-        find.text('This is a very very very long subtitle that should be truncated'),
+        find.text(
+          'This is a very very very long subtitle that should be truncated',
+        ),
       );
       expect(subtitle.maxLines, 1);
       expect(subtitle.overflow, TextOverflow.ellipsis);
@@ -235,16 +253,22 @@ void main() {
         ),
       );
 
-      final container = tester.widgetList<Container>(
-        find.descendant(
-          of: find.byType(QuickActionCard),
-          matching: find.byType(Container),
-        ),
-      ).firstWhere(
-        (c) => c.decoration is BoxDecoration && 
-               (c.decoration as BoxDecoration).borderRadius == BorderRadius.circular(20),
-        orElse: () => throw Exception('No container with expected border radius found'),
-      );
+      final container = tester
+          .widgetList<Container>(
+            find.descendant(
+              of: find.byType(QuickActionCard),
+              matching: find.byType(Container),
+            ),
+          )
+          .firstWhere(
+            (c) =>
+                c.decoration is BoxDecoration &&
+                (c.decoration as BoxDecoration).borderRadius ==
+                    BorderRadius.circular(20),
+            orElse: () => throw Exception(
+              'No container with expected border radius found',
+            ),
+          );
 
       expect(container, isNotNull);
     });
@@ -300,18 +324,22 @@ void main() {
         _buildGridTestApp(child: const QuickActionsGrid(isDark: true)),
       );
 
-      final cards = tester.widgetList<QuickActionCard>(find.byType(QuickActionCard));
+      final cards = tester.widgetList<QuickActionCard>(
+        find.byType(QuickActionCard),
+      );
       for (final card in cards) {
         expect(card.isDark, isTrue);
       }
     });
 
-    testWidgets('should have medication icon for Médicaments card', (tester) async {
+    testWidgets('should have medication icon for Médicaments card', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _buildGridTestApp(child: const QuickActionsGrid(isDark: false)),
       );
 
-      expect(find.byIcon(Icons.medication_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.medication_rounded), findsOneWidget);
     });
 
     testWidgets('should have emergency icon for Garde card', (tester) async {
@@ -319,15 +347,17 @@ void main() {
         _buildGridTestApp(child: const QuickActionsGrid(isDark: false)),
       );
 
-      expect(find.byIcon(Icons.emergency_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.emergency_rounded), findsOneWidget);
     });
 
-    testWidgets('should have pharmacy icon for Pharmacies card', (tester) async {
+    testWidgets('should have pharmacy icon for Pharmacies card', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _buildGridTestApp(child: const QuickActionsGrid(isDark: false)),
       );
 
-      expect(find.byIcon(Icons.local_pharmacy_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.local_pharmacy_rounded), findsOneWidget);
     });
 
     testWidgets('should have upload icon for Ordonnance card', (tester) async {
@@ -335,7 +365,7 @@ void main() {
         _buildGridTestApp(child: const QuickActionsGrid(isDark: false)),
       );
 
-      expect(find.byIcon(Icons.upload_file_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.file_upload_rounded), findsOneWidget);
     });
 
     testWidgets('should render as 2x2 grid', (tester) async {
@@ -353,7 +383,11 @@ void main() {
       );
 
       final gridView = tester.widget<GridView>(find.byType(GridView));
-      expect((gridView.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount).crossAxisCount, 2);
+      expect(
+        (gridView.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount)
+            .crossAxisCount,
+        2,
+      );
     });
   });
 }

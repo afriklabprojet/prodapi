@@ -368,10 +368,8 @@ class _PharmacyPasswordFieldState extends State<PharmacyPasswordField> {
                         ? 'Mot de passe masqué, appuyez pour afficher'
                         : 'Mot de passe visible, appuyez pour masquer',
                   ),
+                  tooltip: _obscurePassword ? 'Afficher le mot de passe' : 'Masquer le mot de passe',
                   onPressed: _toggleVisibility,
-                  tooltip: _obscurePassword 
-                      ? 'Afficher le mot de passe' 
-                      : 'Masquer le mot de passe',
                 ),
               ),
               filled: true,

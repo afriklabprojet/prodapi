@@ -15,5 +15,7 @@ final orderRemoteDataSourceProvider = Provider<OrderRemoteDataSource>((ref) {
 final orderRepositoryProvider = Provider<OrderRepository>((ref) {
   return OrderRepositoryImpl(
     remoteDataSource: ref.watch(orderRemoteDataSourceProvider),
+    cacheService: ref.watch(cacheServiceProvider),
+    offlineStorage: ref.watch(offlineStorageProvider),
   );
 });

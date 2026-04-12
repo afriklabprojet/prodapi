@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/presentation/widgets/error_display.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/error_messages.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/category_entity.dart';
 import '../providers/inventory_provider.dart';
 
@@ -12,10 +13,12 @@ class CategoriesManagementSheet extends ConsumerStatefulWidget {
   const CategoriesManagementSheet({super.key});
 
   @override
-  ConsumerState<CategoriesManagementSheet> createState() => _CategoriesManagementSheetState();
+  ConsumerState<CategoriesManagementSheet> createState() =>
+      _CategoriesManagementSheetState();
 }
 
-class _CategoriesManagementSheetState extends ConsumerState<CategoriesManagementSheet> {
+class _CategoriesManagementSheetState
+    extends ConsumerState<CategoriesManagementSheet> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descController = TextEditingController();
@@ -68,25 +71,29 @@ class _CategoriesManagementSheetState extends ConsumerState<CategoriesManagement
     try {
       if (_editingCategory != null) {
         // Update existing category
-        await ref.read(inventoryProvider.notifier).updateCategory(
-          _editingCategory!.id,
-          name,
-          description.isEmpty ? null : description,
-        );
+        await ref
+            .read(inventoryProvider.notifier)
+            .updateCategory(
+              _editingCategory!.id,
+              name,
+              description.isEmpty ? null : description,
+            );
         if (mounted) {
-          ErrorSnackBar.showSuccess(context, "Catégorie modifiée avec succès !");
+          ErrorSnackBar.showSuccess(
+            context,
+            "Catégorie modifiée avec succès !",
+          );
         }
       } else {
         // Create new category
-        await ref.read(inventoryProvider.notifier).addCategory(
-          name,
-          description.isEmpty ? null : description,
-        );
+        await ref
+            .read(inventoryProvider.notifier)
+            .addCategory(name, description.isEmpty ? null : description);
         if (mounted) {
           ErrorSnackBar.showSuccess(context, "Catégorie ajoutée avec succès !");
         }
       }
-      
+
       // Reset form
       _nameController.clear();
       _descController.clear();
@@ -107,20 +114,21 @@ class _CategoriesManagementSheetState extends ConsumerState<CategoriesManagement
   }
 
   Future<void> _deleteCategory(CategoryEntity category) async {
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Supprimer la catégorie'),
+        title: Text('${l10n.delete} la catégorie'),
         content: Text('Voulez-vous vraiment supprimer « ${category.name} » ?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Annuler'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Supprimer'),
+            child: Text(l10n.delete),
           ),
         ],
       ),
@@ -173,11 +181,21 @@ class _CategoriesManagementSheetState extends ConsumerState<CategoriesManagement
                 IconButton(
                   icon: Icon(Icons.close, color: AppColors.textColor(context)),
                   onPressed: () => context.pop(),
+                  tooltip: AppLocalizations.of(context).close,
+                  constraints: const BoxConstraints(
+                    minWidth: 48,
+                    minHeight: 48,
+                  ),
                 ),
               ],
             ),
           ),
-          Divider(height: 1, color: AppColors.isDark(context) ? Colors.grey[700] : Colors.grey[300]),
+          Divider(
+            height: 1,
+            color: AppColors.isDark(context)
+                ? Colors.grey[700]
+                : Colors.grey[300],
+          ),
 
           // List or creation/edit form
           if (_isEditing)
@@ -186,6 +204,7 @@ class _CategoriesManagementSheetState extends ConsumerState<CategoriesManagement
                 padding: const EdgeInsets.all(20),
                 child: Form(
                   key: _formKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -193,9 +212,8 @@ class _CategoriesManagementSheetState extends ConsumerState<CategoriesManagement
                         _editingCategory != null
                             ? 'Modifier la Catégorie'
                             : 'Nouvelle Catégorie',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: AppColors.textColor(context),
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(color: AppColors.textColor(context)),
                       ),
                       const SizedBox(height: 20),
                       TextFormField(
@@ -203,14 +221,21 @@ class _CategoriesManagementSheetState extends ConsumerState<CategoriesManagement
                         style: TextStyle(color: AppColors.textColor(context)),
                         decoration: InputDecoration(
                           labelText: 'Nom de la catégorie',
-                          labelStyle: TextStyle(color: AppColors.textColor(context).withValues(alpha: 0.7)),
+                          labelStyle: TextStyle(
+                            color: AppColors.textColor(
+                              context,
+                            ).withValues(alpha: 0.7),
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                           filled: true,
-                          fillColor: AppColors.isDark(context) ? Colors.grey[800] : Colors.grey[50],
+                          fillColor: AppColors.isDark(context)
+                              ? Colors.grey[800]
+                              : Colors.grey[50],
                         ),
-                        validator: (v) => v == null || v.isEmpty ? 'Requis' : null,
+                        validator: (v) =>
+                            v == null || v.isEmpty ? 'Requis' : null,
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
@@ -218,12 +243,18 @@ class _CategoriesManagementSheetState extends ConsumerState<CategoriesManagement
                         style: TextStyle(color: AppColors.textColor(context)),
                         decoration: InputDecoration(
                           labelText: 'Description (optionnel)',
-                          labelStyle: TextStyle(color: AppColors.textColor(context).withValues(alpha: 0.7)),
+                          labelStyle: TextStyle(
+                            color: AppColors.textColor(
+                              context,
+                            ).withValues(alpha: 0.7),
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                           filled: true,
-                          fillColor: AppColors.isDark(context) ? Colors.grey[800] : Colors.grey[50],
+                          fillColor: AppColors.isDark(context)
+                              ? Colors.grey[800]
+                              : Colors.grey[50],
                         ),
                         maxLines: 3,
                       ),
@@ -234,12 +265,14 @@ class _CategoriesManagementSheetState extends ConsumerState<CategoriesManagement
                             child: OutlinedButton(
                               onPressed: _isLoading ? null : _cancelEdit,
                               style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
-                              child: const Text('Annuler'),
+                              child: Text(AppLocalizations.of(context).cancel),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -247,9 +280,13 @@ class _CategoriesManagementSheetState extends ConsumerState<CategoriesManagement
                             child: ElevatedButton(
                               onPressed: _isLoading ? null : _submit,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Theme.of(context).colorScheme.primary,
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.primary,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -263,9 +300,11 @@ class _CategoriesManagementSheetState extends ConsumerState<CategoriesManagement
                                         color: Colors.white,
                                       ),
                                     )
-                                  : Text(_editingCategory != null
-                                      ? 'Enregistrer'
-                                      : 'Ajouter'),
+                                  : Text(
+                                      _editingCategory != null
+                                          ? AppLocalizations.of(context).save
+                                          : AppLocalizations.of(context).add,
+                                    ),
                             ),
                           ),
                         ],
@@ -281,7 +320,11 @@ class _CategoriesManagementSheetState extends ConsumerState<CategoriesManagement
                   ? Center(
                       child: Text(
                         'Aucune catégorie définie',
-                        style: TextStyle(color: AppColors.textColor(context).withValues(alpha: 0.6)),
+                        style: TextStyle(
+                          color: AppColors.textColor(
+                            context,
+                          ).withValues(alpha: 0.6),
+                        ),
                       ),
                     )
                   : ListView.separated(
@@ -290,19 +333,25 @@ class _CategoriesManagementSheetState extends ConsumerState<CategoriesManagement
                       separatorBuilder: (c, i) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
                         final cat = categories[index];
-                        final primaryColor = Theme.of(context).colorScheme.primary;
+                        final primaryColor = Theme.of(
+                          context,
+                        ).colorScheme.primary;
                         return Container(
                           decoration: BoxDecoration(
                             color: AppColors.cardColor(context),
                             border: Border.all(
-                              color: AppColors.isDark(context) ? Colors.grey[700]! : Colors.grey[200]!,
+                              color: AppColors.isDark(context)
+                                  ? Colors.grey[700]!
+                                  : Colors.grey[200]!,
                             ),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: ListTile(
                             onTap: () => _startEdit(cat),
                             leading: CircleAvatar(
-                              backgroundColor: primaryColor.withValues(alpha: 0.1),
+                              backgroundColor: primaryColor.withValues(
+                                alpha: 0.1,
+                              ),
                               child: Text(
                                 cat.name.substring(0, 1).toUpperCase(),
                                 style: TextStyle(
@@ -318,19 +367,28 @@ class _CategoriesManagementSheetState extends ConsumerState<CategoriesManagement
                                 color: AppColors.textColor(context),
                               ),
                             ),
-                            subtitle: cat.description != null && cat.description!.isNotEmpty
+                            subtitle:
+                                cat.description != null &&
+                                    cat.description!.isNotEmpty
                                 ? Text(
                                     cat.description!,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      color: AppColors.textColor(context).withValues(alpha: 0.7),
+                                      color: AppColors.textColor(
+                                        context,
+                                      ).withValues(alpha: 0.7),
                                     ),
                                   )
                                 : null,
                             trailing: PopupMenuButton<String>(
-                              icon: Icon(Icons.more_vert, color: AppColors.textColor(context)),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              icon: Icon(
+                                Icons.more_vert,
+                                color: AppColors.textColor(context),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                               onSelected: (value) {
                                 if (value == 'edit') {
                                   _startEdit(cat);
@@ -343,9 +401,13 @@ class _CategoriesManagementSheetState extends ConsumerState<CategoriesManagement
                                   value: 'edit',
                                   child: Row(
                                     children: [
-                                      Icon(Icons.edit_outlined, color: primaryColor, size: 20),
+                                      Icon(
+                                        Icons.edit_outlined,
+                                        color: primaryColor,
+                                        size: 20,
+                                      ),
                                       const SizedBox(width: 12),
-                                      const Text('Modifier'),
+                                      Text(AppLocalizations.of(context).edit),
                                     ],
                                   ),
                                 ),
@@ -353,9 +415,18 @@ class _CategoriesManagementSheetState extends ConsumerState<CategoriesManagement
                                   value: 'delete',
                                   child: Row(
                                     children: [
-                                      const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                                      const Icon(
+                                        Icons.delete_outline,
+                                        color: Colors.red,
+                                        size: 20,
+                                      ),
                                       const SizedBox(width: 12),
-                                      const Text('Supprimer', style: TextStyle(color: Colors.red)),
+                                      Text(
+                                        AppLocalizations.of(context).delete,
+                                        style: const TextStyle(
+                                          color: Colors.red,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -366,7 +437,7 @@ class _CategoriesManagementSheetState extends ConsumerState<CategoriesManagement
                       },
                     ),
             ),
-            
+
           // Add button only when list is shown
           if (!_isEditing)
             Padding(

@@ -1,7 +1,9 @@
+import '../enums/order_status.dart';
+
 class OrderEntity {
   final int id;
   final String reference;
-  final String status;
+  final OrderStatus status;
   final String paymentMode;
   final String paymentStatus;
   final bool isPaid;
@@ -27,7 +29,7 @@ class OrderEntity {
   const OrderEntity({
     required this.id,
     required this.reference,
-    required this.status,
+    this.status = OrderStatus.pending,
     required this.paymentMode,
     this.paymentStatus = 'pending',
     this.isPaid = false,
@@ -51,15 +53,15 @@ class OrderEntity {
   });
 
   /// Whether the pharmacy can confirm this order
-  bool get canBeConfirmed => status == 'pending' && isPaid;
+  bool get canBeConfirmed => status == OrderStatus.pending && isPaid;
 
   /// Whether the order is pending and unpaid
-  bool get isPendingUnpaid => status == 'pending' && !isPaid;
+  bool get isPendingUnpaid => status == OrderStatus.pending && !isPaid;
 
   OrderEntity copyWith({
     int? id,
     String? reference,
-    String? status,
+    OrderStatus? status,
     String? paymentMode,
     String? paymentStatus,
     bool? isPaid,

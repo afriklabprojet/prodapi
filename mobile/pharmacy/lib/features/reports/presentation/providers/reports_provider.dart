@@ -48,10 +48,14 @@ class ReportsState {
 }
 
 /// Notifier pour gérer l'état des rapports
-class ReportsNotifier extends StateNotifier<ReportsState> {
-  final ReportsRepositoryImpl _repository;
+class ReportsNotifier extends Notifier<ReportsState> {
+  late final ReportsRepositoryImpl _repository;
 
-  ReportsNotifier(this._repository) : super(const ReportsState());
+  @override
+  ReportsState build() {
+    _repository = ref.watch(reportsRepositoryProvider);
+    return const ReportsState();
+  }
 
   /// Load all dashboard data
   Future<void> loadDashboard({String? period}) async {
@@ -177,10 +181,9 @@ class ReportsNotifier extends StateNotifier<ReportsState> {
 }
 
 /// Provider principal pour les rapports
-final reportsProvider = StateNotifierProvider<ReportsNotifier, ReportsState>((ref) {
-  final repository = ref.watch(reportsRepositoryProvider);
-  return ReportsNotifier(repository);
-});
+final reportsProvider = NotifierProvider<ReportsNotifier, ReportsState>(
+  ReportsNotifier.new,
+);
 
 /// Provider pour les alertes de stock uniquement
 final stockAlertsProvider = FutureProvider<List<StockAlert>>((ref) async {

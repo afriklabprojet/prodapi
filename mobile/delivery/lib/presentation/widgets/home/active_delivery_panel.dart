@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../core/router/route_names.dart';
+import '../../../core/theme/design_tokens.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../core/services/navigation_service.dart';
+import '../../../core/utils/error_utils.dart';
+import '../../../core/utils/number_formatter.dart';
+import '../../../core/utils/snackbar_extension.dart';
+import '../../../core/utils/privacy_utils.dart';
 import '../../../data/models/delivery.dart';
 import '../../../data/models/route_info.dart';
 import '../../../data/repositories/delivery_repository.dart';
 import '../../providers/delivery_providers.dart';
-import '../../screens/enhanced_chat_screen.dart';
 import '../chat/enhanced_chat_widgets.dart';
 import '../common/eta_display.dart';
 import 'delivery_dialogs.dart';
@@ -29,6 +35,7 @@ class ActiveDeliveryPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final statusInfo = _getStatusInfo(context, ref);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Positioned(
       bottom: 0,
@@ -37,13 +44,13 @@ class ActiveDeliveryPanel extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          color: isDark ? const Color(0xFF1A2A3A) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.15),
-              blurRadius: 10,
-              offset: const Offset(0, -4),
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 24,
+              offset: const Offset(0, -8),
             ),
           ],
         ),
@@ -51,22 +58,58 @@ class ActiveDeliveryPanel extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Handle bar
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: context.dividerColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+            // Handle bar - cliquable pour voir les détails
+            GestureDetector(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                context.push(AppRoutes.deliveryDetails, extra: delivery);
+              },
+              child: Column(
+                children: [
+                  Center(
+                    child: Container(
+                      width: 48,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.15)
+                            : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.keyboard_arrow_up_rounded,
+                        size: 18,
+                        color: context.secondaryText,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Voir les détails',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: context.secondaryText,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
 
             // Status Header
-            _buildStatusHeader(context, statusInfo),
-            const SizedBox(height: 16),
+            _buildStatusHeader(context, statusInfo, isDark),
+            const SizedBox(height: 14),
+
+            // Earnings row — montant visible pendant la course
+            _buildEarningsRow(context, isDark),
+            const SizedBox(height: 14),
 
             // ETA Display - nouveau widget pour afficher temps/distance
             if (routeInfo != null) ...[
@@ -76,87 +119,248 @@ class ActiveDeliveryPanel extends ConsumerWidget {
                 isCompact: false,
                 showArrivalTime: true,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
             ],
 
             // Route Info
-            _buildRouteInfo(context, statusInfo),
+            _buildRouteInfo(context, statusInfo, isDark),
 
             const SizedBox(height: 24),
 
             // Main Action Button
-            _buildActionButton(statusInfo),
+            _buildActionButton(statusInfo, isDark),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStatusHeader(BuildContext context, _StatusInfo info) {
+  Widget _buildStatusHeader(
+    BuildContext context,
+    _StatusInfo info,
+    bool isDark,
+  ) {
     return Row(
       children: [
         Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(color: info.color, shape: BoxShape.circle),
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: info.color.withValues(alpha: 0.15),
+            shape: BoxShape.circle,
+          ),
+          child: Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: info.color,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: info.color.withValues(alpha: 0.5),
+                  blurRadius: 8,
+                ),
+              ],
+            ),
+          ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         Text(
           info.statusText.toUpperCase(),
           style: TextStyle(
             color: info.color,
             fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
+            fontSize: 13,
+            letterSpacing: 0.8,
           ),
         ),
         const Spacer(),
         if (routeInfo != null)
           Padding(
             padding: const EdgeInsets.only(right: 8.0),
-            child: FloatingActionButton.small(
-              heroTag: 'itinerary_btn',
+            child: _buildIconButton(
+              icon: Icons.list_alt_rounded,
+              color: DesignTokens.primary,
               onPressed: onShowItinerary,
-              backgroundColor: Theme.of(context).cardColor,
-              shape: CircleBorder(side: BorderSide(color: Colors.blue.shade100)),
-              elevation: 0,
-              child: const Icon(Icons.list_alt, color: Colors.blue),
+              heroTag: 'itinerary_btn',
+              isDark: isDark,
             ),
           ),
-        FloatingActionButton.small(
-          heroTag: 'nav_btn',
+        _buildIconButton(
+          icon: Icons.navigation_rounded,
+          color: DesignTokens.primary,
           onPressed: info.onNavigate,
-          backgroundColor: Colors.blue.shade50,
-          elevation: 0,
-          child: const Icon(Icons.navigation, color: Colors.blue),
+          heroTag: 'nav_btn',
+          isDark: isDark,
+          filled: true,
         ),
       ],
     );
   }
 
-  Widget _buildRouteInfo(BuildContext context, _StatusInfo info) {
+  Widget _buildIconButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+    required String heroTag,
+    required bool isDark,
+    bool filled = false,
+  }) {
+    return FloatingActionButton.small(
+      heroTag: heroTag,
+      onPressed: () {
+        HapticFeedback.lightImpact();
+        onPressed();
+      },
+      backgroundColor: filled
+          ? color.withValues(alpha: 0.15)
+          : (isDark ? const Color(0xFF252540) : Colors.white),
+      shape: CircleBorder(
+        side: BorderSide(color: color.withValues(alpha: 0.3)),
+      ),
+      elevation: 0,
+      child: Icon(icon, color: color, size: 20),
+    );
+  }
+
+  Widget _buildEarningsRow(BuildContext context, bool isDark) {
+    final earnings =
+        delivery.estimatedEarnings ??
+        ((delivery.deliveryFee ?? 0) - (delivery.commission ?? 0));
+
+    if (earnings <= 0 && delivery.deliveryFee == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            DesignTokens.primary.withValues(alpha: isDark ? 0.2 : 0.1),
+            DesignTokens.primaryLight.withValues(alpha: isDark ? 0.1 : 0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: DesignTokens.primary.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: DesignTokens.primary.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.monetization_on_rounded,
+              size: 18,
+              color: isDark ? DesignTokens.primaryLight : DesignTokens.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            earnings > 0
+                ? earnings.formatCurrency(symbol: 'F')
+                : '${delivery.totalAmount.toInt()} F',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 17,
+              color: isDark ? DesignTokens.primaryLight : DesignTokens.primary,
+            ),
+          ),
+          if (delivery.commission != null && delivery.commission! > 0) ...[
+            const SizedBox(width: 12),
+            Container(
+              width: 4,
+              height: 4,
+              decoration: BoxDecoration(
+                color: DesignTokens.primary.withValues(alpha: 0.4),
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Commission: ${delivery.commission!.toInt()} F',
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark
+                    ? DesignTokens.textMutedDarkMode
+                    : DesignTokens.textMuted,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRouteInfo(BuildContext context, _StatusInfo info, bool isDark) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Column(
           children: [
-            const Icon(Icons.circle, size: 12, color: Colors.blue),
-            Container(width: 2, height: 30, color: context.dividerColor),
-            const Icon(Icons.location_on, size: 12, color: Colors.red),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: DesignTokens.primary.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.circle, size: 10, color: DesignTokens.primary),
+            ),
+            Container(
+              width: 2,
+              height: 28,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [DesignTokens.primary, Colors.red.shade400],
+                ),
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.location_on,
+                size: 10,
+                color: Colors.red.shade400,
+              ),
+            ),
           ],
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 delivery.pharmacyName,
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: isDark
+                      ? DesignTokens.textDarkMode
+                      : DesignTokens.textDark,
+                ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 26),
               Text(
                 delivery.customerName,
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: isDark
+                      ? DesignTokens.textDarkMode
+                      : DesignTokens.textDark,
+                ),
               ),
             ],
           ),
@@ -164,22 +368,24 @@ class ActiveDeliveryPanel extends ConsumerWidget {
         Column(
           children: [
             if (info.phoneToCall != null && info.phoneToCall!.isNotEmpty)
-              IconButton(
+              _buildContactButton(
+                icon: Icons.phone_rounded,
+                color: DesignTokens.primary,
                 onPressed: () => _makePhoneCall(context, info.phoneToCall!),
-                icon: const Icon(Icons.phone, color: Colors.green),
-                tooltip: 'Appeler',
+                isDark: isDark,
               ),
             Stack(
               children: [
-                IconButton(
+                _buildContactButton(
+                  icon: Icons.chat_bubble_rounded,
+                  color: DesignTokens.primary,
                   onPressed: () => _showChatOptions(context),
-                  icon: const Icon(Icons.chat_bubble, color: Colors.blue),
-                  tooltip: 'Message',
+                  isDark: isDark,
                 ),
                 const Positioned(
-                  right: 4,
-                  top: 4,
-                  child: ChatUnreadBadge(size: 16),
+                  right: 6,
+                  top: 6,
+                  child: ChatUnreadBadge(size: 14),
                 ),
               ],
             ),
@@ -189,21 +395,89 @@ class ActiveDeliveryPanel extends ConsumerWidget {
     );
   }
 
-  Widget _buildActionButton(_StatusInfo info) {
+  Widget _buildContactButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+    required bool isDark,
+  }) {
+    return IconButton(
+      onPressed: () {
+        HapticFeedback.lightImpact();
+        onPressed();
+      },
+      icon: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: color, size: 20),
+      ),
+      tooltip: icon == Icons.phone_rounded ? 'Appeler' : 'Message',
+    );
+  }
+
+  Widget _buildActionButton(_StatusInfo info, bool isDark) {
+    final isPickup =
+        delivery.status == 'assigned' || delivery.status == 'accepted';
+    final buttonColor = isPickup ? Colors.orange : DesignTokens.primary;
+
     return SizedBox(
       width: double.infinity,
-      child: ElevatedButton(
-        onPressed: info.onAction,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: info.color,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          elevation: 0,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isPickup
+                ? [Colors.orange.shade400, Colors.orange.shade600]
+                : [DesignTokens.primaryLight, DesignTokens.primary],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: buttonColor.withValues(alpha: 0.35),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: Text(
-          info.buttonText,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        child: ElevatedButton(
+          onPressed: () {
+            HapticFeedback.mediumImpact();
+            info.onAction();
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            foregroundColor: Colors.white,
+            shadowColor: Colors.transparent,
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            elevation: 0,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                isPickup
+                    ? Icons.inventory_2_rounded
+                    : Icons.check_circle_rounded,
+                size: 22,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                info.buttonText,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -211,7 +485,7 @@ class ActiveDeliveryPanel extends ConsumerWidget {
 
   _StatusInfo _getStatusInfo(BuildContext context, WidgetRef ref) {
     final navService = ref.read(navigationServiceProvider);
-    
+
     if (delivery.status == 'assigned' || delivery.status == 'accepted') {
       return _StatusInfo(
         statusText: 'En route vers la pharmacie',
@@ -230,11 +504,13 @@ class ActiveDeliveryPanel extends ConsumerWidget {
         },
         onAction: () async {
           try {
-            await ref.read(deliveryRepositoryProvider).pickupDelivery(delivery.id);
+            await ref
+                .read(deliveryRepositoryProvider)
+                .pickupDelivery(delivery.id);
             ref.invalidate(deliveriesProvider('active'));
           } catch (e) {
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+              context.showErrorMessage(userFriendlyError(e));
             }
           }
         },
@@ -262,6 +538,8 @@ class ActiveDeliveryPanel extends ConsumerWidget {
             delivery.id,
             customerName: delivery.customerName,
             customerAddress: delivery.deliveryAddress,
+            deliveryFee: delivery.deliveryFee,
+            commission: delivery.commission,
           );
         },
       );
@@ -273,12 +551,7 @@ class ActiveDeliveryPanel extends ConsumerWidget {
 
     if (cleanNumber.isEmpty) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Numéro de téléphone invalide'),
-            backgroundColor: Colors.orange,
-          ),
-        );
+        context.showWarning('Numéro de téléphone invalide');
       }
       return;
     }
@@ -288,13 +561,13 @@ class ActiveDeliveryPanel extends ConsumerWidget {
     try {
       final canLaunch = await canLaunchUrl(telUri);
       if (canLaunch) {
-        final launched = await launchUrl(telUri, mode: LaunchMode.externalApplication);
+        final launched = await launchUrl(
+          telUri,
+          mode: LaunchMode.externalApplication,
+        );
         if (!launched && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Impossible d\'appeler $phoneNumber'),
-              backgroundColor: Colors.red,
-            ),
+          context.showErrorMessage(
+            'Impossible d\'appeler ${maskPhoneNumber(phoneNumber)}',
           );
         }
       } else {
@@ -302,26 +575,11 @@ class ActiveDeliveryPanel extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: impossible d\'appeler $phoneNumber'),
-            backgroundColor: Colors.red,
-            action: SnackBarAction(
-              label: 'Copier',
-              textColor: Colors.white,
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: phoneNumber));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Numéro copié dans le presse-papier'),
-                    backgroundColor: Colors.green,
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              },
-            ),
-          ),
+        context.showErrorMessage(
+          'Erreur: impossible d\'appeler ${maskPhoneNumber(phoneNumber)}',
         );
+        // SÉCURITÉ: Ne pas copier le numéro complet dans le clipboard
+        // pour éviter l'extraction de données personnelles
       }
     }
   }
@@ -363,20 +621,21 @@ class ActiveDeliveryPanel extends ConsumerWidget {
                 ),
                 child: const Icon(Icons.local_pharmacy, color: Colors.orange),
               ),
-              title: const Text('Pharmacie', style: TextStyle(fontWeight: FontWeight.w600)),
+              title: const Text(
+                'Pharmacie',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
               subtitle: Text(delivery.pharmacyName),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
                 Navigator.pop(ctx);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => EnhancedChatScreen(
-                      orderId: delivery.id,
-                      target: 'pharmacy',
-                      targetName: delivery.pharmacyName,
-                    ),
-                  ),
+                context.push(
+                  AppRoutes.deliveryChat,
+                  extra: {
+                    'orderId': delivery.id,
+                    'target': 'pharmacy',
+                    'targetName': delivery.pharmacyName,
+                  },
                 );
               },
             ),
@@ -391,20 +650,21 @@ class ActiveDeliveryPanel extends ConsumerWidget {
                 ),
                 child: const Icon(Icons.person, color: Colors.green),
               ),
-              title: const Text('Client', style: TextStyle(fontWeight: FontWeight.w600)),
+              title: const Text(
+                'Client',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
               subtitle: Text(delivery.customerName),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
                 Navigator.pop(ctx);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => EnhancedChatScreen(
-                      orderId: delivery.id,
-                      target: 'customer',
-                      targetName: delivery.customerName,
-                    ),
-                  ),
+                context.push(
+                  AppRoutes.deliveryChat,
+                  extra: {
+                    'orderId': delivery.id,
+                    'target': 'customer',
+                    'targetName': delivery.customerName,
+                  },
                 );
               },
             ),

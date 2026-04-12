@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../core/utils/error_utils.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/utils/snackbar_extension.dart';
 
 /// Widget pour capturer une photo de preuve de livraison
 class DeliveryPhotoCapture extends StatefulWidget {
@@ -46,9 +48,7 @@ class _DeliveryPhotoCaptureState extends State<DeliveryPhotoCapture> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
+        context.showErrorMessage(userFriendlyError(e));
       }
     }
   }

@@ -49,114 +49,143 @@ void main() {
     group('getOrders', () {
       test('should call apiClient.get with correct endpoint', () async {
         // arrange
-        when(() => mockApiClient.authorizedOptions(any()))
-            .thenReturn(Options(headers: {'Authorization': 'Bearer token'}));
-        when(() => mockApiClient.get(
-          any(),
-          queryParameters: any(named: 'queryParameters'),
-          options: any(named: 'options'),
-        )).thenAnswer((_) async => Response(
-          requestOptions: RequestOptions(path: '/pharmacy/orders'),
-          statusCode: 200,
-          data: {'data': tOrdersListJson},
-        ));
+        when(
+          () => mockApiClient.authorizedOptions(any()),
+        ).thenReturn(Options(headers: {'Authorization': 'Bearer token'}));
+        when(
+          () => mockApiClient.get(
+            any(),
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          ),
+        ).thenAnswer(
+          (_) async => Response(
+            requestOptions: RequestOptions(path: '/pharmacy/orders'),
+            statusCode: 200,
+            data: {'data': tOrdersListJson},
+          ),
+        );
 
         // act
         await dataSource.getOrders();
 
         // assert
-        verify(() => mockApiClient.get(
-          '/pharmacy/orders',
-          queryParameters: null,
-          options: any(named: 'options'),
-        )).called(1);
+        verify(
+          () => mockApiClient.get(
+            '/pharmacy/orders',
+            queryParameters: {'per_page': 20},
+            options: any(named: 'options'),
+          ),
+        ).called(1);
       });
 
       test('should call apiClient.get with status filter', () async {
         // arrange
-        when(() => mockApiClient.authorizedOptions(any()))
-            .thenReturn(Options(headers: {'Authorization': 'Bearer token'}));
-        when(() => mockApiClient.get(
-          any(),
-          queryParameters: any(named: 'queryParameters'),
-          options: any(named: 'options'),
-        )).thenAnswer((_) async => Response(
-          requestOptions: RequestOptions(path: '/pharmacy/orders'),
-          statusCode: 200,
-          data: {'data': tOrdersListJson},
-        ));
+        when(
+          () => mockApiClient.authorizedOptions(any()),
+        ).thenReturn(Options(headers: {'Authorization': 'Bearer token'}));
+        when(
+          () => mockApiClient.get(
+            any(),
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          ),
+        ).thenAnswer(
+          (_) async => Response(
+            requestOptions: RequestOptions(path: '/pharmacy/orders'),
+            statusCode: 200,
+            data: {'data': tOrdersListJson},
+          ),
+        );
 
         // act
         await dataSource.getOrders(status: 'pending');
 
         // assert
-        verify(() => mockApiClient.get(
-          '/pharmacy/orders',
-          queryParameters: {'status': 'pending'},
-          options: any(named: 'options'),
-        )).called(1);
+        verify(
+          () => mockApiClient.get(
+            '/pharmacy/orders',
+            queryParameters: {'per_page': 20, 'status': 'pending'},
+            options: any(named: 'options'),
+          ),
+        ).called(1);
       });
 
       test('should return list of OrderModel on success', () async {
         // arrange
-        when(() => mockApiClient.authorizedOptions(any()))
-            .thenReturn(Options(headers: {'Authorization': 'Bearer token'}));
-        when(() => mockApiClient.get(
-          any(),
-          queryParameters: any(named: 'queryParameters'),
-          options: any(named: 'options'),
-        )).thenAnswer((_) async => Response(
-          requestOptions: RequestOptions(path: '/pharmacy/orders'),
-          statusCode: 200,
-          data: {'data': tOrdersListJson},
-        ));
+        when(
+          () => mockApiClient.authorizedOptions(any()),
+        ).thenReturn(Options(headers: {'Authorization': 'Bearer token'}));
+        when(
+          () => mockApiClient.get(
+            any(),
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          ),
+        ).thenAnswer(
+          (_) async => Response(
+            requestOptions: RequestOptions(path: '/pharmacy/orders'),
+            statusCode: 200,
+            data: {'data': tOrdersListJson},
+          ),
+        );
 
         // act
         final result = await dataSource.getOrders();
 
         // assert
-        expect(result, isA<List<OrderModel>>());
-        expect(result.length, equals(2));
-        expect(result[0].reference, equals('ORD-001'));
-        expect(result[1].reference, equals('ORD-002'));
+        expect(result, isA<PaginatedOrdersResponse>());
+        expect(result.orders.length, equals(2));
+        expect(result.orders[0].reference, equals('ORD-001'));
+        expect(result.orders[1].reference, equals('ORD-002'));
       });
     });
 
     group('getOrderDetails', () {
       test('should call apiClient.get with correct endpoint', () async {
         // arrange
-        when(() => mockApiClient.get(
-          any(),
-          queryParameters: any(named: 'queryParameters'),
-          options: any(named: 'options'),
-        )).thenAnswer((_) async => Response(
-          requestOptions: RequestOptions(path: '/pharmacy/orders/1'),
-          statusCode: 200,
-          data: {'data': tOrderJson},
-        ));
+        when(
+          () => mockApiClient.get(
+            any(),
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          ),
+        ).thenAnswer(
+          (_) async => Response(
+            requestOptions: RequestOptions(path: '/pharmacy/orders/1'),
+            statusCode: 200,
+            data: {'data': tOrderJson},
+          ),
+        );
 
         // act
         await dataSource.getOrderDetails(1);
 
         // assert
-        verify(() => mockApiClient.get(
-          '/pharmacy/orders/1',
-          queryParameters: any(named: 'queryParameters'),
-          options: any(named: 'options'),
-        )).called(1);
+        verify(
+          () => mockApiClient.get(
+            '/pharmacy/orders/1',
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          ),
+        ).called(1);
       });
 
       test('should return OrderModel on success', () async {
         // arrange
-        when(() => mockApiClient.get(
-          any(),
-          queryParameters: any(named: 'queryParameters'),
-          options: any(named: 'options'),
-        )).thenAnswer((_) async => Response(
-          requestOptions: RequestOptions(path: '/pharmacy/orders/1'),
-          statusCode: 200,
-          data: {'data': tOrderJson},
-        ));
+        when(
+          () => mockApiClient.get(
+            any(),
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          ),
+        ).thenAnswer(
+          (_) async => Response(
+            requestOptions: RequestOptions(path: '/pharmacy/orders/1'),
+            statusCode: 200,
+            data: {'data': tOrderJson},
+          ),
+        );
 
         // act
         final result = await dataSource.getOrderDetails(1);
@@ -171,133 +200,163 @@ void main() {
     group('confirmOrder', () {
       test('should call apiClient.post with correct endpoint', () async {
         // arrange
-        when(() => mockApiClient.post(
-          any(),
-          data: any(named: 'data'),
-          queryParameters: any(named: 'queryParameters'),
-          options: any(named: 'options'),
-        )).thenAnswer((_) async => Response(
-          requestOptions: RequestOptions(path: '/pharmacy/orders/1/confirm'),
-          statusCode: 200,
-          data: {'message': 'Order confirmed'},
-        ));
+        when(
+          () => mockApiClient.post(
+            any(),
+            data: any(named: 'data'),
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          ),
+        ).thenAnswer(
+          (_) async => Response(
+            requestOptions: RequestOptions(path: '/pharmacy/orders/1/confirm'),
+            statusCode: 200,
+            data: {'message': 'Order confirmed'},
+          ),
+        );
 
         // act
         await dataSource.confirmOrder(1);
 
         // assert
-        verify(() => mockApiClient.post(
-          '/pharmacy/orders/1/confirm',
-          data: any(named: 'data'),
-          queryParameters: any(named: 'queryParameters'),
-          options: any(named: 'options'),
-        )).called(1);
+        verify(
+          () => mockApiClient.post(
+            '/pharmacy/orders/1/confirm',
+            data: any(named: 'data'),
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          ),
+        ).called(1);
       });
     });
 
     group('markOrderReady', () {
       test('should call apiClient.post with correct endpoint', () async {
         // arrange
-        when(() => mockApiClient.post(
-          any(),
-          data: any(named: 'data'),
-          queryParameters: any(named: 'queryParameters'),
-          options: any(named: 'options'),
-        )).thenAnswer((_) async => Response(
-          requestOptions: RequestOptions(path: '/pharmacy/orders/1/ready'),
-          statusCode: 200,
-          data: {'message': 'Order marked as ready'},
-        ));
+        when(
+          () => mockApiClient.post(
+            any(),
+            data: any(named: 'data'),
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          ),
+        ).thenAnswer(
+          (_) async => Response(
+            requestOptions: RequestOptions(path: '/pharmacy/orders/1/ready'),
+            statusCode: 200,
+            data: {'message': 'Order marked as ready'},
+          ),
+        );
 
         // act
         await dataSource.markOrderReady(1);
 
         // assert
-        verify(() => mockApiClient.post(
-          '/pharmacy/orders/1/ready',
-          data: any(named: 'data'),
-          queryParameters: any(named: 'queryParameters'),
-          options: any(named: 'options'),
-        )).called(1);
+        verify(
+          () => mockApiClient.post(
+            '/pharmacy/orders/1/ready',
+            data: any(named: 'data'),
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          ),
+        ).called(1);
       });
     });
 
     group('rejectOrder', () {
       test('should call apiClient.post without reason', () async {
         // arrange
-        when(() => mockApiClient.post(
-          any(),
-          data: any(named: 'data'),
-          queryParameters: any(named: 'queryParameters'),
-          options: any(named: 'options'),
-        )).thenAnswer((_) async => Response(
-          requestOptions: RequestOptions(path: '/pharmacy/orders/1/reject'),
-          statusCode: 200,
-          data: {'message': 'Order rejected'},
-        ));
+        when(
+          () => mockApiClient.post(
+            any(),
+            data: any(named: 'data'),
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          ),
+        ).thenAnswer(
+          (_) async => Response(
+            requestOptions: RequestOptions(path: '/pharmacy/orders/1/reject'),
+            statusCode: 200,
+            data: {'message': 'Order rejected'},
+          ),
+        );
 
         // act
         await dataSource.rejectOrder(1);
 
         // assert
-        verify(() => mockApiClient.post(
-          '/pharmacy/orders/1/reject',
-          data: null,
-          queryParameters: any(named: 'queryParameters'),
-          options: any(named: 'options'),
-        )).called(1);
+        verify(
+          () => mockApiClient.post(
+            '/pharmacy/orders/1/reject',
+            data: null,
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          ),
+        ).called(1);
       });
 
       test('should call apiClient.post with reason', () async {
         // arrange
-        when(() => mockApiClient.post(
-          any(),
-          data: any(named: 'data'),
-          queryParameters: any(named: 'queryParameters'),
-          options: any(named: 'options'),
-        )).thenAnswer((_) async => Response(
-          requestOptions: RequestOptions(path: '/pharmacy/orders/1/reject'),
-          statusCode: 200,
-          data: {'message': 'Order rejected'},
-        ));
+        when(
+          () => mockApiClient.post(
+            any(),
+            data: any(named: 'data'),
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          ),
+        ).thenAnswer(
+          (_) async => Response(
+            requestOptions: RequestOptions(path: '/pharmacy/orders/1/reject'),
+            statusCode: 200,
+            data: {'message': 'Order rejected'},
+          ),
+        );
 
         // act
         await dataSource.rejectOrder(1, reason: 'Out of stock');
 
         // assert
-        verify(() => mockApiClient.post(
-          '/pharmacy/orders/1/reject',
-          data: {'reason': 'Out of stock'},
-          queryParameters: any(named: 'queryParameters'),
-          options: any(named: 'options'),
-        )).called(1);
+        verify(
+          () => mockApiClient.post(
+            '/pharmacy/orders/1/reject',
+            data: {'reason': 'Out of stock'},
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          ),
+        ).called(1);
       });
     });
 
     group('addNotes', () {
       test('should call apiClient.post with notes data', () async {
         // arrange
-        when(() => mockApiClient.post(
-          any(),
-          data: any(named: 'data'),
-          queryParameters: any(named: 'queryParameters'),
-          options: any(named: 'options'),
-        )).thenAnswer((_) async => Response(
-          requestOptions: RequestOptions(path: '/pharmacy/orders/1/notes'),
-          statusCode: 200,
-          data: {'message': 'Notes added'},
-        ));
+        when(
+          () => mockApiClient.post(
+            any(),
+            data: any(named: 'data'),
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          ),
+        ).thenAnswer(
+          (_) async => Response(
+            requestOptions: RequestOptions(path: '/pharmacy/orders/1/notes'),
+            statusCode: 200,
+            data: {'message': 'Notes added'},
+          ),
+        );
 
         // act
         await dataSource.addNotes(1, 'Customer wants bag');
 
         // assert
-        verify(() => mockApiClient.post(
-          '/pharmacy/orders/1/notes',
-          data: {'notes': 'Customer wants bag'},
-          queryParameters: any(named: 'queryParameters'),
-          options: any(named: 'options'),
-        )).called(1);
+        verify(
+          () => mockApiClient.post(
+            '/pharmacy/orders/1/notes',
+            data: {'notes': 'Customer wants bag'},
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          ),
+        ).called(1);
       });
     });
   });

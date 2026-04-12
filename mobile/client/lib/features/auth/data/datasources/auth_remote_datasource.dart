@@ -5,7 +5,8 @@ import '../models/auth_response_model.dart';
 import '../models/user_model.dart';
 
 /// Helper pour parser response.data de manière sûre
-Map<String, dynamic> _safeData(dynamic data) => ApiClient.parseResponseData(data);
+Map<String, dynamic> _safeData(dynamic data) =>
+    ApiClient.parseResponseData(data);
 
 abstract class AuthRemoteDataSource {
   Future<AuthResponseModel> login({
@@ -40,32 +41,34 @@ abstract class AuthRemoteDataSource {
   Future<AuthResponseModel> verifyFirebaseOtp({
     required String phone,
     required String firebaseUid,
+    required String firebaseIdToken,
   });
 
   /// Resend OTP code
   /// Returns a map with 'message' and 'channel' keys
-  Future<Map<String, dynamic>> resendOtp({
-    required String identifier,
-  });
+  Future<Map<String, dynamic>> resendOtp({required String identifier});
 
-  /// Request password reset email
-  Future<void> forgotPassword({
-    required String email,
-  });
+  /// Request password reset (email or phone)
+  Future<void> forgotPassword({String? email, String? phone});
 
   /// Verify reset OTP code
   Future<void> verifyResetOtp({
-    required String email,
+    String? email,
+    String? phone,
     required String otp,
   });
 
   /// Reset password with OTP
   Future<void> resetPassword({
-    required String email,
+    String? email,
+    String? phone,
     required String otp,
     required String password,
     required String passwordConfirmation,
   });
+
+  /// Login or register via Google Sign-In (Firebase ID token)
+  Future<AuthResponseModel> loginWithGoogle({required String firebaseIdToken});
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -80,7 +83,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }) async {
     // Normaliser l'email en minuscules pour éviter les problèmes de case sensitivity
     final normalizedEmail = email.toLowerCase().trim();
-    
+
     final response = await apiClient.post(
       ApiConstants.login,
       data: {
@@ -105,7 +108,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }) async {
     // Normaliser l'email en minuscules pour éviter les problèmes de case sensitivity
     final normalizedEmail = email.toLowerCase().trim();
-    
+
     final response = await apiClient.post(
       ApiConstants.register,
       data: {
@@ -163,10 +166,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }) async {
     final response = await apiClient.post(
       ApiConstants.verifyOtp,
-      data: {
-        'identifier': identifier,
-        'otp': otp,
-      },
+      data: {'identifier': identifier, 'otp': otp},
     );
 
     final json = _safeData(response.data);
@@ -177,12 +177,14 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   Future<AuthResponseModel> verifyFirebaseOtp({
     required String phone,
     required String firebaseUid,
+    required String firebaseIdToken,
   }) async {
     final response = await apiClient.post(
       ApiConstants.verifyFirebaseOtp,
       data: {
         'phone': phone,
         'firebase_uid': firebaseUid,
+        'firebase_id_token': firebaseIdToken,
       },
     );
 
@@ -192,16 +194,12 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }
 
   @override
-  Future<Map<String, dynamic>> resendOtp({
-    required String identifier,
-  }) async {
+  Future<Map<String, dynamic>> resendOtp({required String identifier}) async {
     final response = await apiClient.post(
       ApiConstants.resendOtp,
-      data: {
-        'identifier': identifier,
-      },
+      data: {'identifier': identifier},
     );
-    
+
     final json = _safeData(response.data);
     return {
       'message': json['message'] ?? 'Code envoyé',
@@ -210,46 +208,65 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }
 
   @override
-  Future<void> forgotPassword({
-    required String email,
-  }) async {
-    await apiClient.post(
-      ApiConstants.forgotPassword,
-      data: {
-        'email': email.toLowerCase().trim(),
-      },
-    );
+  Future<void> forgotPassword({String? email, String? phone}) async {
+    final data = <String, dynamic>{};
+    if (email != null && email.isNotEmpty) {
+      data['email'] = email.toLowerCase().trim();
+    }
+    if (phone != null && phone.isNotEmpty) {
+      data['phone'] = phone.trim();
+    }
+    await apiClient.post(ApiConstants.forgotPassword, data: data);
   }
 
   @override
   Future<void> verifyResetOtp({
-    required String email,
+    String? email,
+    String? phone,
     required String otp,
   }) async {
-    await apiClient.post(
-      ApiConstants.verifyResetOtp,
-      data: {
-        'email': email.toLowerCase().trim(),
-        'otp': otp,
-      },
-    );
+    final data = <String, dynamic>{'otp': otp};
+    if (email != null && email.isNotEmpty) {
+      data['email'] = email.toLowerCase().trim();
+    }
+    if (phone != null && phone.isNotEmpty) {
+      data['phone'] = phone.trim();
+    }
+    await apiClient.post(ApiConstants.verifyResetOtp, data: data);
   }
 
   @override
   Future<void> resetPassword({
-    required String email,
+    String? email,
+    String? phone,
     required String otp,
     required String password,
     required String passwordConfirmation,
   }) async {
-    await apiClient.post(
-      ApiConstants.resetPassword,
-      data: {
-        'email': email.toLowerCase().trim(),
-        'otp': otp,
-        'password': password,
-        'password_confirmation': passwordConfirmation,
-      },
+    final data = <String, dynamic>{
+      'otp': otp,
+      'password': password,
+      'password_confirmation': passwordConfirmation,
+    };
+    if (email != null && email.isNotEmpty) {
+      data['email'] = email.toLowerCase().trim();
+    }
+    if (phone != null && phone.isNotEmpty) {
+      data['phone'] = phone.trim();
+    }
+    await apiClient.post(ApiConstants.resetPassword, data: data);
+  }
+
+  @override
+  Future<AuthResponseModel> loginWithGoogle({
+    required String firebaseIdToken,
+  }) async {
+    final response = await apiClient.post(
+      ApiConstants.socialGoogle,
+      data: {'firebase_id_token': firebaseIdToken, 'device_name': 'client-app'},
     );
+
+    final json = _safeData(response.data);
+    return AuthResponseModel.fromJson(json['data'] ?? json);
   }
 }

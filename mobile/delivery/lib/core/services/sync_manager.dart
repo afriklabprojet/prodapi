@@ -81,26 +81,30 @@ class SyncManager extends StateNotifier<SyncState> {
 
   void _init() {
     // Écouter les changements de connectivité via provider subscription
-    _ref.listen<ConnectivityState>(
-      connectivityProvider,
-      (previous, next) {
-        _onConnectivityChanged(previous, next);
-      },
-    );
-    
+    _ref.listen<ConnectivityState>(connectivityProvider, (previous, next) {
+      _onConnectivityChanged(previous, next);
+    });
+
     // Mettre à jour le compteur initial
     _updatePendingCount();
   }
 
-  void _onConnectivityChanged(ConnectivityState? previous, ConnectivityState next) {
+  void _onConnectivityChanged(
+    ConnectivityState? previous,
+    ConnectivityState next,
+  ) {
     // Si on était hors-ligne et qu'on revient en ligne
     if (_wasOffline && next.isOnline) {
-      if (kDebugMode) debugPrint('🔄 [SyncManager] Reconnexion détectée, lancement de la synchronisation...');
+      if (kDebugMode) {
+        debugPrint(
+          '🔄 [SyncManager] Reconnexion détectée, lancement de la synchronisation...',
+        );
+      }
       syncAll();
     }
-    
+
     _wasOffline = next.isOffline;
-    
+
     // Mettre à jour le provider de connectivité avec le compteur
     if (next.isOnline) {
       _updatePendingCount();
@@ -112,15 +116,18 @@ class SyncManager extends StateNotifier<SyncState> {
     final actionsCount = await OfflineService.instance.getPendingActionsCount();
     final proofsCount = await OfflineService.instance.getPendingProofsCount();
     final total = actionsCount + proofsCount;
-    
+
     if (_disposed) return;
     state = state.copyWith(totalPending: total);
-    
+
     // Mettre à jour aussi le provider de connectivité
     try {
       _ref.read(connectivityProvider.notifier).updatePendingSyncCount(total);
-    } catch (_) {
+    } catch (e) {
       // Provider peut être en cours de destruction
+      if (kDebugMode) {
+        debugPrint('⚠️ [SyncManager] updatePendingSyncCount failed: $e');
+      }
     }
   }
 
@@ -134,43 +141,47 @@ class SyncManager extends StateNotifier<SyncState> {
     // Vérifier qu'on est en ligne
     final connectivity = _ref.read(connectivityProvider);
     if (!connectivity.isOnline) {
-      if (kDebugMode) debugPrint('📴 [SyncManager] Pas de connexion, sync annulée');
+      if (kDebugMode) {
+        debugPrint('📴 [SyncManager] Pas de connexion, sync annulée');
+      }
       return;
     }
 
     await _updatePendingCount();
-    
+
     if (state.totalPending == 0) {
       if (kDebugMode) debugPrint('✅ [SyncManager] Rien à synchroniser');
       return;
     }
 
     if (_disposed) return;
-    state = state.copyWith(
-      isSyncing: true,
-      synced: 0,
-      results: [],
-    );
+    state = state.copyWith(isSyncing: true, synced: 0, results: []);
     try {
       _ref.read(connectivityProvider.notifier).setSyncing(true);
-    } catch (_) {
+    } catch (e) {
       // Provider peut être en cours de destruction
+      if (kDebugMode) {
+        debugPrint('⚠️ [SyncManager] setSyncing(true) failed: $e');
+      }
     }
 
-    if (kDebugMode) debugPrint('🔄 [SyncManager] Début de la synchronisation (${state.totalPending} éléments)...');
+    if (kDebugMode) {
+      debugPrint(
+        '🔄 [SyncManager] Début de la synchronisation (${state.totalPending} éléments)...',
+      );
+    }
 
     final results = <SyncResult>[];
 
     try {
       // 1. Synchroniser les preuves de livraison
       results.addAll(await _syncPendingProofs());
-      
+
       // 2. Synchroniser les actions en attente
       results.addAll(await _syncPendingActions());
-      
+
       // 3. Rafraîchir les données depuis le serveur
       await _refreshData();
-      
     } catch (e) {
       if (kDebugMode) debugPrint('❌ [SyncManager] Erreur générale: $e');
     } finally {
@@ -182,8 +193,11 @@ class SyncManager extends StateNotifier<SyncState> {
         );
         try {
           _ref.read(connectivityProvider.notifier).setSyncing(false);
-        } catch (_) {
+        } catch (e) {
           // Provider peut être disposed pendant le sync
+          if (kDebugMode) {
+            debugPrint('⚠️ [SyncManager] setSyncing(false) failed: $e');
+          }
         }
       }
       await _updatePendingCount();
@@ -191,7 +205,9 @@ class SyncManager extends StateNotifier<SyncState> {
       if (kDebugMode) {
         final successes = results.where((r) => r.success).length;
         final failures = results.where((r) => !r.success).length;
-        debugPrint('✅ [SyncManager] Sync terminée: $successes succès, $failures échecs');
+        debugPrint(
+          '✅ [SyncManager] Sync terminée: $successes succès, $failures échecs',
+        );
       }
     }
   }
@@ -200,31 +216,34 @@ class SyncManager extends StateNotifier<SyncState> {
   Future<List<SyncResult>> _syncPendingProofs() async {
     final results = <SyncResult>[];
     final proofs = await OfflineService.instance.getPendingProofsAndClear();
-    
+
     if (proofs.isEmpty) return results;
 
-    if (kDebugMode) debugPrint('📸 [SyncManager] Sync ${proofs.length} preuves...');
+    if (kDebugMode) {
+      debugPrint('📸 [SyncManager] Sync ${proofs.length} preuves...');
+    }
 
-    if (!_disposed) state = state.copyWith(currentAction: 'Envoi des preuves de livraison...');
+    if (!_disposed) {
+      state = state.copyWith(
+        currentAction: 'Envoi des preuves de livraison...',
+      );
+    }
 
     for (final proof in proofs) {
       try {
         final deliveryId = proof['delivery_id'] as int;
-        
+
         // Envoyer la preuve au serveur
         await _uploadProof(proof);
-        
-        results.add(SyncResult(
-          type: 'proof',
-          itemId: deliveryId,
-          success: true,
-        ));
-        
+
+        results.add(
+          SyncResult(type: 'proof', itemId: deliveryId, success: true),
+        );
+
         if (!_disposed) state = state.copyWith(synced: state.synced + 1);
-        
       } catch (e) {
         if (kDebugMode) debugPrint('❌ [SyncManager] Erreur upload preuve: $e');
-        
+
         // Remettre la preuve en attente pour réessayer plus tard
         await OfflineService.instance.addPendingProof(
           deliveryId: proof['delivery_id'] as int,
@@ -234,13 +253,15 @@ class SyncManager extends StateNotifier<SyncState> {
           latitude: proof['latitude'] as double?,
           longitude: proof['longitude'] as double?,
         );
-        
-        results.add(SyncResult(
-          type: 'proof',
-          itemId: proof['delivery_id'] as int,
-          success: false,
-          errorMessage: e.toString(),
-        ));
+
+        results.add(
+          SyncResult(
+            type: 'proof',
+            itemId: proof['delivery_id'] as int,
+            success: false,
+            errorMessage: e.toString(),
+          ),
+        );
       }
     }
 
@@ -250,7 +271,7 @@ class SyncManager extends StateNotifier<SyncState> {
   Future<void> _uploadProof(Map<String, dynamic> proof) async {
     final dio = _ref.read(dioProvider);
     final deliveryId = proof['delivery_id'] as int;
-    
+
     await dio.post(
       '/courier/deliveries/$deliveryId/proof',
       data: {
@@ -267,12 +288,16 @@ class SyncManager extends StateNotifier<SyncState> {
   Future<List<SyncResult>> _syncPendingActions() async {
     final results = <SyncResult>[];
     final actions = await OfflineService.instance.getPendingActionsAndClear();
-    
+
     if (actions.isEmpty) return results;
 
-    if (kDebugMode) debugPrint('🎯 [SyncManager] Sync ${actions.length} actions...');
+    if (kDebugMode) {
+      debugPrint('🎯 [SyncManager] Sync ${actions.length} actions...');
+    }
 
-    if (!_disposed) state = state.copyWith(currentAction: 'Synchronisation des actions...');
+    if (!_disposed) {
+      state = state.copyWith(currentAction: 'Synchronisation des actions...');
+    }
 
     final dio = _ref.read(dioProvider);
 
@@ -281,47 +306,57 @@ class SyncManager extends StateNotifier<SyncState> {
         final type = action['type'] as String;
         final deliveryId = action['delivery_id'] as int;
         final data = action['data'] as Map<String, dynamic>?;
-        
+
         switch (type) {
           case 'pickup':
             await dio.post('/courier/deliveries/$deliveryId/pickup');
             break;
           case 'deliver':
-            await dio.post('/courier/deliveries/$deliveryId/complete', data: data);
+            await dio.post(
+              '/courier/deliveries/$deliveryId/complete',
+              data: data,
+            );
             break;
           case 'location_update':
             if (data != null) {
               await dio.post('/courier/location', data: data);
             }
             break;
+          case 'rate_customer':
+            if (data != null) {
+              await dio.post(
+                '/courier/deliveries/$deliveryId/rate',
+                data: data,
+              );
+            }
+            break;
           default:
-            if (kDebugMode) debugPrint('⚠️ [SyncManager] Action inconnue: $type');
+            if (kDebugMode) {
+              debugPrint('⚠️ [SyncManager] Action inconnue: $type');
+            }
         }
-        
-        results.add(SyncResult(
-          type: type,
-          itemId: deliveryId,
-          success: true,
-        ));
-        
+
+        results.add(SyncResult(type: type, itemId: deliveryId, success: true));
+
         if (!_disposed) state = state.copyWith(synced: state.synced + 1);
-        
       } catch (e) {
         if (kDebugMode) debugPrint('❌ [SyncManager] Erreur action: $e');
-        
+
         // Remettre l'action en attente pour réessayer
         await OfflineService.instance.addPendingAction(
           type: action['type'] as String,
           deliveryId: action['delivery_id'] as int,
           data: action['data'] as Map<String, dynamic>?,
         );
-        
-        results.add(SyncResult(
-          type: action['type'] as String,
-          itemId: action['delivery_id'] as int,
-          success: false,
-          errorMessage: e.toString(),
-        ));
+
+        results.add(
+          SyncResult(
+            type: action['type'] as String,
+            itemId: action['delivery_id'] as int,
+            success: false,
+            errorMessage: e.toString(),
+          ),
+        );
       }
     }
 
@@ -332,25 +367,29 @@ class SyncManager extends StateNotifier<SyncState> {
   Future<void> _refreshData() async {
     if (_disposed) return;
     state = state.copyWith(currentAction: 'Actualisation des données...');
-    
+
     try {
       final deliveryRepo = _ref.read(deliveryRepositoryProvider);
-      
+
       // Rafraîchir les livraisons actives
       await deliveryRepo.getDeliveries(status: 'active');
-      
+
       // Rafraîchir le profil
       await deliveryRepo.getProfile();
-      
+
       if (kDebugMode) debugPrint('✅ [SyncManager] Données rafraîchies');
     } catch (e) {
-      if (kDebugMode) debugPrint('⚠️ [SyncManager] Erreur rafraîchissement: $e');
+      if (kDebugMode) {
+        debugPrint('⚠️ [SyncManager] Erreur rafraîchissement: $e');
+      }
     }
   }
 
   /// Force une synchronisation manuelle
   Future<void> forceSync() async {
-    if (kDebugMode) debugPrint('🔄 [SyncManager] Sync forcée par l\'utilisateur');
+    if (kDebugMode) {
+      debugPrint('🔄 [SyncManager] Sync forcée par l\'utilisateur');
+    }
     await syncAll();
   }
 
@@ -381,7 +420,9 @@ class SyncManager extends StateNotifier<SyncState> {
 // ══════════════════════════════════════════════════════════════════════════════
 
 /// Provider du gestionnaire de synchronisation
-final syncManagerProvider = StateNotifierProvider<SyncManager, SyncState>((ref) {
+final syncManagerProvider = StateNotifierProvider<SyncManager, SyncState>((
+  ref,
+) {
   return SyncManager(ref);
 });
 

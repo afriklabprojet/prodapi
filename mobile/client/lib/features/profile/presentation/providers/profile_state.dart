@@ -1,11 +1,18 @@
 import 'package:equatable/equatable.dart';
-import '../../../auth/domain/entities/user_entity.dart';
+import '../../domain/entities/profile_entity.dart';
 
-enum ProfileStatus { initial, loading, loaded, updating, uploadingAvatar, error }
+enum ProfileStatus {
+  initial,
+  loading,
+  loaded,
+  updating,
+  uploadingAvatar,
+  error,
+}
 
 class ProfileState extends Equatable {
   final ProfileStatus status;
-  final UserEntity? profile;
+  final ProfileEntity? profile;
   final String? errorMessage;
 
   const ProfileState({
@@ -22,19 +29,19 @@ class ProfileState extends Equatable {
 
   ProfileState copyWith({
     ProfileStatus? status,
-    UserEntity? profile,
+    ProfileEntity? profile,
     bool clearProfile = false,
     String? errorMessage,
     bool clearError = false,
     String? avatar,
     bool clearAvatar = false,
   }) {
-    UserEntity? newProfile = clearProfile ? null : (profile ?? this.profile);
+    ProfileEntity? newProfile = clearProfile ? null : (profile ?? this.profile);
     // Handle avatar updates
     if (avatar != null && newProfile != null) {
-      newProfile = newProfile.copyWith(profilePicture: avatar);
+      newProfile = newProfile.copyWith(avatar: avatar);
     } else if (clearAvatar && newProfile != null) {
-      newProfile = newProfile.copyWith(clearProfilePicture: true);
+      newProfile = newProfile.copyWith(clearAvatar: true);
     }
     return ProfileState(
       status: status ?? this.status,

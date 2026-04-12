@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:app_links/app_links.dart';
+import '../../core/config/app_config.dart';
 import '../repositories/jeko_payment_repository.dart';
 
 /// Provider pour le service de paiement JEKO
@@ -76,74 +77,94 @@ class PaymentFlowStatus {
     );
   }
 
-  bool get isLoading => state == PaymentFlowState.initiating ||
+  bool get isLoading =>
+      state == PaymentFlowState.initiating ||
       state == PaymentFlowState.redirecting ||
       state == PaymentFlowState.verifying;
 
-  bool get isFinal => state == PaymentFlowState.success ||
+  bool get isFinal =>
+      state == PaymentFlowState.success ||
       state == PaymentFlowState.failed ||
       state == PaymentFlowState.timeout;
 
-  bool get canRetry => state == PaymentFlowState.failed ||
-      state == PaymentFlowState.timeout;
+  bool get canRetry =>
+      state == PaymentFlowState.failed || state == PaymentFlowState.timeout;
 }
 
 /// Service centralisé pour gérer les paiements JEKO
 class JekoPaymentService {
   final JekoPaymentRepository _repository;
-  
+
   // Stream controller pour les deep links
   static final StreamController<PaymentDeepLink?> _deepLinkController =
       StreamController<PaymentDeepLink?>.broadcast();
-  
-  static Stream<PaymentDeepLink?> get deepLinkStream => _deepLinkController.stream;
-  
+
+  static Stream<PaymentDeepLink?> get deepLinkStream =>
+      _deepLinkController.stream;
+
   // Subscription pour les deep links
   static StreamSubscription? _linkSubscription;
-  
+
   // Référence du paiement en cours (pour vérification au retour)
+  // Protégé : seul initiateWalletTopup() écrit, le callback lit puis efface
   static String? _pendingPaymentReference;
-  
-  // Configuration
-  static const int maxRetries = 3;
-  static const Duration pollingInterval = Duration(seconds: 5);
-  static const Duration maxWaitTime = Duration(minutes: 5);
-  
-  // Deep link scheme
-  static const String deepLinkScheme = 'drpharma-courier';
-  static const String deepLinkHost = 'payment';
+
+  /// Vérifier si un paiement est déjà en cours
+  static bool get hasActivePendingPayment => _pendingPaymentReference != null;
+
+  // Configuration depuis AppConfig
+  static int get maxRetries => AppConfig.paymentMaxRetries;
+  static Duration get maxWaitTime =>
+      Duration(minutes: AppConfig.paymentMaxWaitMinutes);
+
+  // Deep link config depuis AppConfig
+  static String get deepLinkScheme => AppConfig.deepLinkScheme;
+  static String get deepLinkHost => AppConfig.deepLinkPaymentHost;
+
+  // Exponential backoff intervals pour le polling (en secondes)
+  static List<int> get _pollingIntervals => AppConfig.paymentPollingIntervals;
+  static int get _maxPollingInterval => AppConfig.paymentMaxPollingInterval;
 
   JekoPaymentService(this._repository);
 
   /// Nettoyer les messages d'erreur pour l'affichage utilisateur
   String _cleanErrorMessage(dynamic error) {
     String message = error.toString();
-    
+
     // Supprimer les préfixes "Exception:" répétés
     while (message.startsWith('Exception: ')) {
       message = message.substring(11);
     }
-    
+
     // Messages d'erreur user-friendly
-    if (message.contains('connexion') || message.contains('SocketException') || message.contains('XMLHttpRequest')) {
+    if (message.contains('connexion') ||
+        message.contains('SocketException') ||
+        message.contains('XMLHttpRequest')) {
       return 'Impossible de contacter le serveur. Vérifiez votre connexion internet.';
     }
-    
+
     if (message.contains('timeout') || message.contains('Timeout')) {
       return 'La connexion a pris trop de temps. Veuillez réessayer.';
     }
-    
+
     if (message.contains('JEKO') || message.contains('paiement')) {
       // Garder le message JEKO mais le rendre plus lisible
-      return message.replaceAll('Erreur lors de la création du paiement JEKO', 
-          'Impossible d\'initier le paiement. Veuillez réessayer.');
+      return message.replaceAll(
+        'Erreur lors de la création du paiement JEKO',
+        'Impossible d\'initier le paiement. Veuillez réessayer.',
+      );
     }
-    
-    return message.isNotEmpty ? message : 'Une erreur est survenue. Veuillez réessayer.';
+
+    return message.isNotEmpty
+        ? message
+        : 'Une erreur est survenue. Veuillez réessayer.';
   }
 
   /// Initialiser l'écoute des deep links (appeler dans main.dart)
   static Future<void> initDeepLinks() async {
+    // Nettoyer toute référence orpheline d'un paiement interrompu (force-close)
+    _pendingPaymentReference = null;
+
     final appLinks = AppLinks();
 
     // Écouter les deep links entrants (inclut le lien initial)
@@ -161,34 +182,62 @@ class JekoPaymentService {
   /// Traiter un deep link entrant
   static void _handleDeepLink(String link) {
     if (kDebugMode) debugPrint('Received deep link: $link');
-    
+
     try {
       final uri = Uri.parse(link);
-      
+
       // Vérifier que c'est notre scheme
       if (uri.scheme != deepLinkScheme) return;
-      
+
       // Extraire les paramètres
       final pathSegments = uri.pathSegments;
-      
+
       if (pathSegments.isEmpty) return;
-      
+
       final action = pathSegments[0]; // "success" ou "error"
-      final reference = uri.queryParameters['reference'] ?? _pendingPaymentReference;
-      
-      if (reference == null) {
-        if (kDebugMode) debugPrint('No reference found in deep link');
+
+      // Valider l'action
+      if (action != 'success' && action != 'error') {
+        if (kDebugMode) debugPrint('Invalid deep link action: $action');
         return;
       }
-      
+
+      final reference = uri.queryParameters['reference'];
+
+      // SECURITE: Si une référence est fournie dans l'URL, elle doit correspondre
+      // à la référence de paiement en attente pour éviter les confirmations frauduleuses
+      if (reference != null && _pendingPaymentReference != null) {
+        if (reference != _pendingPaymentReference) {
+          if (kDebugMode) {
+            debugPrint(
+              'Deep link reference mismatch: got $reference, expected $_pendingPaymentReference',
+            );
+          }
+          return;
+        }
+      }
+
+      // Utiliser la référence URL si présente, sinon la référence en attente
+      final validatedReference = reference ?? _pendingPaymentReference;
+
+      if (validatedReference == null) {
+        if (kDebugMode) {
+          debugPrint('No reference found in deep link and no pending payment');
+        }
+        // Notifier l'UI de l'erreur au lieu de retourner silencieusement
+        _deepLinkController.addError(
+          Exception('Référence de paiement invalide. Veuillez réessayer.'),
+        );
+        return;
+      }
+
       final deepLink = PaymentDeepLink(
-        reference: reference,
+        reference: validatedReference,
         isSuccess: action == 'success',
         errorMessage: action == 'error' ? uri.queryParameters['message'] : null,
       );
-      
+
       _deepLinkController.add(deepLink);
-      
     } catch (e) {
       if (kDebugMode) debugPrint('Error parsing deep link: $e');
     }
@@ -206,6 +255,16 @@ class JekoPaymentService {
   }) async {
     var status = PaymentFlowStatus(state: PaymentFlowState.initiating);
     onStatusChange(status);
+
+    // Protéger contre les paiements concurrents
+    if (_pendingPaymentReference != null) {
+      status = status.copyWith(
+        state: PaymentFlowState.failed,
+        errorMessage: 'Un paiement est déjà en cours. Veuillez patienter.',
+      );
+      onStatusChange(status);
+      return status;
+    }
 
     try {
       // 1. Appeler le backend pour initier le paiement
@@ -225,25 +284,24 @@ class JekoPaymentService {
 
       // 2. Rediriger vers l'URL de paiement (JEKO ou sandbox)
       final uri = Uri.parse(response.redirectUrl);
-      
+
       // Mode sandbox: l'URL contient /sandbox/confirm
       final isSandbox = response.redirectUrl.contains('/sandbox/');
-      
-      if (kDebugMode) debugPrint('Payment redirect URL: ${response.redirectUrl}');
+
+      if (kDebugMode) {
+        debugPrint('Payment redirect URL: ${response.redirectUrl}');
+      }
       if (kDebugMode) debugPrint('Is sandbox mode: $isSandbox');
+      if (kDebugMode) debugPrint('Payment method: ${method.value}');
 
       try {
-        final canLaunch = await canLaunchUrl(uri);
-        if (canLaunch) {
-          // Toujours afficher dans l'app pour voir le QR code
-          await launchUrl(
-            uri, 
-            mode: LaunchMode.inAppWebView,
-          );
-        } else {
-          // Fallback: essayer avec inAppWebView
-          await launchUrl(uri, mode: LaunchMode.inAppWebView);
-        }
+        // Conserver le parcours dans l'app Delivery.
+        // L'ouverture de Wave / Orange Money se fait ensuite via l'écran natif dédié.
+        const launchMode = LaunchMode.inAppWebView;
+
+        if (kDebugMode) debugPrint('Launch mode: $launchMode');
+
+        await launchUrl(uri, mode: launchMode);
       } catch (launchError) {
         if (kDebugMode) debugPrint('Error launching URL: $launchError');
         // Continuer quand même au polling - l'utilisateur peut avoir confirmé manuellement
@@ -259,7 +317,6 @@ class JekoPaymentService {
         onStatusChange: onStatusChange,
         initialStatus: status,
       );
-
     } catch (e) {
       status = status.copyWith(
         state: PaymentFlowState.failed,
@@ -270,7 +327,7 @@ class JekoPaymentService {
     }
   }
 
-  /// Polling du statut de paiement avec retry
+  /// Polling du statut de paiement avec exponential backoff
   Future<PaymentFlowStatus> _pollPaymentStatus({
     required String reference,
     required Function(PaymentFlowStatus) onStatusChange,
@@ -278,10 +335,17 @@ class JekoPaymentService {
   }) async {
     var status = initialStatus;
     final startTime = DateTime.now();
+    int pollCount = 0;
 
     while (DateTime.now().difference(startTime) < maxWaitTime) {
+      // Calculer l'intervalle avec exponential backoff
+      final intervalSeconds = pollCount < _pollingIntervals.length
+          ? _pollingIntervals[pollCount]
+          : _maxPollingInterval;
+
       // Attendre avant de vérifier
-      await Future.delayed(pollingInterval);
+      await Future.delayed(Duration(seconds: intervalSeconds));
+      pollCount++;
 
       try {
         status = status.copyWith(state: PaymentFlowState.verifying);
@@ -295,6 +359,7 @@ class JekoPaymentService {
           status = status.copyWith(state: PaymentFlowState.success);
           onStatusChange(status);
           _pendingPaymentReference = null;
+          if (kDebugMode) debugPrint('Payment verified after $pollCount polls');
           return status;
         }
 
@@ -311,7 +376,6 @@ class JekoPaymentService {
         // Toujours en attente, continuer le polling
         status = status.copyWith(state: PaymentFlowState.waitingForCallback);
         onStatusChange(status);
-
       } catch (e) {
         if (kDebugMode) debugPrint('Error polling payment status: $e');
         // Continuer le polling même en cas d'erreur réseau
@@ -321,7 +385,8 @@ class JekoPaymentService {
     // Timeout atteint
     status = status.copyWith(
       state: PaymentFlowState.timeout,
-      errorMessage: 'Délai d\'attente dépassé. Veuillez vérifier votre paiement.',
+      errorMessage:
+          'Délai d\'attente dépassé. Veuillez vérifier votre paiement.',
     );
     onStatusChange(status);
     _pendingPaymentReference = null;

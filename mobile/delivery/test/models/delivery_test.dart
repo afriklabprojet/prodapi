@@ -91,8 +91,15 @@ void main() {
 
   group('Delivery Status Tests', () {
     test('should identify all valid statuses', () {
-      final statuses = ['pending', 'accepted', 'picked_up', 'in_transit', 'delivered', 'cancelled'];
-      
+      final statuses = [
+        'pending',
+        'accepted',
+        'picked_up',
+        'in_transit',
+        'delivered',
+        'cancelled',
+      ];
+
       for (final status in statuses) {
         final delivery = Delivery(
           id: 1,
@@ -106,6 +113,170 @@ void main() {
         );
         expect(delivery.status, status);
       }
+    });
+  });
+
+  group('Delivery New Fields Tests', () {
+    test('should parse estimatedDuration from JSON', () {
+      final json = {
+        'id': 1,
+        'reference': 'DEL-ETA-001',
+        'pharmacy_name': 'Pharmacie Test',
+        'pharmacy_address': 'Addr A',
+        'customer_name': 'Client Test',
+        'delivery_address': 'Addr B',
+        'total_amount': 5000.0,
+        'status': 'accepted',
+        'estimated_duration': 15,
+      };
+
+      final delivery = Delivery.fromJson(json);
+
+      expect(delivery.estimatedDuration, 15);
+    });
+
+    test('should parse estimatedDuration as string from JSON', () {
+      final json = {
+        'id': 2,
+        'reference': 'DEL-ETA-002',
+        'pharmacy_name': 'Pharmacie Test',
+        'pharmacy_address': 'Addr A',
+        'customer_name': 'Client Test',
+        'delivery_address': 'Addr B',
+        'total_amount': 5000.0,
+        'status': 'accepted',
+        'estimated_duration': '25',
+      };
+
+      final delivery = Delivery.fromJson(json);
+
+      expect(delivery.estimatedDuration, 25);
+    });
+
+    test('should handle null estimatedDuration', () {
+      final json = {
+        'id': 3,
+        'reference': 'DEL-ETA-003',
+        'pharmacy_name': 'Pharmacie Test',
+        'pharmacy_address': 'Addr A',
+        'customer_name': 'Client Test',
+        'delivery_address': 'Addr B',
+        'total_amount': 5000.0,
+        'status': 'pending',
+      };
+
+      final delivery = Delivery.fromJson(json);
+
+      expect(delivery.estimatedDuration, isNull);
+    });
+
+    test('should parse updatedAt from JSON', () {
+      final json = {
+        'id': 4,
+        'reference': 'DEL-UPD-001',
+        'pharmacy_name': 'Pharmacie Test',
+        'pharmacy_address': 'Addr A',
+        'customer_name': 'Client Test',
+        'delivery_address': 'Addr B',
+        'total_amount': 5000.0,
+        'status': 'delivered',
+        'updated_at': '2025-06-15T14:30:00.000Z',
+      };
+
+      final delivery = Delivery.fromJson(json);
+
+      expect(delivery.updatedAt, '2025-06-15T14:30:00.000Z');
+    });
+
+    test('should parse notes from JSON', () {
+      final json = {
+        'id': 5,
+        'reference': 'DEL-NOTE-001',
+        'pharmacy_name': 'Pharmacie Test',
+        'pharmacy_address': 'Addr A',
+        'customer_name': 'Client Test',
+        'delivery_address': 'Addr B',
+        'total_amount': 5000.0,
+        'status': 'in_transit',
+        'notes': 'Fragile, attention à la livraison',
+      };
+
+      final delivery = Delivery.fromJson(json);
+
+      expect(delivery.notes, 'Fragile, attention à la livraison');
+    });
+
+    test('should include new fields in toJson', () {
+      final delivery = Delivery(
+        id: 6,
+        reference: 'DEL-ALL-001',
+        pharmacyName: 'Pharmacie Complète',
+        pharmacyAddress: 'Addr A',
+        customerName: 'Client Complet',
+        deliveryAddress: 'Addr B',
+        totalAmount: 12000.0,
+        status: 'accepted',
+        estimatedDuration: 20,
+        updatedAt: '2025-06-15T15:00:00.000Z',
+        notes: 'Livraison urgente',
+      );
+
+      final json = delivery.toJson();
+
+      expect(json['estimated_duration'], 20);
+      expect(json['updated_at'], '2025-06-15T15:00:00.000Z');
+      expect(json['notes'], 'Livraison urgente');
+    });
+
+    test('should handle all new fields as null', () {
+      final delivery = Delivery(
+        id: 7,
+        reference: 'DEL-NULL-001',
+        pharmacyName: 'Pharmacie Test',
+        pharmacyAddress: 'Addr A',
+        customerName: 'Client Test',
+        deliveryAddress: 'Addr B',
+        totalAmount: 3000.0,
+        status: 'pending',
+      );
+
+      expect(delivery.estimatedDuration, isNull);
+      expect(delivery.updatedAt, isNull);
+      expect(delivery.notes, isNull);
+    });
+
+    test('should create delivery with all fields via constructor', () {
+      final delivery = Delivery(
+        id: 8,
+        reference: 'DEL-FULL-001',
+        pharmacyName: 'Pharmacie Complète',
+        pharmacyAddress: 'Addr A',
+        pharmacyPhone: '+225 0101010101',
+        customerName: 'Client Complet',
+        customerPhone: '+225 0707070707',
+        deliveryAddress: 'Addr B',
+        pharmacyLat: 5.35,
+        pharmacyLng: -3.95,
+        deliveryLat: 5.36,
+        deliveryLng: -3.96,
+        totalAmount: 15000.0,
+        deliveryFee: 1500.0,
+        commission: 300.0,
+        estimatedEarnings: 1200.0,
+        distanceKm: 2.5,
+        estimatedDuration: 30,
+        status: 'delivered',
+        createdAt: '2025-06-15T10:00:00.000Z',
+        updatedAt: '2025-06-15T11:00:00.000Z',
+        notes: 'Livraison effectuée sans problème',
+      );
+
+      expect(delivery.id, 8);
+      expect(delivery.estimatedDuration, 30);
+      expect(delivery.updatedAt, '2025-06-15T11:00:00.000Z');
+      expect(delivery.notes, 'Livraison effectuée sans problème');
+      expect(delivery.distanceKm, 2.5);
+      expect(delivery.commission, 300.0);
     });
   });
 }

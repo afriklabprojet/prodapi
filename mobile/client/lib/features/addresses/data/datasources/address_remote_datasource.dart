@@ -1,6 +1,5 @@
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
-import '../../domain/repositories/address_repository.dart';
 import '../models/address_model.dart';
 
 /// Données de formulaire d'adresse (labels, valeurs par défaut)
@@ -25,7 +24,7 @@ class AddressRemoteDataSource {
   /// Obtenir toutes les adresses
   Future<List<AddressModel>> getAddresses() async {
     final response = await _apiClient.get(ApiConstants.addresses);
-    
+
     final List<dynamic> data = response.data['data'] ?? [];
     return data.map((json) => AddressModel.fromJson(json)).toList();
   }
@@ -38,7 +37,7 @@ class AddressRemoteDataSource {
 
   /// Obtenir l'adresse par défaut
   Future<AddressModel> getDefaultAddress() async {
-    final response = await _apiClient.get('${ApiConstants.addresses}/default');
+    final response = await _apiClient.get(ApiConstants.addressDefault);
     return AddressModel.fromJson(response.data['data']);
   }
 
@@ -114,9 +113,9 @@ class AddressRemoteDataSource {
 
   /// Obtenir les labels disponibles avec données de pré-remplissage
   Future<AddressFormData> getLabels() async {
-    final response = await _apiClient.get('${ApiConstants.addresses}/labels');
+    final response = await _apiClient.get(ApiConstants.addressLabels);
     final data = response.data['data'];
-    
+
     // Gérer le nouveau format (objet avec labels, default_phone, user_name)
     if (data is Map<String, dynamic>) {
       final labelsList = data['labels'] as List<dynamic>? ?? [];
@@ -126,14 +125,12 @@ class AddressRemoteDataSource {
         userName: data['user_name'] as String?,
       );
     }
-    
+
     // Fallback pour l'ancien format (liste simple)
     if (data is List) {
-      return AddressFormData(
-        labels: data.map((e) => e.toString()).toList(),
-      );
+      return AddressFormData(labels: data.map((e) => e.toString()).toList());
     }
-    
+
     return AddressFormData(labels: ['Maison', 'Bureau', 'Famille', 'Autre']);
   }
 }

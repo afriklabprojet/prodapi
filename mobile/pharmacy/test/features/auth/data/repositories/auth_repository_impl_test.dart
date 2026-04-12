@@ -29,12 +29,9 @@ void main() {
 
   // Register fallback values for mocktail
   setUpAll(() {
-    registerFallbackValue(const UserModel(
-      id: 0,
-      name: '',
-      email: '',
-      phone: '',
-    ));
+    registerFallbackValue(
+      const UserModel(id: 0, name: '', email: '', phone: ''),
+    );
   });
 
   setUp(() {
@@ -71,15 +68,18 @@ void main() {
     test('should check if the device is online', () async {
       // arrange
       when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
-      when(() => mockRemoteDataSource.login(
-            email: any(named: 'email'),
-            password: any(named: 'password'),
-          )).thenAnswer((_) async => tAuthResponseModel);
-      when(() => mockLocalDataSource.cacheToken(any()))
-          .thenAnswer((_) async => {});
-      when(() => mockLocalDataSource.cacheUser(any()))
-          .thenAnswer((_) async => {});
-      when(() => mockApiClient.setToken(any())).thenReturn(null);
+      when(
+        () => mockRemoteDataSource.login(
+          email: any(named: 'email'),
+          password: any(named: 'password'),
+        ),
+      ).thenAnswer((_) async => tAuthResponseModel);
+      when(
+        () => mockLocalDataSource.cacheToken(any()),
+      ).thenAnswer((_) async => {});
+      when(
+        () => mockLocalDataSource.cacheUser(any()),
+      ).thenAnswer((_) async => {});
 
       // act
       await repository.login(email: tEmail, password: tPassword);
@@ -93,49 +93,56 @@ void main() {
         when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
       });
 
-      test('should return AuthResponseEntity when login is successful',
-          () async {
-        // arrange
-        when(() => mockRemoteDataSource.login(
+      test(
+        'should return AuthResponseEntity when login is successful',
+        () async {
+          // arrange
+          when(
+            () => mockRemoteDataSource.login(
               email: any(named: 'email'),
               password: any(named: 'password'),
-            )).thenAnswer((_) async => tAuthResponseModel);
-        when(() => mockLocalDataSource.cacheToken(any()))
-            .thenAnswer((_) async => {});
-        when(() => mockLocalDataSource.cacheUser(any()))
-            .thenAnswer((_) async => {});
-        when(() => mockApiClient.setToken(any())).thenReturn(null);
+            ),
+          ).thenAnswer((_) async => tAuthResponseModel);
+          when(
+            () => mockLocalDataSource.cacheToken(any()),
+          ).thenAnswer((_) async => {});
+          when(
+            () => mockLocalDataSource.cacheUser(any()),
+          ).thenAnswer((_) async => {});
 
-        // act
-        final result =
-            await repository.login(email: tEmail, password: tPassword);
+          // act
+          final result = await repository.login(
+            email: tEmail,
+            password: tPassword,
+          );
 
-        // assert
-        verify(() => mockRemoteDataSource.login(
-              email: tEmail,
-              password: tPassword,
-            ));
-        expect(result.isRight(), true);
-        result.fold(
-          (failure) => fail('Expected Right'),
-          (authResponse) {
+          // assert
+          verify(
+            () =>
+                mockRemoteDataSource.login(email: tEmail, password: tPassword),
+          );
+          expect(result.isRight(), true);
+          result.fold((failure) => fail('Expected Right'), (authResponse) {
             expect(authResponse, isA<AuthResponseEntity>());
             expect(authResponse.token, tAuthResponseModel.token);
-          },
-        );
-      });
+          });
+        },
+      );
 
       test('should cache token and user after successful login', () async {
         // arrange
-        when(() => mockRemoteDataSource.login(
-              email: any(named: 'email'),
-              password: any(named: 'password'),
-            )).thenAnswer((_) async => tAuthResponseModel);
-        when(() => mockLocalDataSource.cacheToken(any()))
-            .thenAnswer((_) async => {});
-        when(() => mockLocalDataSource.cacheUser(any()))
-            .thenAnswer((_) async => {});
-        when(() => mockApiClient.setToken(any())).thenReturn(null);
+        when(
+          () => mockRemoteDataSource.login(
+            email: any(named: 'email'),
+            password: any(named: 'password'),
+          ),
+        ).thenAnswer((_) async => tAuthResponseModel);
+        when(
+          () => mockLocalDataSource.cacheToken(any()),
+        ).thenAnswer((_) async => {});
+        when(
+          () => mockLocalDataSource.cacheUser(any()),
+        ).thenAnswer((_) async => {});
 
         // act
         await repository.login(email: tEmail, password: tPassword);
@@ -143,108 +150,131 @@ void main() {
         // assert
         verify(() => mockLocalDataSource.cacheToken(tAuthResponseModel.token));
         verify(() => mockLocalDataSource.cacheUser(tAuthResponseModel.user));
-        verify(() => mockApiClient.setToken(tAuthResponseModel.token));
       });
 
-      test('should return ServerFailure when ServerException is thrown',
-          () async {
-        // arrange
-        when(() => mockRemoteDataSource.login(
+      test(
+        'should return ServerFailure when ServerException is thrown',
+        () async {
+          // arrange
+          when(
+            () => mockRemoteDataSource.login(
               email: any(named: 'email'),
               password: any(named: 'password'),
-            )).thenThrow(ServerException(message: 'Server error'));
+            ),
+          ).thenThrow(ServerException(message: 'Server error'));
 
-        // act
-        final result =
-            await repository.login(email: tEmail, password: tPassword);
+          // act
+          final result = await repository.login(
+            email: tEmail,
+            password: tPassword,
+          );
 
-        // assert
-        expect(result.isLeft(), true);
-        result.fold(
-          (failure) {
+          // assert
+          expect(result.isLeft(), true);
+          result.fold((failure) {
             expect(failure, isA<ServerFailure>());
             expect((failure as ServerFailure).message, 'Server error');
-          },
-          (_) => fail('Expected Left'),
-        );
-      });
+          }, (_) => fail('Expected Left'));
+        },
+      );
 
       test(
-          'should return UnauthorizedFailure when UnauthorizedException is thrown',
-          () async {
-        // arrange
-        when(() => mockRemoteDataSource.login(
+        'should return UnauthorizedFailure when UnauthorizedException is thrown',
+        () async {
+          // arrange
+          when(
+            () => mockRemoteDataSource.login(
               email: any(named: 'email'),
               password: any(named: 'password'),
-            )).thenThrow(UnauthorizedException(message: 'Invalid credentials'));
+            ),
+          ).thenThrow(UnauthorizedException(message: 'Invalid credentials'));
 
-        // act
-        final result =
-            await repository.login(email: tEmail, password: tPassword);
+          // act
+          final result = await repository.login(
+            email: tEmail,
+            password: tPassword,
+          );
 
-        // assert
-        expect(result.isLeft(), true);
-        result.fold(
-          (failure) {
+          // assert
+          expect(result.isLeft(), true);
+          result.fold((failure) {
             expect(failure, isA<UnauthorizedFailure>());
             expect(
-                (failure as UnauthorizedFailure).message, 'Invalid credentials');
-          },
-          (_) => fail('Expected Left'),
-        );
-      });
-
-      test('should return ForbiddenFailure when ForbiddenException is thrown',
-          () async {
-        // arrange
-        when(() => mockRemoteDataSource.login(
-              email: any(named: 'email'),
-              password: any(named: 'password'),
-            )).thenThrow(ForbiddenException(
-                message: 'Account not approved',
-                errorCode: 'PHARMACY_NOT_APPROVED'));
-
-        // act
-        final result =
-            await repository.login(email: tEmail, password: tPassword);
-
-        // assert
-        expect(result.isLeft(), true);
-        result.fold(
-          (failure) {
-            expect(failure, isA<ForbiddenFailure>());
-            expect((failure as ForbiddenFailure).message, 'Account not approved');
-            expect(failure.errorCode, 'PHARMACY_NOT_APPROVED');
-          },
-          (_) => fail('Expected Left'),
-        );
-      });
+              (failure as UnauthorizedFailure).message,
+              'Invalid credentials',
+            );
+          }, (_) => fail('Expected Left'));
+        },
+      );
 
       test(
-          'should return ValidationFailure when ValidationException is thrown',
-          () async {
-        // arrange
-        when(() => mockRemoteDataSource.login(
+        'should return ForbiddenFailure when ForbiddenException is thrown',
+        () async {
+          // arrange
+          when(
+            () => mockRemoteDataSource.login(
               email: any(named: 'email'),
               password: any(named: 'password'),
-            )).thenThrow(
-            ValidationException(errors: {'email': ['Invalid email format']}));
+            ),
+          ).thenThrow(
+            ForbiddenException(
+              message: 'Account not approved',
+              errorCode: 'PHARMACY_NOT_APPROVED',
+            ),
+          );
 
-        // act
-        final result =
-            await repository.login(email: tEmail, password: tPassword);
+          // act
+          final result = await repository.login(
+            email: tEmail,
+            password: tPassword,
+          );
 
-        // assert
-        expect(result.isLeft(), true);
-        result.fold(
-          (failure) {
+          // assert
+          expect(result.isLeft(), true);
+          result.fold((failure) {
+            expect(failure, isA<ForbiddenFailure>());
+            expect(
+              (failure as ForbiddenFailure).message,
+              'Account not approved',
+            );
+            expect(failure.errorCode, 'PHARMACY_NOT_APPROVED');
+          }, (_) => fail('Expected Left'));
+        },
+      );
+
+      test(
+        'should return ValidationFailure when ValidationException is thrown',
+        () async {
+          // arrange
+          when(
+            () => mockRemoteDataSource.login(
+              email: any(named: 'email'),
+              password: any(named: 'password'),
+            ),
+          ).thenThrow(
+            ValidationException(
+              errors: {
+                'email': ['Invalid email format'],
+              },
+            ),
+          );
+
+          // act
+          final result = await repository.login(
+            email: tEmail,
+            password: tPassword,
+          );
+
+          // assert
+          expect(result.isLeft(), true);
+          result.fold((failure) {
             expect(failure, isA<ValidationFailure>());
-            expect((failure as ValidationFailure).errors['email'],
-                ['Invalid email format']);
-          },
-          (_) => fail('Expected Left'),
-        );
-      });
+            expect((failure as ValidationFailure).errors['email'], [
+              'Invalid email format',
+            ]);
+          }, (_) => fail('Expected Left'));
+        },
+      );
     });
 
     group('device is offline', () {
@@ -253,17 +283,16 @@ void main() {
         when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => false);
 
         // act
-        final result =
-            await repository.login(email: tEmail, password: tPassword);
+        final result = await repository.login(
+          email: tEmail,
+          password: tPassword,
+        );
 
         // assert
         expect(result.isLeft(), true);
-        result.fold(
-          (failure) {
-            expect(failure, isA<NetworkFailure>());
-          },
-          (_) => fail('Expected Left'),
-        );
+        result.fold((failure) {
+          expect(failure, isA<NetworkFailure>());
+        }, (_) => fail('Expected Left'));
       });
     });
   });
@@ -276,13 +305,15 @@ void main() {
 
       test('should logout successfully when online', () async {
         // arrange
-        when(() => mockLocalDataSource.getToken())
-            .thenAnswer((_) async => tToken);
-        when(() => mockRemoteDataSource.logout(any()))
-            .thenAnswer((_) async => {});
-        when(() => mockLocalDataSource.clearAuthData())
-            .thenAnswer((_) async => {});
-        when(() => mockApiClient.clearToken()).thenReturn(null);
+        when(
+          () => mockLocalDataSource.getToken(),
+        ).thenAnswer((_) async => tToken);
+        when(
+          () => mockRemoteDataSource.logout(any()),
+        ).thenAnswer((_) async => {});
+        when(
+          () => mockLocalDataSource.clearAuthData(),
+        ).thenAnswer((_) async => {});
 
         // act
         final result = await repository.logout();
@@ -291,37 +322,39 @@ void main() {
         expect(result.isRight(), true);
         verify(() => mockRemoteDataSource.logout(tToken));
         verify(() => mockLocalDataSource.clearAuthData());
-        verify(() => mockApiClient.clearToken());
       });
 
-      test('should still clear local data even if remote logout fails',
-          () async {
-        // arrange
-        when(() => mockLocalDataSource.getToken())
-            .thenAnswer((_) async => tToken);
-        when(() => mockRemoteDataSource.logout(any()))
-            .thenThrow(ServerException(message: 'Server error'));
-        when(() => mockLocalDataSource.clearAuthData())
-            .thenAnswer((_) async => {});
-        when(() => mockApiClient.clearToken()).thenReturn(null);
+      test(
+        'should still clear local data even if remote logout fails',
+        () async {
+          // arrange
+          when(
+            () => mockLocalDataSource.getToken(),
+          ).thenAnswer((_) async => tToken);
+          when(
+            () => mockRemoteDataSource.logout(any()),
+          ).thenThrow(ServerException(message: 'Server error'));
+          when(
+            () => mockLocalDataSource.clearAuthData(),
+          ).thenAnswer((_) async => {});
 
-        // act
-        final result = await repository.logout();
+          // act
+          final result = await repository.logout();
 
-        // assert
-        expect(result.isRight(), true);
-        verify(() => mockLocalDataSource.clearAuthData());
-        verify(() => mockApiClient.clearToken());
-      });
+          // assert
+          expect(result.isRight(), true);
+          verify(() => mockLocalDataSource.clearAuthData());
+        },
+      );
     });
 
     group('device is offline', () {
       test('should clear local data when offline', () async {
         // arrange
         when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => false);
-        when(() => mockLocalDataSource.clearAuthData())
-            .thenAnswer((_) async => {});
-        when(() => mockApiClient.clearToken()).thenReturn(null);
+        when(
+          () => mockLocalDataSource.clearAuthData(),
+        ).thenAnswer((_) async => {});
 
         // act
         final result = await repository.logout();
@@ -329,7 +362,6 @@ void main() {
         // assert
         expect(result.isRight(), true);
         verify(() => mockLocalDataSource.clearAuthData());
-        verify(() => mockApiClient.clearToken());
         verifyNever(() => mockRemoteDataSource.logout(any()));
       });
     });
@@ -338,47 +370,49 @@ void main() {
   group('getCurrentUser', () {
     test('should return cached user when available', () async {
       // arrange
-      when(() => mockLocalDataSource.getToken())
-          .thenAnswer((_) async => tToken);
-      when(() => mockLocalDataSource.getUser())
-          .thenAnswer((_) async => tUserModel);
-      when(() => mockApiClient.setToken(any())).thenReturn(null);
+      when(
+        () => mockLocalDataSource.getToken(),
+      ).thenAnswer((_) async => tToken);
+      when(
+        () => mockLocalDataSource.getUser(),
+      ).thenAnswer((_) async => tUserModel);
 
       // act
       final result = await repository.getCurrentUser();
 
       // assert
       expect(result.isRight(), true);
-      result.fold(
-        (_) => fail('Expected Right'),
-        (user) {
-          expect(user, isA<UserEntity>());
-          expect(user.email, tUserModel.email);
-        },
-      );
+      result.fold((_) => fail('Expected Right'), (user) {
+        expect(user, isA<UserEntity>());
+        expect(user.email, tUserModel.email);
+      });
     });
 
-    test('should fetch user from remote when no local user but has token',
-        () async {
-      // arrange
-      when(() => mockLocalDataSource.getToken())
-          .thenAnswer((_) async => tToken);
-      when(() => mockLocalDataSource.getUser()).thenAnswer((_) async => null);
-      when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
-      when(() => mockRemoteDataSource.getCurrentUser(any()))
-          .thenAnswer((_) async => tUserModel);
-      when(() => mockLocalDataSource.cacheUser(any()))
-          .thenAnswer((_) async => {});
-      when(() => mockApiClient.setToken(any())).thenReturn(null);
+    test(
+      'should fetch user from remote when no local user but has token',
+      () async {
+        // arrange
+        when(
+          () => mockLocalDataSource.getToken(),
+        ).thenAnswer((_) async => tToken);
+        when(() => mockLocalDataSource.getUser()).thenAnswer((_) async => null);
+        when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
+        when(
+          () => mockRemoteDataSource.getCurrentUser(any()),
+        ).thenAnswer((_) async => tUserModel);
+        when(
+          () => mockLocalDataSource.cacheUser(any()),
+        ).thenAnswer((_) async => {});
 
-      // act
-      final result = await repository.getCurrentUser();
+        // act
+        final result = await repository.getCurrentUser();
 
-      // assert
-      expect(result.isRight(), true);
-      verify(() => mockRemoteDataSource.getCurrentUser(tToken));
-      verify(() => mockLocalDataSource.cacheUser(tUserModel));
-    });
+        // assert
+        expect(result.isRight(), true);
+        verify(() => mockRemoteDataSource.getCurrentUser(tToken));
+        verify(() => mockLocalDataSource.cacheUser(tUserModel));
+      },
+    );
 
     test('should return CacheFailure when no token and no user', () async {
       // arrange
@@ -390,39 +424,33 @@ void main() {
 
       // assert
       expect(result.isLeft(), true);
-      result.fold(
-        (failure) {
-          expect(failure, isA<CacheFailure>());
-        },
-        (_) => fail('Expected Left'),
-      );
+      result.fold((failure) {
+        expect(failure, isA<CacheFailure>());
+      }, (_) => fail('Expected Left'));
     });
   });
 
   group('checkAuthStatus', () {
     test('should return false when no token', () async {
       // arrange
-      when(() => mockLocalDataSource.hasToken())
-          .thenAnswer((_) async => false);
+      when(() => mockLocalDataSource.hasToken()).thenAnswer((_) async => false);
 
       // act
       final result = await repository.checkAuthStatus();
 
       // assert
       expect(result.isRight(), true);
-      result.fold(
-        (_) => fail('Expected Right'),
-        (isAuthenticated) {
-          expect(isAuthenticated, false);
-        },
-      );
+      result.fold((_) => fail('Expected Right'), (isAuthenticated) {
+        expect(isAuthenticated, false);
+      });
     });
 
     test('should return true when has valid token and offline', () async {
       // arrange
       when(() => mockLocalDataSource.hasToken()).thenAnswer((_) async => true);
-      when(() => mockLocalDataSource.getToken()).thenAnswer((_) async => 'valid_token');
-      when(() => mockApiClient.setToken(any())).thenReturn(null);
+      when(
+        () => mockLocalDataSource.getToken(),
+      ).thenAnswer((_) async => 'valid_token');
       when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => false);
 
       // act
@@ -430,34 +458,30 @@ void main() {
 
       // assert
       expect(result.isRight(), true);
-      result.fold(
-        (_) => fail('Expected Right'),
-        (isAuthenticated) {
-          expect(isAuthenticated, true);
-        },
-      );
+      result.fold((_) => fail('Expected Right'), (isAuthenticated) {
+        expect(isAuthenticated, true);
+      });
     });
 
     test('should verify token with server when online', () async {
       // arrange
       when(() => mockLocalDataSource.hasToken()).thenAnswer((_) async => true);
       when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
-      when(() => mockLocalDataSource.getToken())
-          .thenAnswer((_) async => tToken);
-      when(() => mockRemoteDataSource.getCurrentUser(any()))
-          .thenAnswer((_) async => tUserModel);
+      when(
+        () => mockLocalDataSource.getToken(),
+      ).thenAnswer((_) async => tToken);
+      when(
+        () => mockRemoteDataSource.getCurrentUser(any()),
+      ).thenAnswer((_) async => tUserModel);
 
       // act
       final result = await repository.checkAuthStatus();
 
       // assert
       expect(result.isRight(), true);
-      result.fold(
-        (_) => fail('Expected Right'),
-        (isAuthenticated) {
-          expect(isAuthenticated, true);
-        },
-      );
+      result.fold((_) => fail('Expected Right'), (isAuthenticated) {
+        expect(isAuthenticated, true);
+      });
       verify(() => mockRemoteDataSource.getCurrentUser(tToken));
     });
 
@@ -465,24 +489,24 @@ void main() {
       // arrange
       when(() => mockLocalDataSource.hasToken()).thenAnswer((_) async => true);
       when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
-      when(() => mockLocalDataSource.getToken())
-          .thenAnswer((_) async => tToken);
-      when(() => mockRemoteDataSource.getCurrentUser(any()))
-          .thenThrow(UnauthorizedException(message: 'Invalid token'));
-      when(() => mockLocalDataSource.clearAuthData())
-          .thenAnswer((_) async => {});
+      when(
+        () => mockLocalDataSource.getToken(),
+      ).thenAnswer((_) async => tToken);
+      when(
+        () => mockRemoteDataSource.getCurrentUser(any()),
+      ).thenThrow(UnauthorizedException(message: 'Invalid token'));
+      when(
+        () => mockLocalDataSource.clearAuthData(),
+      ).thenAnswer((_) async => {});
 
       // act
       final result = await repository.checkAuthStatus();
 
       // assert
       expect(result.isRight(), true);
-      result.fold(
-        (_) => fail('Expected Right'),
-        (isAuthenticated) {
-          expect(isAuthenticated, false);
-        },
-      );
+      result.fold((_) => fail('Expected Right'), (isAuthenticated) {
+        expect(isAuthenticated, false);
+      });
       verify(() => mockLocalDataSource.clearAuthData());
     });
   });

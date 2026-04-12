@@ -1,5 +1,6 @@
 import 'package:json_annotation/json_annotation.dart';
 import '../../domain/entities/order_entity.dart';
+import '../../domain/enums/order_status.dart';
 
 part 'order_model.g.dart';
 
@@ -117,7 +118,7 @@ class OrderModel {
     return OrderEntity(
       id: id,
       reference: reference,
-      status: status,
+      status: OrderStatus.fromApi(status),
       paymentMode: paymentMode,
       paymentStatus: effectivePaymentStatus,
       isPaid: isPaid,

@@ -1,12 +1,14 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../config/app_config.dart';
 
 /// Constantes de carte pour l'application coursier
+/// Note: Les valeurs de base viennent de AppConfig
 class MapConstants {
   MapConstants._();
 
-  /// Coordonnées par défaut (Abidjan, Côte d'Ivoire)
-  static const double defaultLatitude = 5.3600;
-  static const double defaultLongitude = -4.0083;
-  static const LatLng defaultLocation = LatLng(defaultLatitude, defaultLongitude);
-  static const double defaultZoom = 14.0;
+  /// Coordonnées par défaut (depuis AppConfig)
+  static double get defaultLatitude => AppConfig.defaultLatitude;
+  static double get defaultLongitude => AppConfig.defaultLongitude;
+  static LatLng get defaultLocation => LatLng(defaultLatitude, defaultLongitude);
+  static double get defaultZoom => AppConfig.mapDefaultZoom;
 }

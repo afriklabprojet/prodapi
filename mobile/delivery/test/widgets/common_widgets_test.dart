@@ -257,38 +257,4 @@ void main() {
       expect(find.text('Custom loading'), findsOneWidget);
     });
   });
-
-  group('AppSectionCard', () {
-    testWidgets('renders title and child', (tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: AppSectionCard(
-              title: 'Résumé',
-              child: Text('Contenu de la section'),
-            ),
-          ),
-        ),
-      );
-
-      expect(find.text('Résumé'), findsOneWidget);
-      expect(find.text('Contenu de la section'), findsOneWidget);
-    });
-
-    testWidgets('renders trailing widget', (tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: AppSectionCard(
-              title: 'Stats',
-              trailing: Icon(Icons.arrow_forward),
-              child: Text('Content'),
-            ),
-          ),
-        ),
-      );
-
-      expect(find.byIcon(Icons.arrow_forward), findsOneWidget);
-    });
-  });
 }

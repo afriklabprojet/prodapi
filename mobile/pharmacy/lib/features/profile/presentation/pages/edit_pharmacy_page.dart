@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../../../core/presentation/mixins/form_guard_mixin.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/domain/entities/pharmacy_entity.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
@@ -19,7 +21,7 @@ class EditPharmacyPage extends ConsumerStatefulWidget {
   ConsumerState<EditPharmacyPage> createState() => _EditPharmacyPageState();
 }
 
-class _EditPharmacyPageState extends ConsumerState<EditPharmacyPage> {
+class _EditPharmacyPageState extends ConsumerState<EditPharmacyPage> with FormGuardMixin {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _phoneController;
@@ -37,6 +39,7 @@ class _EditPharmacyPageState extends ConsumerState<EditPharmacyPage> {
   double? _latitude;
   double? _longitude;
   bool _isLocating = false;
+  GoogleMapController? _mapController;
   String? _locationError;
 
   @override
@@ -139,6 +142,9 @@ class _EditPharmacyPageState extends ConsumerState<EditPharmacyPage> {
         _latitude = position.latitude;
         _longitude = position.longitude;
         _isLocating = false;
+        _mapController?.animateCamera(
+          CameraUpdate.newLatLng(LatLng(_latitude!, _longitude!)),
+        );
         _locationError = null;
       });
     } catch (e) {
@@ -222,6 +228,7 @@ class _EditPharmacyPageState extends ConsumerState<EditPharmacyPage> {
               behavior: SnackBarBehavior.floating,
             ),
           );
+          markClean();
           Navigator.pop(context);
         }
       }
@@ -243,7 +250,7 @@ class _EditPharmacyPageState extends ConsumerState<EditPharmacyPage> {
       orElse: () => widget.pharmacy,
     ) ?? widget.pharmacy;
 
-    return Scaffold(
+    return buildGuardedScaffold(
       backgroundColor: isDark ? AppColors.darkBackground : Colors.grey[50],
       appBar: AppBar(
         title: Text('Gérer ma Pharmacie', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
@@ -257,6 +264,8 @@ class _EditPharmacyPageState extends ConsumerState<EditPharmacyPage> {
         padding: const EdgeInsets.all(20),
         child: Form(
           key: _formKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          onChanged: () => markDirty(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -407,6 +416,35 @@ class _EditPharmacyPageState extends ConsumerState<EditPharmacyPage> {
                                   style: const TextStyle(color: Colors.red, fontSize: 12),
                                 ),
                               ),
+                            if (_latitude != null && _longitude != null) ...[
+                              const SizedBox(height: 12),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: SizedBox(
+                                  height: 180,
+                                  child: GoogleMap(
+                                    initialCameraPosition: CameraPosition(
+                                      target: LatLng(_latitude!, _longitude!),
+                                      zoom: 16,
+                                    ),
+                                    onMapCreated: (controller) => _mapController = controller,
+                                    markers: {
+                                      Marker(
+                                        markerId: const MarkerId('pharmacy'),
+                                        position: LatLng(_latitude!, _longitude!),
+                                        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+                                      ),
+                                    },
+                                    zoomControlsEnabled: false,
+                                    myLocationButtonEnabled: false,
+                                    mapToolbarEnabled: false,
+                                    scrollGesturesEnabled: false,
+                                    rotateGesturesEnabled: false,
+                                    tiltGesturesEnabled: false,
+                                  ),
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 12),
                             SizedBox(
                               width: double.infinity,

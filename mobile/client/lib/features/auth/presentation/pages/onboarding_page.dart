@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -11,75 +12,81 @@ class OnboardingPage extends StatefulWidget {
   State<OnboardingPage> createState() => _OnboardingPageState();
 }
 
-class _OnboardingPageState extends State<OnboardingPage> {
-  final PageController _pageController = PageController();
-  int _currentPage = 0;
+class _OnboardingPageState extends State<OnboardingPage>
+    with TickerProviderStateMixin {
+  
+  // Interactive onboarding state
+  int _currentStep = 0;
+  final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
+  bool _showMockResults = false;
+  bool _hasSearched = false;
 
-  final List<OnboardingData> _pages = [
-    OnboardingData(
-      title: 'Bienvenue sur DR-PHARMA',
-      description:
-          'Votre santé à portée de main. Commandez vos médicaments en quelques clics et faites-vous livrer où que vous soyez.',
-      image: Icons.local_pharmacy_rounded,
-      gradient: [AppColors.primary, AppColors.primaryDark],
-    ),
-    OnboardingData(
-      title: 'Trouvez vos médicaments',
-      description:
-          'Recherchez parmi des milliers de médicaments disponibles dans les pharmacies près de chez vous. Comparez les prix et la disponibilité.',
-      image: Icons.search_rounded,
-      gradient: [const Color(0xFF00B4D8), const Color(0xFF0077B6)],
-    ),
-    OnboardingData(
-      title: 'Pharmacies de garde',
-      description:
-          'Localisez facilement les pharmacies de garde 24h/24, 7j/7. Ne restez plus jamais sans vos médicaments urgents.',
-      image: Icons.access_time_filled_rounded,
-      gradient: [const Color(0xFF7B2CBF), const Color(0xFF5A189A)],
-    ),
-    OnboardingData(
-      title: 'Livraison rapide',
-      description:
-          'Recevez vos commandes directement chez vous. Suivez votre livraison en temps réel et restez informé à chaque étape.',
-      image: Icons.delivery_dining_rounded,
-      gradient: [const Color(0xFFFF6B6B), const Color(0xFFEE5A24)],
-    ),
-    OnboardingData(
-      title: 'Ordonnances simplifiées',
-      description:
-          'Téléchargez votre ordonnance et laissez nos pharmacies partenaires préparer votre commande. Simple, rapide et sécurisé.',
-      image: Icons.document_scanner_rounded,
-      gradient: [const Color(0xFF20BF6B), const Color(0xFF0B8A49)],
-    ),
+  late final AnimationController _fadeController;
+  late final AnimationController _slideController;
+
+  // Mock search results for demo
+  final List<_MockProduct> _mockProducts = [
+    _MockProduct('Doliprane 1000mg', 'Paracétamol', 2500, true),
+    _MockProduct('Efferalgan 500mg', 'Paracétamol', 1800, true),
+    _MockProduct('Advil 400mg', 'Ibuprofène', 3200, true),
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _slideController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _fadeController.forward();
+    
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
   void dispose() {
-    _pageController.dispose();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    _fadeController.dispose();
+    _slideController.dispose();
     super.dispose();
   }
 
-  void _onPageChanged(int page) {
-    setState(() {
-      _currentPage = page;
-    });
+  void _onSearchChanged() {
+    final hasText = _searchController.text.length >= 2;
+    if (hasText != _showMockResults) {
+      setState(() {
+        _showMockResults = hasText;
+        if (hasText && !_hasSearched) {
+          _hasSearched = true;
+          _slideController.forward();
+        }
+      });
+    }
   }
 
   Future<void> _completeOnboarding() async {
+    HapticFeedback.mediumImpact();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_completed', true);
 
     if (!mounted) return;
-
     context.go(AppRoutes.login);
   }
 
-  void _nextPage() {
-    if (_currentPage < _pages.length - 1) {
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
-      );
+  void _nextStep() {
+    HapticFeedback.lightImpact();
+    if (_currentStep < 1) {
+      setState(() {
+        _currentStep++;
+        _fadeController.reset();
+        _fadeController.forward();
+      });
     } else {
       _completeOnboarding();
     }
@@ -91,129 +98,401 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       body: Stack(
         children: [
-          // PageView
-          PageView.builder(
-            controller: _pageController,
-            onPageChanged: _onPageChanged,
-            itemCount: _pages.length,
-            itemBuilder: (context, index) {
-              return _buildPage(_pages[index]);
-            },
+          // Background gradient
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 500),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+                colors: [
+                  AppColors.primary.withValues(alpha: 0.1),
+                  isDark ? Colors.grey.shade900 : Colors.white,
+                  isDark ? Colors.grey.shade900 : Colors.white,
+                ],
+              ),
+            ),
+          ),
+
+          // Content
+          SafeArea(
+            child: FadeTransition(
+              opacity: _fadeController,
+              child: _currentStep == 0
+                  ? _buildInteractiveStep()
+                  : _buildFeaturesStep(),
+            ),
           ),
 
           // Skip Button
           Positioned(
-            top: MediaQuery.of(context).padding.top + 16,
+            top: MediaQuery.paddingOf(context).top + 8,
             right: 16,
             child: TextButton(
               onPressed: _skip,
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
               child: Text(
                 'Passer',
                 style: TextStyle(
-                  color: _pages[_currentPage].gradient[0],
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
           ),
 
-          // Bottom Navigation
+          // Bottom action
           Positioned(
-            bottom: 50,
+            bottom: 0,
             left: 0,
             right: 0,
+            child: _buildBottomAction(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInteractiveStep() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 60, 24, 180),
+      child: Column(
+        children: [
+          // Logo / Brand
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.primary, Color(0xFF00A085)],
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.local_pharmacy_rounded,
+              size: 40,
+              color: Colors.white,
+            ),
+          ),
+          
+          const SizedBox(height: 24),
+          
+          Text(
+            'Bienvenue sur DR-PHARMA',
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : AppColors.textPrimary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          
+          const SizedBox(height: 12),
+          
+          Text(
+            'Essayez de chercher un médicament',
+            style: TextStyle(
+              fontSize: 16,
+              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          
+          const SizedBox(height: 32),
+          
+          // Interactive search field
+          Container(
+            decoration: BoxDecoration(
+              color: isDark ? Colors.grey.shade800 : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              decoration: InputDecoration(
+                hintText: 'Ex: Doliprane, Advil...',
+                hintStyle: TextStyle(color: Colors.grey.shade400),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: _showMockResults ? AppColors.primary : Colors.grey,
+                ),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 20),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() {});
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                filled: true,
+                fillColor: isDark ? Colors.grey.shade800 : Colors.white,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              ),
+              onTap: () {
+                HapticFeedback.selectionClick();
+              },
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Mock results
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            height: _showMockResults ? 200 : 0,
+            child: _showMockResults
+                ? SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, -0.2),
+                      end: Offset.zero,
+                    ).animate(CurvedAnimation(
+                      parent: _slideController,
+                      curve: Curves.easeOut,
+                    )),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.grey.shade800 : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 10,
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: _mockProducts.map((product) {
+                          return _buildMockProductTile(product, isDark);
+                        }).toList(),
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+          
+          const Spacer(),
+          
+          // Success message when searched
+          if (_hasSearched) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.success.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: AppColors.success),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Super ! C\'est aussi simple que ça.',
+                      style: TextStyle(
+                        color: isDark ? Colors.white : AppColors.textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMockProductTile(_MockProduct product, bool isDark) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      leading: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Icon(Icons.medication, color: AppColors.primary),
+      ),
+      title: Text(
+        product.name,
+        style: const TextStyle(fontWeight: FontWeight.w500),
+      ),
+      subtitle: Text(
+        product.category,
+        style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+      ),
+      trailing: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            '${product.price} F',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: AppColors.primary,
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppColors.success.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Text(
+              'En stock',
+              style: TextStyle(fontSize: 10, color: AppColors.success),
+            ),
+          ),
+        ],
+      ),
+      onTap: () {
+        HapticFeedback.lightImpact();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Créez un compte pour commander 🛒'),
+            backgroundColor: AppColors.primary,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFeaturesStep() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 60, 24, 180),
+      child: Column(
+        children: [
+          const SizedBox(height: 20),
+          
+          Text(
+            'Tout ce dont vous avez besoin',
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : AppColors.textPrimary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          
+          const SizedBox(height: 40),
+          
+          // Features list
+          _buildFeatureRow(
+            Icons.document_scanner_rounded,
+            'Scan d\'ordonnance',
+            'Photo → Médicaments détectés automatiquement',
+            const Color(0xFF00B894),
+          ),
+          
+          const SizedBox(height: 20),
+          
+          _buildFeatureRow(
+            Icons.delivery_dining_rounded,
+            'Livraison rapide',
+            'Recevez vos médicaments en moins de 2h',
+            const Color(0xFF6C5CE7),
+          ),
+          
+          const SizedBox(height: 20),
+          
+          _buildFeatureRow(
+            Icons.account_balance_wallet_rounded,
+            'Paiement facile',
+            'Wallet intégré ou Mobile Money',
+            const Color(0xFFF39C12),
+          ),
+          
+          const SizedBox(height: 20),
+          
+          _buildFeatureRow(
+            Icons.notifications_active_rounded,
+            'Rappels intelligents',
+            'Ne manquez plus vos renouvellements',
+            const Color(0xFFE74C3C),
+          ),
+          
+          const Spacer(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureRow(IconData icon, String title, String subtitle, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.grey.shade800.withValues(alpha: 0.5) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.grey.shade700 : Colors.grey.shade200,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: color, size: 26),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Page Indicators
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(
-                    _pages.length,
-                    (index) => _buildIndicator(index),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                    color: isDark ? Colors.white : AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 32),
-
-                // Navigation Buttons
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Row(
-                    children: [
-                      if (_currentPage > 0)
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () {
-                              _pageController.previousPage(
-                                duration: const Duration(milliseconds: 400),
-                                curve: Curves.easeInOut,
-                              );
-                            },
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              side: BorderSide(
-                                color: _pages[_currentPage].gradient[0],
-                                width: 2,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: Text(
-                              'Précédent',
-                              style: TextStyle(
-                                color: _pages[_currentPage].gradient[0],
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                      if (_currentPage > 0) const SizedBox(width: 16),
-                      Expanded(
-                        flex: _currentPage == 0 ? 1 : 1,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: _pages[_currentPage].gradient,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: _pages[_currentPage].gradient[0]
-                                    .withValues(alpha: 0.4),
-                                blurRadius: 15,
-                                offset: const Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          child: ElevatedButton(
-                            onPressed: _nextPage,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: Text(
-                              _currentPage == _pages.length - 1
-                                  ? 'Commencer'
-                                  : 'Suivant',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                   ),
                 ),
               ],
@@ -224,150 +503,108 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  Widget _buildPage(OnboardingData data) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Theme.of(context).scaffoldBackgroundColor,
-            data.gradient[0].withValues(alpha: 0.1),
-          ],
-        ),
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              const Spacer(flex: 1),
-
-              // Animated Icon
-              TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0.0, end: 1.0),
-                duration: const Duration(milliseconds: 800),
-                curve: Curves.elasticOut,
-                builder: (context, value, child) {
-                  return Transform.scale(
-                    scale: value,
-                    child: Container(
-                      width: 200,
-                      height: 200,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: data.gradient,
+  Widget _buildBottomAction() {
+    final isLastStep = _currentStep == 1;
+    final canProceed = _currentStep == 0 ? _hasSearched : true;
+    
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Progress indicator
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildProgressDot(0),
+                const SizedBox(width: 8),
+                _buildProgressDot(1),
+              ],
+            ),
+            const SizedBox(height: 24),
+            
+            // CTA Button
+            Container(
+              width: double.infinity,
+              height: 56,
+              decoration: BoxDecoration(
+                gradient: canProceed
+                    ? const LinearGradient(
+                        colors: [AppColors.primary, Color(0xFF00A085)],
+                      )
+                    : null,
+                color: canProceed ? null : Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: canProceed
+                    ? [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.4),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
                         ),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: data.gradient[0].withValues(alpha: 0.4),
-                            blurRadius: 30,
-                            offset: const Offset(0, 15),
-                          ),
-                        ],
+                      ]
+                    : null,
+              ),
+              child: ElevatedButton(
+                onPressed: canProceed ? _nextStep : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _currentStep == 0
+                          ? (canProceed ? 'Continuer' : 'Essayez de chercher...')
+                          : 'Créer mon compte',
+                      style: TextStyle(
+                        color: canProceed ? Colors.white : Colors.grey.shade600,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
                       ),
-                      child: Icon(
-                        data.image,
-                        size: 100,
+                    ),
+                    if (canProceed) ...[
+                      const SizedBox(width: 8),
+                      Icon(
+                        isLastStep ? Icons.rocket_launch_rounded : Icons.arrow_forward_rounded,
                         color: Colors.white,
+                        size: 20,
                       ),
-                    ),
-                  );
-                },
-              ),
-
-              const Spacer(flex: 1),
-
-              // Title
-              TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0.0, end: 1.0),
-                duration: const Duration(milliseconds: 600),
-                curve: Curves.easeOut,
-                builder: (context, value, child) {
-                  return Opacity(
-                    opacity: value,
-                    child: Transform.translate(
-                      offset: Offset(0, 20 * (1 - value)),
-                      child: child,
-                    ),
-                  );
-                },
-                child: Text(
-                  data.title,
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: data.gradient[0],
-                  ),
-                  textAlign: TextAlign.center,
+                    ],
+                  ],
                 ),
               ),
-
-              const SizedBox(height: 20),
-
-              // Description
-              TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0.0, end: 1.0),
-                duration: const Duration(milliseconds: 800),
-                curve: Curves.easeOut,
-                builder: (context, value, child) {
-                  return Opacity(
-                    opacity: value,
-                    child: Transform.translate(
-                      offset: Offset(0, 20 * (1 - value)),
-                      child: child,
-                    ),
-                  );
-                },
-                child: Text(
-                  data.description,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[400] : Colors.grey[600],
-                    height: 1.6,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-
-              const Spacer(flex: 2),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildIndicator(int index) {
-    final isActive = index == _currentPage;
+  Widget _buildProgressDot(int step) {
+    final isActive = _currentStep >= step;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      width: isActive ? 32 : 8,
+      width: isActive ? 24 : 8,
       height: 8,
       decoration: BoxDecoration(
-        color: isActive
-            ? _pages[_currentPage].gradient[0]
-            : Colors.grey.withValues(alpha: 0.3),
+        color: isActive ? AppColors.primary : Colors.grey.shade300,
         borderRadius: BorderRadius.circular(4),
       ),
     );
   }
 }
 
-class OnboardingData {
-  final String title;
-  final String description;
-  final IconData image;
-  final List<Color> gradient;
+class _MockProduct {
+  final String name;
+  final String category;
+  final int price;
+  final bool inStock;
 
-  OnboardingData({
-    required this.title,
-    required this.description,
-    required this.image,
-    required this.gradient,
-  });
+  _MockProduct(this.name, this.category, this.price, this.inStock);
 }

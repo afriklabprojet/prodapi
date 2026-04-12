@@ -1,5 +1,6 @@
 // Test helpers and mocks for Pharmacy app tests
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -10,16 +11,22 @@ import 'package:drpharma_pharmacy/core/network/api_client.dart';
 import 'package:drpharma_pharmacy/features/auth/domain/entities/user_entity.dart';
 import 'package:drpharma_pharmacy/features/auth/domain/entities/pharmacy_entity.dart';
 import 'package:drpharma_pharmacy/features/orders/domain/entities/order_entity.dart';
+import 'package:drpharma_pharmacy/features/orders/domain/enums/order_status.dart';
 import 'package:drpharma_pharmacy/features/inventory/domain/entities/product_entity.dart';
+import 'package:drpharma_pharmacy/l10n/app_localizations.dart';
 
 // Mock classes
 class MockApiClient extends Mock implements ApiClient {}
+
 class MockDio extends Mock implements Dio {}
+
 class MockSharedPreferences extends Mock implements SharedPreferences {}
 
 // Fake classes for fallback values
 class FakeUri extends Fake implements Uri {}
+
 class FakeOptions extends Fake implements Options {}
+
 class FakeRequestOptions extends Fake implements RequestOptions {}
 
 /// Setup fallback values for mocktail
@@ -74,7 +81,7 @@ class TestDataFactory {
   static OrderEntity createOrder({
     int id = 1,
     String reference = 'DR-TEST001',
-    String status = 'pending',
+    OrderStatus status = OrderStatus.pending,
     String paymentMode = 'platform',
     double totalAmount = 5000.0,
     String customerName = 'Client Test',
@@ -152,7 +159,13 @@ class TestDataFactory {
   }
 
   static List<OrderEntity> createOrderList({int count = 5}) {
-    final statuses = ['pending', 'confirmed', 'ready', 'delivered', 'cancelled'];
+    final statuses = [
+      OrderStatus.pending,
+      OrderStatus.confirmed,
+      OrderStatus.ready,
+      OrderStatus.delivered,
+      OrderStatus.cancelled,
+    ];
     return List.generate(
       count,
       (index) => createOrder(
@@ -172,9 +185,12 @@ Widget createTestableWidget(Widget child, {List<Override>? overrides}) {
     child: MaterialApp(
       home: Scaffold(body: child),
       localizationsDelegates: const [
-        DefaultMaterialLocalizations.delegate,
-        DefaultWidgetsLocalizations.delegate,
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
       ],
+      supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('fr', 'FR'),
     ),
   );

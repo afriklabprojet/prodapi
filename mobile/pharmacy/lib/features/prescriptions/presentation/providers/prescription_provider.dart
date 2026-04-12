@@ -9,6 +9,8 @@ import '../../data/datasources/prescription_remote_datasource.dart';
 class PrescriptionRepository {
   final PrescriptionRemoteDataSource _dataSource;
 
+  PrescriptionRemoteDataSource get dataSource => _dataSource;
+
   PrescriptionRepository(this._dataSource);
 
   Future<Either<Failure, List<PrescriptionModel>>> getPrescriptions() async {
@@ -29,7 +31,12 @@ class PrescriptionRepository {
     double? quoteAmount,
   }) async {
     try {
-      final result = await _dataSource.updateStatus(id, status, notes: notes, quoteAmount: quoteAmount);
+      final result = await _dataSource.updateStatus(
+        id,
+        status,
+        notes: notes,
+        quoteAmount: quoteAmount,
+      );
       return Right(result);
     } on ServerException catch (e) {
       return Left(ServerFailure(e.message));
@@ -38,7 +45,10 @@ class PrescriptionRepository {
     }
   }
 
-  Future<Either<Failure, AnalysisResult>> analyzePrescription(int id, {bool force = false}) async {
+  Future<Either<Failure, AnalysisResult>> analyzePrescription(
+    int id, {
+    bool force = false,
+  }) async {
     try {
       final result = await _dataSource.analyzePrescription(id, force: force);
       return Right(result);
@@ -56,6 +66,7 @@ final prescriptionRepositoryProvider = Provider<PrescriptionRepository>((ref) {
 });
 
 enum PrescriptionStatus { initial, loading, loaded, error }
+
 enum AnalysisStatus { initial, analyzing, analyzed, error }
 
 class PrescriptionListState {
@@ -63,7 +74,7 @@ class PrescriptionListState {
   final List<PrescriptionModel> prescriptions;
   final String? errorMessage;
   final String activeFilter; // 'all', 'pending', 'validated'
-  
+
   // Analysis state
   final AnalysisStatus analysisStatus;
   final AnalysisResult? analysisResult;
@@ -100,11 +111,15 @@ class PrescriptionListState {
   }
 }
 
-class PrescriptionListNotifier extends StateNotifier<PrescriptionListState> {
-  final PrescriptionRepository _repository;
+class PrescriptionListNotifier extends Notifier<PrescriptionListState> {
+  late final PrescriptionRepository _repository;
 
-  PrescriptionListNotifier(this._repository) : super(PrescriptionListState()) {
-    getPrescriptions();
+  @override
+  PrescriptionListState build() {
+    _repository = ref.watch(prescriptionRepositoryProvider);
+    // Defer initial fetch to avoid "Bad state: uninitialized" error
+    Future.microtask(getPrescriptions);
+    return PrescriptionListState();
   }
 
   Future<void> getPrescriptions() async {
@@ -127,25 +142,39 @@ class PrescriptionListNotifier extends StateNotifier<PrescriptionListState> {
   void setFilter(String filter) {
     state = state.copyWith(activeFilter: filter);
   }
-  
+
   List<PrescriptionModel> get filteredPrescriptions {
     if (state.activeFilter == 'all') {
       return state.prescriptions;
     }
-    return state.prescriptions.where((p) => p.status == state.activeFilter).toList();
+    return state.prescriptions
+        .where((p) => p.status == state.activeFilter)
+        .toList();
   }
 
-  Future<void> updateStatus(int id, String status, {String? notes, double? quoteAmount}) async {
-      // Optimistic update or reload
-      final result = await _repository.updateStatus(id, status, notes: notes, quoteAmount: quoteAmount);
-      
-      result.fold(
-          (failure) => null, // Handle error toast in UI
-          (updated) {
-              final newList = state.prescriptions.map((p) => p.id == id ? updated : p).toList();
-              state = state.copyWith(prescriptions: newList);
-          }
-      );
+  Future<void> updateStatus(
+    int id,
+    String status, {
+    String? notes,
+    double? quoteAmount,
+  }) async {
+    // Optimistic update or reload
+    final result = await _repository.updateStatus(
+      id,
+      status,
+      notes: notes,
+      quoteAmount: quoteAmount,
+    );
+
+    result.fold(
+      (failure) => null, // Handle error toast in UI
+      (updated) {
+        final newList = state.prescriptions
+            .map((p) => p.id == id ? updated : p)
+            .toList();
+        state = state.copyWith(prescriptions: newList);
+      },
+    );
   }
 
   Future<void> sendQuote(int id, double amount, {String? notes}) async {
@@ -153,11 +182,17 @@ class PrescriptionListNotifier extends StateNotifier<PrescriptionListState> {
     await updateStatus(id, 'quoted', notes: notes, quoteAmount: amount);
   }
 
-  Future<AnalysisResult?> analyzePrescription(int id, {bool force = false}) async {
-    state = state.copyWith(analysisStatus: AnalysisStatus.analyzing, analysisError: null);
-    
+  Future<AnalysisResult?> analyzePrescription(
+    int id, {
+    bool force = false,
+  }) async {
+    state = state.copyWith(
+      analysisStatus: AnalysisStatus.analyzing,
+      analysisError: null,
+    );
+
     final result = await _repository.analyzePrescription(id, force: force);
-    
+
     return result.fold(
       (failure) {
         state = state.copyWith(
@@ -174,7 +209,7 @@ class PrescriptionListNotifier extends StateNotifier<PrescriptionListState> {
           }
           return p;
         }).toList();
-        
+
         state = state.copyWith(
           analysisStatus: AnalysisStatus.analyzed,
           analysisResult: analysisResult,
@@ -183,6 +218,39 @@ class PrescriptionListNotifier extends StateNotifier<PrescriptionListState> {
         return analysisResult;
       },
     );
+  }
+
+  Future<DispenseResult?> dispensePrescription(
+    int id,
+    List<Map<String, dynamic>> medications,
+  ) async {
+    try {
+      final dataSource =
+          _repository.dataSource as PrescriptionRemoteDataSourceImpl;
+      final result = await dataSource.dispensePrescription(id, medications);
+
+      // Update prescription in list
+      final newList = state.prescriptions.map((p) {
+        if (p.id == id) return result.prescription;
+        return p;
+      }).toList();
+
+      state = state.copyWith(prescriptions: newList);
+      return result;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<({PrescriptionModel prescription, DuplicateInfo? duplicateInfo})?>
+  getPrescriptionWithDuplicate(int id) async {
+    try {
+      final dataSource =
+          _repository.dataSource as PrescriptionRemoteDataSourceImpl;
+      return await dataSource.getPrescriptionWithDuplicate(id);
+    } catch (e) {
+      return null;
+    }
   }
 
   void clearAnalysisResult() {
@@ -194,7 +262,7 @@ class PrescriptionListNotifier extends StateNotifier<PrescriptionListState> {
   }
 }
 
-final prescriptionListProvider = StateNotifierProvider<PrescriptionListNotifier, PrescriptionListState>((ref) {
-  final repository = ref.watch(prescriptionRepositoryProvider);
-  return PrescriptionListNotifier(repository);
-});
+final prescriptionListProvider =
+    NotifierProvider<PrescriptionListNotifier, PrescriptionListState>(
+      PrescriptionListNotifier.new,
+    );

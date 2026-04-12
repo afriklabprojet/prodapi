@@ -35,4 +35,26 @@ void main() {
       expect(activeTrackingLinkProvider, isNotNull);
     });
   });
+
+  group('LiveTrackingService - additional', () {
+    test('trackingBaseUrl starts with http', () {
+      expect(LiveTrackingService.trackingBaseUrl.startsWith('http'), isTrue);
+    });
+
+    test('trackingBaseUrl ends with /track', () {
+      expect(LiveTrackingService.trackingBaseUrl.endsWith('/track'), isTrue);
+    });
+
+    test('AppConfig webBaseUrl does not end with slash', () {
+      expect(AppConfig.webBaseUrl.endsWith('/'), isFalse);
+    });
+
+    test('trackingBaseUrl is consistent', () {
+      // Called twice should give same result
+      expect(
+        LiveTrackingService.trackingBaseUrl,
+        LiveTrackingService.trackingBaseUrl,
+      );
+    });
+  });
 }

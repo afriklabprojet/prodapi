@@ -21,9 +21,7 @@ void main() {
         sharedPreferencesProvider.overrideWithValue(sharedPreferences),
         apiClientProvider.overrideWithValue(FakeApiClient()),
       ],
-      child: const MaterialApp(
-        home: TermsPage(),
-      ),
+      child: const MaterialApp(home: TermsPage()),
     );
   }
 
@@ -45,12 +43,12 @@ void main() {
 
     testWidgets('should display introduction section', (tester) async {
       await tester.pumpWidget(createTestWidget());
-      expect(find.textContaining('Introduction'), findsOneWidget);
+      expect(find.textContaining('Objet'), findsOneWidget);
     });
 
     testWidgets('should display services section', (tester) async {
       await tester.pumpWidget(createTestWidget());
-      expect(find.textContaining('Services'), findsOneWidget);
+      expect(find.textContaining('Inscription'), findsOneWidget);
     });
 
     testWidgets('should display registration section', (tester) async {
@@ -75,7 +73,7 @@ void main() {
 
     testWidgets('should display responsibility section', (tester) async {
       await tester.pumpWidget(createTestWidget());
-      expect(find.textContaining('Responsabilité'), findsOneWidget);
+      expect(find.textContaining('Livraison'), findsOneWidget);
     });
 
     testWidgets('should be scrollable', (tester) async {

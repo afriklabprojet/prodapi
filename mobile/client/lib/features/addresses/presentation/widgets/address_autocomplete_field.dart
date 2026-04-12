@@ -99,8 +99,9 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
     widget.controller.text = prediction.description;
 
     // Obtenir les détails (coordonnées GPS)
-    final details =
-        await widget.placesService.getPlaceDetails(prediction.placeId);
+    final details = await widget.placesService.getPlaceDetails(
+      prediction.placeId,
+    );
 
     if (details != null && widget.onPlaceSelected != null) {
       widget.onPlaceSelected!(details);
@@ -205,14 +206,14 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
                   ),
                 )
               : widget.controller.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, size: 18),
-                      onPressed: () {
-                        widget.controller.clear();
-                        _removeOverlay();
-                      },
-                    )
-                  : null,
+              ? IconButton(
+                  icon: const Icon(Icons.clear, size: 18),
+                  onPressed: () {
+                    widget.controller.clear();
+                    _removeOverlay();
+                  },
+                )
+              : null,
           border: const OutlineInputBorder(),
         ),
       ),

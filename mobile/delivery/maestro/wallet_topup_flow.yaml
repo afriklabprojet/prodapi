@@ -1,0 +1,228 @@
+# Maestro Test - Flow de recharge wallet coursier
+# Documentation: https://maestro.mobile.dev/
+#
+# Prérequis:
+#   1. Installer Maestro: curl -Ls https://get.maestro.mobile.dev | bash
+#   2. Émulateur/device connecté avec l'app installée
+#   3. Compte test: leadouce0@gmail.com / Paris2026
+#
+# Exécution:
+#   maestro test maestro/wallet_topup_flow.yaml
+#   maestro test maestro/wallet_topup_flow.yaml --env EMAIL=autre@email.com --env PASSWORD=AutreMotDePasse
+
+appId: com.drpharma.delivery
+
+---
+
+# Configuration des variables d'environnement
+env:
+  EMAIL: "leadouce0@gmail.com"
+  PASSWORD: "Paris2026"
+  TOPUP_AMOUNT: "500"
+
+---
+
+# ═══════════════════════════════════════════════════════════════
+# ÉTAPE 1: Lancement de l'app
+# ═══════════════════════════════════════════════════════════════
+- launchApp:
+    clearState: false
+    clearKeychain: false
+
+- extendedWaitUntil:
+    visible: "Se connecter|Passer|Bon retour"
+    timeout: 15000
+
+---
+
+# ═══════════════════════════════════════════════════════════════
+# ÉTAPE 2: Gestion de l'onboarding (si présent)
+# ═══════════════════════════════════════════════════════════════
+- runFlow:
+    when:
+      visible: "Passer"
+    commands:
+      - tapOn: "Passer"
+      - waitForAnimationToEnd
+
+---
+
+# ═══════════════════════════════════════════════════════════════
+# ÉTAPE 3: Connexion au compte coursier
+# ═══════════════════════════════════════════════════════════════
+- runFlow:
+    when:
+      visible: "Se connecter"
+    commands:
+      # Attendre l'écran de login
+      - assertVisible: "Bon retour"
+      
+      # Remplir l'email
+      - tapOn:
+          text: "Entrez votre email"
+      - inputText: ${EMAIL}
+      - hideKeyboard
+      
+      # Remplir le mot de passe
+      - tapOn:
+          text: "Votre mot de passe"
+      - inputText: ${PASSWORD}
+      - hideKeyboard
+      
+      # Soumettre
+      - tapOn: "Se connecter"
+      
+      # Attendre la navigation vers l'accueil
+      - extendedWaitUntil:
+          visible: "Disponible|Carte"
+          timeout: 20000
+
+---
+
+# ═══════════════════════════════════════════════════════════════
+# ÉTAPE 4: Navigation vers le Wallet
+# ═══════════════════════════════════════════════════════════════
+- assertVisible:
+    text: "Wallet"
+    
+- tapOn: "Wallet"
+
+- extendedWaitUntil:
+    visible: "Mon Portefeuille"
+    timeout: 5000
+
+# Vérifier que l'écran wallet est affiché
+- assertVisible: "Solde disponible"
+- assertVisible: "Recharger"
+
+# Screenshot de l'état initial du wallet
+- takeScreenshot: "wallet_before_topup"
+
+---
+
+# ═══════════════════════════════════════════════════════════════
+# ÉTAPE 5: Ouvrir le formulaire de recharge
+# ═══════════════════════════════════════════════════════════════
+- tapOn: "Recharger"
+
+- extendedWaitUntil:
+    visible: "Recharger mon compte"
+    timeout: 5000
+
+# Vérifier les éléments du bottom sheet
+- assertVisible: "Moyen de paiement"
+- assertVisible: "Montant"
+- assertVisible: "Wave"
+
+# Screenshot du formulaire de recharge
+- takeScreenshot: "topup_sheet_opened"
+
+---
+
+# ═══════════════════════════════════════════════════════════════
+# ÉTAPE 6: Sélectionner le montant
+# ═══════════════════════════════════════════════════════════════
+# Sélectionner 500 FCFA (premier montant prédéfini)
+- tapOn:
+    text: "500"
+    
+# OU pour un montant personnalisé:
+# - tapOn: "Montant personnalisé"
+# - inputText: ${TOPUP_AMOUNT}
+
+# Vérifier la sélection
+- takeScreenshot: "amount_selected"
+
+---
+
+# ═══════════════════════════════════════════════════════════════
+# ÉTAPE 7: Sélectionner la méthode de paiement (Wave par défaut)
+# ═══════════════════════════════════════════════════════════════
+# Wave est sélectionné par défaut, mais on peut changer:
+# - tapOn: "Orange Money"
+# - tapOn: "MTN MoMo"
+# - tapOn: "Moov Money"
+# - tapOn: "Djamo"
+
+# Confirmer Wave
+- assertVisible: "Wave"
+
+---
+
+# ═══════════════════════════════════════════════════════════════
+# ÉTAPE 8: Initier le paiement
+# ═══════════════════════════════════════════════════════════════
+# Trouver et taper le bouton de confirmation (fond vert)
+- tapOn:
+    text: "Recharger maintenant"
+    optional: true
+    
+- runFlow:
+    when:
+      notVisible: "Paiement sécurisé"
+    commands:
+      # Alternative: bouton peut avoir un texte différent
+      - tapOn:
+          id: "topup_submit_button"
+          optional: true
+
+# Attendre la redirection vers JEKO
+- extendedWaitUntil:
+    visible: "Paiement sécurisé|Payer|JEKO"
+    timeout: 15000
+
+# Screenshot de la page JEKO
+- takeScreenshot: "jeko_payment_page"
+
+---
+
+# ═══════════════════════════════════════════════════════════════
+# ÉTAPE 9: Vérifier la page de paiement JEKO
+# ═══════════════════════════════════════════════════════════════
+- assertVisible:
+    text: "DRL NEGOCE"
+    optional: true
+
+- assertVisible:
+    text: "500 FCFA|500"
+
+- assertVisible:
+    text: "Wave|WAVE"
+
+# Vérifier le champ de numéro de téléphone
+- assertVisible:
+    text: "225|+225"
+
+- assertVisible:
+    text: "Payer"
+
+# Screenshot final
+- takeScreenshot: "jeko_form_ready"
+
+---
+
+# ═══════════════════════════════════════════════════════════════
+# ÉTAPE 10: Test terminé (sans compléter le paiement réel)
+# ═══════════════════════════════════════════════════════════════
+# On ferme la page de paiement pour revenir au wallet
+- tapOn:
+    text: "Fermer|×|X"
+    optional: true
+
+- runFlow:
+    when:
+      notVisible: "Mon Portefeuille"
+    commands:
+      - back
+      - back
+
+# Vérifier le retour au wallet
+- extendedWaitUntil:
+    visible: "Mon Portefeuille|Wallet"
+    timeout: 5000
+
+- takeScreenshot: "test_completed"
+
+# ═══════════════════════════════════════════════════════════════
+# ✅ TEST RÉUSSI
+# ═══════════════════════════════════════════════════════════════

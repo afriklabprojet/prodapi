@@ -27,7 +27,7 @@ void main() {
     late AuthInterceptor interceptor;
 
     setUp(() {
-      interceptor = AuthInterceptor();
+      interceptor = AuthInterceptor(dio: Dio());
       SecureTokenService.enableTestMode();
     });
 
@@ -62,7 +62,7 @@ void main() {
     late AuthInterceptor interceptor;
 
     setUp(() {
-      interceptor = AuthInterceptor();
+      interceptor = AuthInterceptor(dio: Dio());
       SecureTokenService.enableTestMode();
     });
 
@@ -70,7 +70,7 @@ void main() {
       SecureTokenService.disableTestMode();
     });
 
-    test('handles 401 on non-excluded path', () {
+    test('handles 401 on non-excluded path', () async {
       final options = RequestOptions(path: '/api/me');
       final err = DioException(
         requestOptions: options,
@@ -78,7 +78,7 @@ void main() {
         type: DioExceptionType.badResponse,
       );
       final handler = _TestErrorHandler();
-      interceptor.onError(err, handler);
+      await interceptor.onError(err, handler);
       expect(handler.nextCalled, true);
     });
 

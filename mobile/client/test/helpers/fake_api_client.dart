@@ -22,10 +22,7 @@ class FakeApiClient extends ApiClient {
     return Response(
       requestOptions: RequestOptions(path: path),
       statusCode: 200,
-      data: {
-        'data': <String, dynamic>{},
-        'message': 'ok',
-      },
+      data: {'data': <String, dynamic>{}, 'message': 'ok'},
     );
   }
 
@@ -33,10 +30,7 @@ class FakeApiClient extends ApiClient {
     return Response(
       requestOptions: RequestOptions(path: path),
       statusCode: 200,
-      data: {
-        'data': <dynamic>[],
-        'message': 'ok',
-      },
+      data: {'data': <dynamic>[], 'message': 'ok'},
     );
   }
 
@@ -60,6 +54,78 @@ class FakeApiClient extends ApiClient {
     );
   }
 
+  Response _profileResponse(String path) {
+    return Response(
+      requestOptions: RequestOptions(path: path),
+      statusCode: 200,
+      data: {
+        'data': {
+          'id': 1,
+          'name': 'Utilisateur Test',
+          'email': 'test@drpharma.app',
+          'phone': '+2250700000000',
+          'total_orders': 3,
+          'completed_orders': 2,
+          'total_spent': 12500,
+          'created_at': '2026-01-01T00:00:00.000Z',
+        },
+        'message': 'ok',
+      },
+    );
+  }
+
+  Response _orderResponse(String path, int orderId) {
+    return Response(
+      requestOptions: RequestOptions(path: path),
+      statusCode: 200,
+      data: {
+        'data': {
+          'id': orderId,
+          'reference': 'CMD-$orderId',
+          'status': 'pending',
+          'payment_status': 'pending',
+          'payment_mode': 'cash',
+          'pharmacy_id': 1,
+          'items': <dynamic>[],
+          'items_count': 0,
+          'subtotal': 0.0,
+          'delivery_fee': 0.0,
+          'total_amount': 0.0,
+          'currency': 'XOF',
+          'delivery_address': '',
+          'created_at': '2024-01-01T00:00:00.000Z',
+        },
+        'message': 'ok',
+      },
+    );
+  }
+
+  Response _prescriptionResponse(String path, int prescriptionId) {
+    return Response(
+      requestOptions: RequestOptions(path: path),
+      statusCode: 200,
+      data: {
+        'data': {
+          'id': prescriptionId,
+          'status': 'pending',
+          'notes': 'Test prescription notes',
+          'images': <String>['https://example.com/prescription.jpg'],
+          'rejection_reason': null,
+          'quote_amount': null,
+          'pharmacy_notes': null,
+          'created_at': '2024-01-01T00:00:00.000Z',
+          'validated_at': null,
+          'order_id': null,
+          'order_reference': null,
+          'source': 'upload',
+          'fulfillment_status': 'none',
+          'dispensing_count': 0,
+        },
+        'message': 'ok',
+      },
+    );
+  }
+
   /// Returns an appropriate mock response based on the path pattern.
   Response _mockResponse(String path) {
     // Notifications have a specific nested structure
@@ -72,16 +138,30 @@ class FakeApiClient extends ApiClient {
       return _emptyListResponse(path);
     }
 
+    // Profile endpoints need a minimal user payload for widget tests.
+    if (path.contains('/auth/me') || path.contains('profile')) {
+      return _profileResponse(path);
+    }
+
     // Paths that typically return lists
     if (path.contains('products') ||
         path.contains('pharmacies') ||
         path.contains('orders') ||
         path.contains('addresses') ||
         path.contains('prescriptions')) {
-      // Detail endpoints (e.g., /products/123) return an object
+      // Detail endpoints (e.g., /products/123, /orders/123) return an object
       final segments = path.split('/').where((s) => s.isNotEmpty).toList();
       final lastSegment = segments.isNotEmpty ? segments.last : '';
-      if (int.tryParse(lastSegment) != null) {
+      final id = int.tryParse(lastSegment);
+      if (id != null) {
+        // Return a proper order response to prevent Null != num errors
+        if (path.contains('orders')) {
+          return _orderResponse(path, id);
+        }
+        // Return a proper prescription response to prevent Null != int errors
+        if (path.contains('prescriptions')) {
+          return _prescriptionResponse(path, id);
+        }
         return _emptyResponse(path);
       }
       return _emptyListResponse(path);

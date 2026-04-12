@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
+
+import 'app_logger.dart';
 
 /// Données de position du livreur en temps réel
 class CourierLocationData {
@@ -102,7 +103,7 @@ class FirestoreTrackingService {
   final FirebaseFirestore _firestore;
 
   FirestoreTrackingService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   /// Référence à la collection des livreurs
   CollectionReference get _couriersRef => _firestore.collection('couriers');
@@ -110,24 +111,32 @@ class FirestoreTrackingService {
   /// Référence à la collection des livraisons
   CollectionReference get _deliveriesRef => _firestore.collection('deliveries');
 
+  /// Convertir un courierId en UID Firebase (format utilisé côté serveur)
+  String _toFirebaseUid(int userId) => 'user_$userId';
+
   /// Stream en temps réel de la position d'un livreur
   ///
   /// Utilisé par le client pour suivre le livreur sur la carte.
   /// Les mises à jour arrivent instantanément via Firestore.
   Stream<CourierLocationData?> watchCourierLocation(int courierId) {
     return _couriersRef
-        .doc(courierId.toString())
+        .doc(_toFirebaseUid(courierId))
         .snapshots()
         .map((snapshot) {
-      if (!snapshot.exists || snapshot.data() == null) {
-        return null;
-      }
-      return CourierLocationData.fromFirestore(
-        snapshot.data()! as Map<String, dynamic>,
-      );
-    }).handleError((error) {
-      debugPrint('❌ [Firestore] Erreur watchCourierLocation: $error');
-    });
+          if (!snapshot.exists || snapshot.data() == null) {
+            return null;
+          }
+          return CourierLocationData.fromFirestore(
+            snapshot.data()! as Map<String, dynamic>,
+          );
+        })
+        .handleError((error, stackTrace) {
+          AppLogger.warning(
+            '[FirestoreTrackingService] Error in watchCourierLocation',
+            error: error,
+            stackTrace: stackTrace,
+          );
+        });
   }
 
   /// Stream en temps réel du tracking d'une livraison (par orderId)
@@ -138,21 +147,26 @@ class FirestoreTrackingService {
         .doc(orderId.toString())
         .snapshots()
         .map((snapshot) {
-      if (!snapshot.exists || snapshot.data() == null) {
-        return null;
-      }
-      return DeliveryTrackingData.fromFirestore(
-        snapshot.data()! as Map<String, dynamic>,
-      );
-    }).handleError((error) {
-      debugPrint('❌ [Firestore] Erreur watchDeliveryTracking: $error');
-    });
+          if (!snapshot.exists || snapshot.data() == null) {
+            return null;
+          }
+          return DeliveryTrackingData.fromFirestore(
+            snapshot.data()! as Map<String, dynamic>,
+          );
+        })
+        .handleError((error, stackTrace) {
+          AppLogger.warning(
+            '[FirestoreTrackingService] Error in watchDeliveryTracking',
+            error: error,
+            stackTrace: stackTrace,
+          );
+        });
   }
 
   /// Vérifier si un livreur est actuellement en ligne
   Future<bool> isCourierOnline(int courierId) async {
     try {
-      final doc = await _couriersRef.doc(courierId.toString()).get();
+      final doc = await _couriersRef.doc(_toFirebaseUid(courierId)).get();
       if (!doc.exists) return false;
       final data = doc.data() as Map<String, dynamic>?;
       if (data == null) return false;
@@ -167,8 +181,12 @@ class FirestoreTrackingService {
       }
 
       return isOnline;
-    } catch (e) {
-      debugPrint('❌ [Firestore] Erreur isCourierOnline: $e');
+    } catch (e, stackTrace) {
+      AppLogger.warning(
+        '[FirestoreTrackingService] Error in isCourierOnline',
+        error: e,
+        stackTrace: stackTrace,
+      );
       return false;
     }
   }
@@ -176,23 +194,26 @@ class FirestoreTrackingService {
   /// Obtenir la dernière position connue d'un livreur (one-shot)
   Future<CourierLocationData?> getLastCourierLocation(int courierId) async {
     try {
-      final doc = await _couriersRef.doc(courierId.toString()).get();
+      final doc = await _couriersRef.doc(_toFirebaseUid(courierId)).get();
       if (!doc.exists || doc.data() == null) return null;
       return CourierLocationData.fromFirestore(
         doc.data()! as Map<String, dynamic>,
       );
-    } catch (e) {
-      debugPrint('❌ [Firestore] Erreur getLastCourierLocation: $e');
+    } catch (e, stackTrace) {
+      AppLogger.warning(
+        '[FirestoreTrackingService] Error in getLastCourierLocation',
+        error: e,
+        stackTrace: stackTrace,
+      );
       return null;
     }
   }
 
   /// Obtenir tous les livreurs en ligne (utile pour admin/pharmacie)
   Stream<List<CourierLocationData>> watchOnlineCouriers() {
-    return _couriersRef
-        .where('isOnline', isEqualTo: true)
-        .snapshots()
-        .map((snapshot) {
+    return _couriersRef.where('isOnline', isEqualTo: true).snapshots().map((
+      snapshot,
+    ) {
       return snapshot.docs.map((doc) {
         return CourierLocationData.fromFirestore(
           doc.data() as Map<String, dynamic>,

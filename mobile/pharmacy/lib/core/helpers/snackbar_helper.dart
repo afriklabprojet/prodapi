@@ -18,8 +18,10 @@ class SnackBarHelper {
 
   static void showError(BuildContext context, String message) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context)
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
       ..hideCurrentSnackBar()
+      ..clearMaterialBanners()
       ..showSnackBar(
         SnackBar(
           content: Row(
@@ -39,14 +41,14 @@ class SnackBarHelper {
           backgroundColor: Colors.red.shade700,
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(16),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           duration: const Duration(seconds: 4),
           action: SnackBarAction(
             label: 'OK',
             textColor: Colors.white,
-            onPressed: () =>
-                ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+            onPressed: () => messenger.hideCurrentSnackBar(),
           ),
         ),
       );
@@ -60,19 +62,23 @@ class SnackBarHelper {
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.check_circle_outline,
-                  color: Colors.white, size: 20),
+              const Icon(
+                Icons.check_circle_outline,
+                color: Colors.white,
+                size: 20,
+              ),
               const SizedBox(width: 12),
               Expanded(
-                  child: Text(message,
-                      style: const TextStyle(fontSize: 14))),
+                child: Text(message, style: const TextStyle(fontSize: 14)),
+              ),
             ],
           ),
           backgroundColor: AppColors.primary,
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(16),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           duration: const Duration(seconds: 3),
         ),
       );
@@ -80,26 +86,37 @@ class SnackBarHelper {
 
   static void showWarning(BuildContext context, String message) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context)
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
       ..hideCurrentSnackBar()
+      ..clearMaterialBanners()
       ..showSnackBar(
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.warning_amber_rounded,
-                  color: Colors.white, size: 20),
+              const Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
               const SizedBox(width: 12),
               Expanded(
-                  child: Text(message,
-                      style: const TextStyle(fontSize: 14))),
+                child: Text(message, style: const TextStyle(fontSize: 14)),
+              ),
             ],
           ),
           backgroundColor: Colors.orange.shade700,
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(16),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'OK',
+            textColor: Colors.white,
+            onPressed: () => messenger.hideCurrentSnackBar(),
+          ),
         ),
       );
   }

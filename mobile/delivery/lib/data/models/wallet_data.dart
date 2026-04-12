@@ -14,11 +14,27 @@ abstract class WalletData with _$WalletData {
     @Default(200) int commissionAmount,
     @Default(0.0) double totalTopups,
     @Default(0.0) double totalEarnings,
+    @Default(0.0) double todayEarnings,
     @Default(0.0) double totalCommissions,
     @Default(0) int deliveriesCount,
   }) = _WalletData;
 
   factory WalletData.fromJson(Map<String, dynamic> json) {
+    // Les stats peuvent être au premier niveau ou imbriquées dans 'statistics'
+    final stats = json['statistics'] as Map<String, dynamic>? ?? {};
+
+    T? pick<T>(String key) {
+      if (json[key] != null) return json[key] as T;
+      if (stats[key] != null) return stats[key] as T;
+      return null;
+    }
+
+    double pickDouble(String key) {
+      final v = pick<dynamic>(key);
+      if (v == null) return 0;
+      return double.tryParse(v.toString()) ?? 0;
+    }
+
     return WalletData(
       balance: double.parse(json['balance'].toString()),
       currency: json['currency'] ?? 'XOF',
@@ -33,16 +49,14 @@ abstract class WalletData with _$WalletData {
           : null,
       canDeliver: json['can_deliver'] as bool? ?? true,
       commissionAmount: (json['commission_amount'] as num?)?.toInt() ?? 200,
-      totalTopups: json['total_topups'] != null
-          ? double.tryParse(json['total_topups'].toString()) ?? 0
-          : 0,
-      totalEarnings: json['total_earnings'] != null
-          ? double.tryParse(json['total_earnings'].toString()) ?? 0
-          : 0,
-      totalCommissions: json['total_commissions'] != null
-          ? double.tryParse(json['total_commissions'].toString()) ?? 0
-          : 0,
-      deliveriesCount: (json['deliveries_count'] as num?)?.toInt() ?? 0,
+      totalTopups: pickDouble('total_topups'),
+      totalEarnings: pickDouble('total_delivery_earnings') != 0
+          ? pickDouble('total_delivery_earnings')
+          : pickDouble('total_earnings'),
+      todayEarnings: pickDouble('today_earnings'),
+      totalCommissions: pickDouble('total_commissions'),
+      deliveriesCount:
+          (pick<dynamic>('deliveries_count') as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -73,12 +87,19 @@ abstract class WalletTransaction with _$WalletTransaction {
       reference: json['reference'],
       status: json['status'],
       deliveryId: json['delivery_id'],
-      createdAt: json['created_at'] != null
-          ? (DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now())
-          : (json['date'] != null
-              ? (DateTime.tryParse(json['date'].toString()) ?? DateTime.now())
-              : DateTime.now()),
+      createdAt: _parseCreatedAt(json),
     );
+  }
+
+  /// Parse created_at avec fallback sur 'date', log si parse échoue
+  static DateTime _parseCreatedAt(Map<String, dynamic> json) {
+    final createdAtRaw = json['created_at'] ?? json['date'];
+    if (createdAtRaw != null) {
+      final parsed = DateTime.tryParse(createdAtRaw.toString());
+      if (parsed != null) return parsed;
+    }
+    // Fallback — ne devrait pas arriver sur des données valides
+    return DateTime.now();
   }
 
   bool get isCredit => type == 'credit';

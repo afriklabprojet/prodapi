@@ -1,1023 +1,1067 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:intl/intl.dart';
-import '../../core/theme/theme_provider.dart';
-import '../../core/utils/responsive.dart';
-import '../providers/profile_provider.dart';
-import '../widgets/common/common_widgets.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import '../../core/config/app_config.dart';
+import '../../core/router/route_names.dart';
+import '../../core/utils/number_formatter.dart';
 import '../../data/models/user.dart';
 import '../../data/models/wallet_data.dart';
-import '../../data/repositories/auth_repository.dart';
-import '../../data/repositories/delivery_repository.dart';
-import '../../data/repositories/wallet_repository.dart';
-import 'login_screen_redesign.dart';
-import 'deliveries_screen.dart';
-import 'settings_screen.dart';
-import 'statistics_screen.dart';
-import 'advanced_dashboard_screen.dart';
-import 'help_center_screen.dart';
+import '../providers/profile_provider.dart';
+import '../providers/wallet_provider.dart';
+import '../providers/dashboard_tab_provider.dart';
+import '../widgets/common/common_widgets.dart';
+import '../widgets/profile/logout_button.dart';
 
-// --- Providers ---
-
-// Provider pour les données réelles du wallet (statistiques)
-final profileWalletProvider = FutureProvider.autoDispose<WalletData?>((ref) async {
-  try {
-    final repo = ref.read(walletRepositoryProvider);
-    return await repo.getWalletData();
-  } catch (e) {
-    return null;
-  }
-});
+class _ProfileColors {
+  static const navyDark = Color(0xFF0F1C3F);
+  static const navyMedium = Color(0xFF1A2B52);
+  static const accentGold = Color(0xFFE5C76B);
+  static const accentTeal = Color(0xFF2DD4BF);
+  static const accentBlue = Color(0xFF60A5FA);
+  static const successGreen = Color(0xFF10B981);
+  static const warningOrange = Color(0xFFF59E0B);
+  static const softBackground = Color(0xFFF8FAFC);
+}
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+    );
+
     final userAsync = ref.watch(profileProvider);
-    // Écouter les changements de thème
-    ref.watch(themeProvider);
-    final isDark = context.isDark;
+    final walletAsync = ref.watch(walletDataProvider);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8F9FD),
+      backgroundColor: _ProfileColors.softBackground,
       body: AsyncValueWidget<User>(
         value: userAsync,
-        data: (user) => _ProfileView(user: user),
+        data: (user) {
+          final walletData = walletAsync.whenOrNull(data: (d) => d);
+          return RefreshIndicator(
+            color: _ProfileColors.navyDark,
+            onRefresh: () async {
+              ref.invalidate(profileProvider);
+              ref.invalidate(walletDataProvider);
+              await ref.read(profileProvider.future);
+            },
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _ProfileHeader(user: user, walletData: walletData),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        _SectionCard(
+                          title: 'Compte & activité',
+                          subtitle:
+                              'Vos informations de livraison et votre statut.',
+                          child: _AccountOverview(
+                            user: user,
+                            walletData: walletData,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _SectionCard(
+                          title: 'Informations personnelles',
+                          subtitle: 'Coordonnées et données de profil.',
+                          child: _PersonalInfo(user: user),
+                        ),
+                        const SizedBox(height: 16),
+                        _SectionCard(
+                          title: 'Raccourcis utiles',
+                          subtitle:
+                              'Accédez rapidement aux sections importantes.',
+                          child: _QuickActions(user: user),
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.04),
+                                blurRadius: 16,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: const LogoutButton(),
+                        ),
+                        const SizedBox(height: 30),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
         onRetry: () => ref.refresh(profileProvider),
       ),
     );
   }
 }
 
-class _ProfileView extends ConsumerWidget {
+class _ProfileHeader extends StatelessWidget {
   final User user;
+  final WalletData? walletData;
 
-  const _ProfileView({required this.user});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          _HeaderSection(user: user),
-          Padding(
-            padding: context.r.pad(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _SectionTitle(title: 'Aperçu'),
-                const SizedBox(height: 16),
-                _StatsGrid(user: user),
-                const SizedBox(height: 32),
-                _SectionTitle(title: 'Personnel & Véhicule'),
-                const SizedBox(height: 16),
-                _InfoSection(user: user),
-                const SizedBox(height: 32),
-                _SectionTitle(title: 'Hebdomadaire'),
-                const SizedBox(height: 16),
-                _PerformanceCard(),
-                const SizedBox(height: 32),
-                _SectionTitle(title: 'Préférences'),
-                const SizedBox(height: 16),
-                _ActionsSection(),
-                const SizedBox(height: 40),
-                _LogoutButton(),
-                const SizedBox(height: 40),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// --- 1. Header Premium ---
-
-class _HeaderSection extends ConsumerStatefulWidget {
-  final User user;
-
-  const _HeaderSection({required this.user});
-
-  @override
-  ConsumerState<_HeaderSection> createState() => _HeaderSectionState();
-}
-
-class _HeaderSectionState extends ConsumerState<_HeaderSection> {
-  late bool isOnline;
-  bool isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    isOnline = widget.user.courier?.status == 'available';
-  }
-
-  @override
-  void didUpdateWidget(_HeaderSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.user.courier?.status != widget.user.courier?.status) {
-      isOnline = widget.user.courier?.status == 'available';
-    }
-  }
-
-  Future<void> _toggleAvailability() async {
-    setState(() => isLoading = true);
-    try {
-      // Envoie le statut souhaité explicitement (inverse de l'état actuel)
-      final desiredStatus = isOnline ? 'offline' : 'available';
-      final actualStatus = await ref.read(deliveryRepositoryProvider).toggleAvailability(desiredStatus: desiredStatus);
-      if (!mounted) return;
-      setState(() {
-        isOnline = actualStatus;
-      });
-      // Refresh global profile to keep sync
-      ref.invalidate(profileProvider);
-    } catch (e) {
-      if (mounted) {
-        // Extraire le message d'erreur propre
-        String errorMessage = e.toString();
-        if (errorMessage.startsWith('Exception: ')) {
-          errorMessage = errorMessage.substring(11);
-        }
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red.shade700,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => isLoading = false);
-      }
-    }
-  }
+  const _ProfileHeader({required this.user, required this.walletData});
 
   @override
   Widget build(BuildContext context) {
-    final courierInfo = widget.user.courier;
-    final r = context.r;
-    final topPadding = MediaQuery.of(context).padding.top;
+    final courier = user.courier;
+    final statusColor = _statusColor(courier?.status);
+    final vehicle = courier?.vehicleType ?? 'Véhicule non renseigné';
 
     return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(r.dp(20), topPadding + r.dp(20), r.dp(20), r.dp(30)),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.blue.shade900, Colors.blue.shade600],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          colors: [_ProfileColors.navyDark, _ProfileColors.navyMedium],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
         ),
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
       ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Avatar & Info
               Row(
                 children: [
-                  Stack(
-                    alignment: Alignment.bottomRight,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: CircleAvatar(
-                          radius: 36,
-                          backgroundColor: Colors.white,
-                          backgroundImage: widget.user.avatar != null 
-                              ? CachedNetworkImageProvider(widget.user.avatar!) 
-                              : null,
-                          child: widget.user.avatar == null
-                              ? Text(
-                                  widget.user.name.substring(0, 1).toUpperCase(),
-                                  style: TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue.shade900,
-                                  ),
-                                )
-                              : null,
-                        ),
-                      ),
-                      // Status Dot Pulse
-                      Container(
-                        width: 18,
-                        height: 18,
-                        decoration: BoxDecoration(
-                          color: isOnline ? Colors.greenAccent : Colors.grey,
-                          border: Border.all(color: Colors.white, width: 2),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            if (isOnline)
-                              BoxShadow(
-                                color: Colors.greenAccent.withValues(alpha: 0.6),
-                                blurRadius: 10,
-                                spreadRadius: 2,
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(
+                      Icons.person_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.user.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          (courierInfo?.vehicleType ?? 'Transporteur').toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Mon Profil',
+                          style: GoogleFonts.sora(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
                           ),
                         ),
-                      ),
-                    ],
+                        Text(
+                          'Votre espace personnel livreur',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: Colors.white.withValues(alpha: 0.72),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _HeaderButton(
+                    icon: Icons.settings_rounded,
+                    onTap: () => context.push(AppRoutes.settings),
                   ),
                 ],
               ),
-              // Status Switch
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: IconButton(
-                  icon: isLoading 
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : Icon(
-                        isOnline ? Icons.power_settings_new : Icons.pause_circle_outline,
-                        color: isOnline ? Colors.greenAccent : Colors.white54,
-                      ),
-                  onPressed: isLoading ? null : _toggleAvailability,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// --- 2. Stats Dashboard (Grid 2x2) ---
-
-class _StatsGrid extends ConsumerWidget {
-  final User user;
-
-  const _StatsGrid({required this.user});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final walletAsync = ref.watch(profileWalletProvider);
-    final courier = user.courier;
-
-    // Récupérer les vraies stats du wallet ou valeurs par défaut
-    final walletData = walletAsync.whenOrNull(data: (data) => data);
-    final deliveriesCount = walletData?.deliveriesCount ?? courier?.completedDeliveries ?? 0;
-    final totalCommissions = walletData?.totalCommissions ?? 0;
-
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      crossAxisSpacing: 16,
-      mainAxisSpacing: 16,
-      childAspectRatio: 1.5,
-      children: [
-        _StatCard(
-          icon: Icons.local_shipping_outlined,
-          value: '$deliveriesCount',
-          label: 'Total Livré',
-          color: Colors.blue.shade700,
-          bgColor: Colors.blue.shade50,
-        ),
-        _StatCard(
-          icon: Icons.star_outline_rounded,
-          value: '${courier?.rating ?? 5.0}',
-          label: 'Note Moyenne',
-          color: Colors.orange.shade700,
-          bgColor: Colors.orange.shade50,
-        ),
-        _StatCard(
-          icon: Icons.account_balance_wallet_outlined,
-          value: NumberFormat("#,##0", "fr_FR").format(walletData?.balance ?? 0),
-          label: 'Solde (FCFA)',
-          color: Colors.green.shade700,
-          bgColor: Colors.green.shade50,
-        ),
-        _StatCard(
-          icon: Icons.trending_down,
-          value: NumberFormat("#,##0", "fr_FR").format(totalCommissions),
-          label: 'Commissions',
-          color: Colors.purple.shade700,
-          bgColor: Colors.purple.shade50,
-        ),
-      ],
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final IconData icon;
-  final String value;
-  final String label;
-  final Color color;
-  final Color bgColor;
-
-  const _StatCard({
-    required this.icon,
-    required this.value,
-    required this.label,
-    required this.color,
-    required this.bgColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = context.isDark;
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: (isDark ? Colors.black : Colors.grey).withValues(alpha: 0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: isDark ? bgColor.withValues(alpha: 0.2) : bgColor,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 24),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black87,
-            ),
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: isDark ? Colors.grey.shade400 : Colors.grey.shade500,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// --- Helper pour le type de véhicule ---
-String _getVehicleLabel(String? vehicleType) {
-  switch (vehicleType?.toLowerCase()) {
-    case 'motorcycle':
-      return 'Moto';
-    case 'bicycle':
-      return 'Vélo';
-    case 'car':
-      return 'Voiture';
-    case 'scooter':
-      return 'Scooter';
-    case null:
-      return 'Non défini';
-    default:
-      return vehicleType!;
-  }
-}
-
-// --- 3. Informations Section ---
-
-class _InfoSection extends ConsumerWidget {
-  final User user;
-
-  const _InfoSection({required this.user});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = context.isDark;
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: (isDark ? Colors.black : Colors.grey).withValues(alpha: 0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          _InfoTile(
-            icon: Icons.email_outlined,
-            title: 'Email',
-            value: user.email,
-            isFirst: true,
-          ),
-          _Separator(),
-          _InfoTile(
-            icon: Icons.phone_android_outlined,
-            title: 'Téléphone',
-            value: user.phone ?? 'Non renseigné',
-            action: Icon(Icons.edit, size: 16, color: Colors.grey.shade400),
-            onTap: () => _showEditPhoneDialog(context, ref, user.phone),
-          ),
-          _Separator(),
-          _InfoTile(
-            icon: Icons.directions_bike_outlined,
-            title: 'Véhicule',
-            value: user.courier != null 
-                ? '${_getVehicleLabel(user.courier?.vehicleType)} (${user.courier?.vehicleNumber ?? "---"})'
-                : '⚠️ Profil coursier non configuré',
-            isLast: true,
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showEditPhoneDialog(BuildContext context, WidgetRef ref, String? currentPhone) {
-    final isDark = context.isDark;
-    final controller = TextEditingController(text: currentPhone ?? '');
-    final formKey = GlobalKey<FormState>();
-    
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Icon(Icons.phone_android, color: Colors.blue.shade700),
-            const SizedBox(width: 12),
-            Text(
-              'Modifier le téléphone',
-              style: TextStyle(
-                color: isDark ? Colors.white : Colors.black87,
-                fontSize: 18,
-              ),
-            ),
-          ],
-        ),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Entrez votre nouveau numéro de téléphone',
-                style: TextStyle(
-                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: controller,
-                keyboardType: TextInputType.phone,
-                style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                decoration: InputDecoration(
-                  labelText: 'Numéro de téléphone',
-                  hintText: '+225 07 XX XX XX XX',
-                  prefixIcon: Icon(Icons.phone, color: Colors.blue.shade700),
-                  filled: true,
-                  fillColor: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Veuillez entrer un numéro';
-                  }
-                  // Validation basique du format téléphone
-                  final phone = value.replaceAll(RegExp(r'[\s\-\.]'), '');
-                  if (phone.length < 8) {
-                    return 'Numéro trop court';
-                  }
-                  return null;
-                },
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(
-              'Annuler',
-              style: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (formKey.currentState!.validate()) {
-                Navigator.pop(dialogContext);
-                await _updatePhone(context, ref, controller.text.trim());
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue.shade700,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            child: const Text('Enregistrer'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _updatePhone(BuildContext context, WidgetRef ref, String newPhone) async {
-    // Afficher un indicateur de chargement
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      final authRepo = ref.read(authRepositoryProvider);
-      await authRepo.updateProfile(phone: newPhone);
-      
-      // Fermer le loader
-      if (context.mounted) Navigator.pop(context);
-      
-      // Rafraîchir le profil
-      ref.invalidate(profileProvider);
-      
-      // Message de succès
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: 12),
-                Text('Numéro de téléphone mis à jour'),
-              ],
-            ),
-            backgroundColor: Colors.green.shade700,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
-      }
-    } catch (e) {
-      // Fermer le loader
-      if (context.mounted) Navigator.pop(context);
-      
-      // Message d'erreur
-      if (context.mounted) {
-        String errorMsg = e.toString();
-        if (errorMsg.startsWith('Exception: ')) {
-          errorMsg = errorMsg.substring(11);
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error, color: Colors.white),
-                const SizedBox(width: 12),
-                Expanded(child: Text(errorMsg)),
-              ],
-            ),
-            backgroundColor: Colors.red.shade700,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
-      }
-    }
-  }
-}
-
-class _InfoTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String value;
-  final Widget? action;
-  final VoidCallback? onTap;
-  final bool isFirst;
-  final bool isLast;
-
-  const _InfoTile({
-    required this.icon,
-    required this.title,
-    required this.value,
-    this.action,
-    this.onTap,
-    this.isFirst = false,
-    this.isLast = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = context.isDark;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.vertical(
-        top: isFirst ? const Radius.circular(20) : Radius.zero,
-        bottom: isLast ? const Radius.circular(20) : Radius.zero,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.grey.shade800 : Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: Colors.blue.shade800, size: 20),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 24),
+              Row(
                 children: [
-                  Text(
-                    title.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade500,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : Colors.black87,
+                  _ProfileAvatar(user: user),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user.name,
+                          style: GoogleFonts.sora(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          user.role == 'courier'
+                              ? 'Livreur Dr Pharma'
+                              : (user.role ?? 'Utilisateur'),
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: Colors.white.withValues(alpha: 0.72),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _StatusChip(
+                              icon: Icons.verified_rounded,
+                              label: _statusLabel(courier?.status),
+                              color: statusColor,
+                            ),
+                            _StatusChip(
+                              icon: Icons.two_wheeler_rounded,
+                              label: vehicle,
+                              color: _ProfileColors.accentTeal,
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-            ),
-            ?action,
-          ],
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: _HeroStat(
+                      label: 'Note',
+                      value: (courier?.rating ?? 5).toStringAsFixed(1),
+                      icon: Icons.star_rounded,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _HeroStat(
+                      label: 'Livraisons',
+                      value:
+                          '${courier?.completedDeliveries ?? walletData?.deliveriesCount ?? 0}',
+                      icon: Icons.local_shipping_rounded,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _HeroStat(
+                      label: 'Gains',
+                      value: (walletData?.totalEarnings ?? 0)
+                          .formatCurrencyCompact(),
+                      icon: Icons.trending_up_rounded,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// --- 4. Performance Card ---
+class _SectionCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final Widget child;
 
-class _PerformanceCard extends ConsumerWidget {
+  const _SectionCard({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final walletAsync = ref.watch(profileWalletProvider);
-    final walletData = walletAsync.whenOrNull(data: (data) => data);
-    
-    // Données réelles du wallet
-    final totalEarnings = walletData?.totalEarnings ?? 0;
-    final deliveriesCount = walletData?.deliveriesCount ?? 0;
-    final totalTopups = walletData?.totalTopups ?? 0;
-    
+  Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF2C3E50), // Dark elegant background
-        borderRadius: BorderRadius.circular(24),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-           Row(
-             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-             children: [
-               const Text(
-                 'Gains de Livraison',
-                 style: TextStyle(color: Colors.white70, fontSize: 14),
-               ),
-               if (deliveriesCount > 0)
-                 Container(
-                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                   decoration: BoxDecoration(
-                     color: Colors.white.withValues(alpha: 0.1),
-                     borderRadius: BorderRadius.circular(8),
-                   ),
-                   child: Row(
-                     mainAxisSize: MainAxisSize.min,
-                     children: [
-                       const Icon(Icons.local_shipping, color: Colors.greenAccent, size: 14),
-                       const SizedBox(width: 4),
-                       Text('$deliveriesCount', style: const TextStyle(color: Colors.greenAccent, fontSize: 12)),
-                     ],
-                   ),
-                 )
-             ],
-           ),
-           const SizedBox(height: 8),
-           Text(
-             '${NumberFormat("#,##0", "fr_FR").format(totalEarnings)} FCFA',
-             style: const TextStyle(
-               color: Colors.white,
-               fontSize: 32,
-               fontWeight: FontWeight.bold,
-             ),
-           ),
-           const SizedBox(height: 24),
-           Row(
-             children: [
-               _PerformanceMetrics(label: 'Livraisons', value: '$deliveriesCount'),
-               _VerticalDivider(),
-               _PerformanceMetrics(label: 'Rechargé', value: NumberFormat.compact(locale: 'fr').format(totalTopups)),
-               _VerticalDivider(),
-               _PerformanceMetrics(label: 'Solde', value: NumberFormat.compact(locale: 'fr').format(walletData?.balance ?? 0)),
-             ],
-           )
+          Text(
+            title,
+            style: GoogleFonts.sora(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: _ProfileColors.navyDark,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 14),
+          child,
         ],
       ),
     );
   }
 }
 
-class _PerformanceMetrics extends StatelessWidget {
-  final String label;
-  final String value;
-  
-  const _PerformanceMetrics({required this.label, required this.value});
+class _AccountOverview extends StatelessWidget {
+  final User user;
+  final WalletData? walletData;
+
+  const _AccountOverview({required this.user, required this.walletData});
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-         children: [
-           Text(
-             value,
-             style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-           ),
-           const SizedBox(height: 4),
-           Text(
-             label,
-             style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
-           ),
-         ],
-      ),
-    );
-  }
-}
+    final courier = user.courier;
 
-class _VerticalDivider extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 30,
-      width: 1,
-      color: Colors.white.withValues(alpha: 0.1), 
-    );
-  }
-}
-
-// --- 5. Quick Actions ---
-
-class _ActionsSection extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
+    return Column(
       children: [
-        _ActionButton(
-          icon: Icons.dashboard_rounded, 
-          label: 'Dashboard',
-          color: Colors.indigo,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const AdvancedDashboardScreen()),
-            );
-          },
+        Row(
+          children: [
+            Expanded(
+              child: _MiniMetric(
+                label: 'Solde',
+                value: (walletData?.balance ?? 0).formatCurrency(),
+                color: _ProfileColors.accentBlue,
+                icon: Icons.account_balance_wallet_rounded,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _MiniMetric(
+                label: 'Aujourd’hui',
+                value: (walletData?.todayEarnings ?? 0).formatCurrency(),
+                color: _ProfileColors.successGreen,
+                icon: Icons.bolt_rounded,
+              ),
+            ),
+          ],
         ),
-        _ActionButton(
-          icon: Icons.bar_chart_rounded, 
-          label: 'Statistiques',
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const StatisticsScreen()),
-            );
-          },
+        const SizedBox(height: 12),
+        _InfoRow(
+          icon: Icons.badge_outlined,
+          label: 'Statut du compte',
+          value: _statusLabel(courier?.status),
         ),
-        _ActionButton(
-          icon: Icons.history, 
-          label: 'Historique',
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const DeliveriesScreen()),
-            );
-          },
+        _InfoRow(
+          icon: Icons.two_wheeler_outlined,
+          label: 'Type de véhicule',
+          value: courier?.vehicleType ?? 'Non renseigné',
         ),
-        _ActionButton(
-          icon: Icons.settings_outlined, 
-          label: 'Paramètres',
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const SettingsScreen()),
-            );
-          },
-        ),
-        _ActionButton(
-          icon: Icons.help_outline, 
-          label: 'Aide & Support',
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const HelpCenterScreen()),
-            );
-          },
+        _InfoRow(
+          icon: Icons.pin_outlined,
+          label: 'Immatriculation',
+          value: courier?.vehicleNumber ?? 'Non renseignée',
         ),
       ],
     );
   }
 }
 
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final Color? color;
+class _PersonalInfo extends StatelessWidget {
+  final User user;
 
-  const _ActionButton({
-    required this.icon, 
+  const _PersonalInfo({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _InfoRow(
+          icon: Icons.person_outline_rounded,
+          label: 'Nom complet',
+          value: user.name,
+        ),
+        _InfoRow(icon: Icons.email_outlined, label: 'Email', value: user.email),
+        _InfoRow(
+          icon: Icons.phone_outlined,
+          label: 'Téléphone',
+          value: user.phone ?? 'Non renseigné',
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickActions extends ConsumerWidget {
+  final User user;
+
+  const _QuickActions({required this.user});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final kycStatus = user.courier?.kycStatus ?? 'unknown';
+    final kycInfo = _getKycInfo(kycStatus);
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        // Indicateur de statut KYC
+        _KycStatusTile(
+          status: kycStatus,
+          label: kycInfo.label,
+          icon: kycInfo.icon,
+          color: kycInfo.color,
+          onTap: () => _showKycStatusDialog(context, kycStatus, kycInfo),
+        ),
+        _QuickActionTile(
+          icon: Icons.edit_outlined,
+          label: 'Modifier',
+          color: _ProfileColors.accentBlue,
+          onTap: () => context.push(AppRoutes.editProfile, extra: user),
+        ),
+        _QuickActionTile(
+          icon: Icons.bar_chart_rounded,
+          label: 'Stats',
+          color: _ProfileColors.successGreen,
+          onTap: () {
+            ref.read(dashboardTabProvider.notifier).setTab(2);
+          },
+        ),
+        _QuickActionTile(
+          icon: Icons.history_rounded,
+          label: 'Historique',
+          color: _ProfileColors.accentGold,
+          onTap: () {
+            ref.read(dashboardTabProvider.notifier).setTab(1);
+          },
+        ),
+        _QuickActionTile(
+          icon: Icons.emoji_events_outlined,
+          label: 'Badges',
+          color: Colors.purple.shade400,
+          onTap: () => context.push(AppRoutes.gamification),
+        ),
+        _QuickActionTile(
+          icon: Icons.settings_outlined,
+          label: 'Réglages',
+          color: _ProfileColors.accentTeal,
+          onTap: () => context.push(AppRoutes.settings),
+        ),
+        _QuickActionTile(
+          icon: Icons.support_agent_rounded,
+          label: 'Aide',
+          color: _ProfileColors.warningOrange,
+          onTap: () => context.push(AppRoutes.helpCenter),
+        ),
+      ],
+    );
+  }
+
+  _KycStatusInfo _getKycInfo(String status) {
+    switch (status.toLowerCase()) {
+      case 'approved':
+      case 'verified':
+        return _KycStatusInfo(
+          label: 'Vérifié',
+          icon: Icons.verified_rounded,
+          color: _ProfileColors.successGreen,
+          description:
+              'Votre identité a été vérifiée avec succès. Vous pouvez effectuer des livraisons sans restriction.',
+        );
+      case 'pending_review':
+        return _KycStatusInfo(
+          label: 'En attente',
+          icon: Icons.hourglass_top_rounded,
+          color: _ProfileColors.warningOrange,
+          description:
+              'Vos documents sont en cours de vérification. Ce processus prend généralement 24-48h ouvrées.',
+        );
+      case 'incomplete':
+        return _KycStatusInfo(
+          label: 'À compléter',
+          icon: Icons.warning_amber_rounded,
+          color: Colors.red.shade400,
+          description:
+              'Des documents sont manquants pour valider votre identité. Veuillez compléter votre dossier.',
+        );
+      case 'rejected':
+        return _KycStatusInfo(
+          label: 'Refusé',
+          icon: Icons.cancel_outlined,
+          color: Colors.red.shade600,
+          description:
+              'Votre vérification a été refusée. Veuillez resoumettre vos documents.',
+        );
+      default:
+        return _KycStatusInfo(
+          label: 'Statut',
+          icon: Icons.help_outline_rounded,
+          color: Colors.grey,
+          description: 'Le statut de votre vérification est inconnu.',
+        );
+    }
+  }
+
+  void _showKycStatusDialog(
+    BuildContext context,
+    String status,
+    _KycStatusInfo info,
+  ) {
+    final needsAction = status == 'incomplete' || status == 'rejected';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: info.color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(info.icon, color: info.color, size: 24),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Statut KYC: ${info.label}',
+              style: GoogleFonts.sora(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          info.description,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            height: 1.5,
+            color: Colors.grey.shade700,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fermer'),
+          ),
+          if (needsAction)
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                context.push(AppRoutes.kycResubmission);
+              },
+              icon: const Icon(Icons.upload_file_rounded, size: 18),
+              label: const Text('Compléter mon dossier'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: info.color,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _KycStatusInfo {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final String description;
+
+  const _KycStatusInfo({
     required this.label,
+    required this.icon,
+    required this.color,
+    required this.description,
+  });
+}
+
+class _KycStatusTile extends StatelessWidget {
+  final String status;
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _KycStatusTile({
+    required this.status,
+    required this.label,
+    required this.icon,
+    required this.color,
     required this.onTap,
-    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isDark = context.isDark;
-    final buttonColor = color ?? Colors.blue;
-    return ActionChip(
-      avatar: Icon(icon, size: 18, color: buttonColor),
-      label: Text(label),
-      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-      side: BorderSide(color: isDark ? Colors.grey.shade700 : Colors.grey.shade200),
-      labelStyle: TextStyle(color: isDark ? buttonColor.withValues(alpha: 0.8) : buttonColor, fontWeight: FontWeight.w600),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      onPressed: onTap,
-    );
-  }
-}
+    final isVerified = status == 'approved' || status == 'verified';
 
-// --- Components ---
-
-class _SectionTitle extends StatelessWidget {
-  final String title;
-  const _SectionTitle({required this.title});
-  @override
-  Widget build(BuildContext context) {
-    final isDark = context.isDark;
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-        color: isDark ? Colors.white : Colors.black87,
-      ),
-    );
-  }
-}
-
-class _Separator extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final isDark = context.isDark;
-    return Divider(height: 1, thickness: 1, color: isDark ? Colors.grey.shade800 : Colors.grey.shade100, indent: 60);
-  }
-}
-
-class _LogoutButton extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Center(
-      child: TextButton.icon(
-        onPressed: () {
-            _confirmLogout(context, ref);
-        },
-        icon: Icon(Icons.logout, color: Colors.red.shade400, size: 20),
-        label: Text(
-          'Se déconnecter de l\'application',
-          style: TextStyle(color: Colors.red.shade400, fontSize: 14),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 106,
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+        decoration: BoxDecoration(
+          gradient: isVerified
+              ? LinearGradient(
+                  colors: [
+                    color.withValues(alpha: 0.15),
+                    color.withValues(alpha: 0.08),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: isVerified ? null : color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: color.withValues(alpha: isVerified ? 0.4 : 0.25),
+            width: isVerified ? 1.5 : 1,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 22, color: color),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (isVerified) ...[
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '✓ KYC',
+                  style: GoogleFonts.inter(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
   }
+}
 
-  void _confirmLogout(BuildContext context, WidgetRef ref) {
-    // Capturer le Navigator du contexte parent AVANT d'ouvrir le dialog
-    final navigator = Navigator.of(context);
-    
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Déconnexion'),
-        content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade50,
-              elevation: 0,
+class _ProfileAvatar extends StatelessWidget {
+  final User user;
+
+  const _ProfileAvatar({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    final avatarUrl = _resolveAvatarUrl(user.avatar);
+
+    return Container(
+      width: 82,
+      height: 82,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.25),
+          width: 2,
+        ),
+        color: Colors.white.withValues(alpha: 0.08),
+      ),
+      child: ClipOval(
+        child: avatarUrl != null
+            ? CachedNetworkImage(
+                imageUrl: avatarUrl,
+                fit: BoxFit.cover,
+                width: 82,
+                height: 82,
+                placeholder: (context, url) => Container(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white54,
+                    ),
+                  ),
+                ),
+                errorWidget: (_, _, _) => _AvatarFallback(name: user.name),
+              )
+            : _AvatarFallback(name: user.name),
+      ),
+    );
+  }
+}
+
+class _AvatarFallback extends StatelessWidget {
+  final String name;
+
+  const _AvatarFallback({required this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    final initials = parts
+        .take(2)
+        .map((e) => e.isNotEmpty ? e[0] : '')
+        .join()
+        .toUpperCase();
+
+    return Container(
+      color: Colors.white.withValues(alpha: 0.12),
+      alignment: Alignment.center,
+      child: Text(
+        initials.isEmpty ? 'U' : initials,
+        style: GoogleFonts.sora(
+          fontSize: 24,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _HeaderButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Ink(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: Colors.white, size: 18),
+      ),
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _StatusChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
             ),
-            onPressed: () async {
-              // Fermer le dialog d'abord
-              Navigator.pop(dialogContext);
-              
-              // Effectuer la déconnexion
-              await ref.read(authRepositoryProvider).logout();
-              
-              // Utiliser le navigator capturé pour rediriger vers LoginScreen
-              navigator.pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const LoginScreenRedesign()),
-                (route) => false,
-              );
-            },
-            child: Text('Déconnecter', style: TextStyle(color: Colors.red.shade700)),
           ),
         ],
       ),
     );
+  }
+}
+
+class _HeroStat extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+
+  const _HeroStat({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 16, color: _ProfileColors.accentGold),
+          const SizedBox(height: 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: GoogleFonts.sora(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 10,
+              color: Colors.white.withValues(alpha: 0.72),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniMetric extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  final IconData icon;
+
+  const _MiniMetric({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(height: 10),
+          Text(
+            label,
+            style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: GoogleFonts.sora(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: _ProfileColors.navyDark,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickActionTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _QuickActionTile({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: (MediaQuery.of(context).size.width - 56) / 2,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 18, color: color),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  style: GoogleFonts.sora(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: _ProfileColors.navyDark,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _ProfileColors.navyDark.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 18, color: _ProfileColors.navyDark),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: GoogleFonts.sora(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: _ProfileColors.navyDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String? _resolveAvatarUrl(String? avatar) {
+  if (avatar == null || avatar.trim().isEmpty) return null;
+  if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
+    return avatar;
+  }
+  if (avatar.startsWith('/')) {
+    return '${AppConfig.webBaseUrl}$avatar';
+  }
+  return avatar;
+}
+
+String _statusLabel(String? status) {
+  switch ((status ?? '').toLowerCase()) {
+    case 'online':
+      return 'En ligne';
+    case 'offline':
+      return 'Hors ligne';
+    case 'busy':
+      return 'Occupé';
+    case 'available':
+      return 'Disponible';
+    default:
+      return 'Statut inconnu';
+  }
+}
+
+Color _statusColor(String? status) {
+  switch ((status ?? '').toLowerCase()) {
+    case 'online':
+    case 'available':
+      return _ProfileColors.successGreen;
+    case 'busy':
+      return _ProfileColors.warningOrange;
+    default:
+      return _ProfileColors.accentBlue;
   }
 }

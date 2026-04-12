@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/theme_provider.dart';
+import '../../core/services/biometric_service.dart';
 import '../../data/repositories/auth_repository.dart';
 
 class ChangePasswordScreen extends ConsumerStatefulWidget {
@@ -96,6 +97,37 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // SÉCURITÉ: Vérification biométrique obligatoire avant changement de mot de passe
+    // Protège contre les accès non autorisés si le device est déverrouillé
+    final biometricService = ref.read(biometricServiceProvider);
+    final canUseBiometric = await biometricService.canCheckBiometrics();
+    
+    if (canUseBiometric) {
+      final authenticated = await biometricService.authenticate(
+        reason: 'Confirmez votre identité pour modifier le mot de passe',
+      );
+      
+      if (!authenticated) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.fingerprint, color: Colors.white),
+                  SizedBox(width: 12),
+                  Text('Authentification biométrique requise'),
+                ],
+              ),
+              backgroundColor: Colors.orange.shade600,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          );
+        }
+        return;
+      }
+    }
 
     setState(() => _isLoading = true);
 

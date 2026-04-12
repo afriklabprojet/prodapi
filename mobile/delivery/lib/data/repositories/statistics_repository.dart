@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/network/api_client.dart';
 import '../../core/services/cache_service.dart';
+import '../../core/utils/safe_json_utils.dart';
 import '../models/statistics.dart';
 
 final statisticsRepositoryProvider = Provider<StatisticsRepository>((ref) {
@@ -13,13 +14,6 @@ class StatisticsRepository {
   final Dio _dio;
 
   StatisticsRepository(this._dio);
-
-  /// Parse sécurisé des réponses API (protège contre data qui n'est pas un Map)
-  static Map<String, dynamic> _safeData(dynamic data) {
-    if (data is Map<String, dynamic>) return data;
-    if (data is Map) return Map<String, dynamic>.from(data);
-    return {};
-  }
 
   Future<Statistics> getStatistics({String period = 'week'}) async {
     // Tenter de lire le cache d'abord
@@ -36,7 +30,9 @@ class StatisticsRepository {
       );
 
       final rawData = response.data['data'];
-      final data = rawData is Map<String, dynamic> ? rawData : _safeData(rawData);
+      final data = rawData is Map<String, dynamic>
+          ? rawData
+          : SafeJsonUtils.safeData(rawData);
 
       // Sauvegarder dans le cache
       await cache.cacheStatistics(period, data);
@@ -45,12 +41,26 @@ class StatisticsRepository {
     } catch (e) {
       if (e is DioException) {
         final statusCode = e.response?.statusCode;
-        final message = _safeData(e.response?.data)['message'];
-        final errorCode = _safeData(e.response?.data)['error_code'];
-        
+        final message = SafeJsonUtils.safeData(e.response?.data)['message'];
+        final errorCode = SafeJsonUtils.safeData(
+          e.response?.data,
+        )['error_code'];
+
         if (statusCode == 403) {
+          if (errorCode == 'INCOMPLETE_KYC') {
+            // Retourner des stats vides pour que l'écran charge normalement
+            return const Statistics(
+              period: 'week',
+              startDate: '',
+              endDate: '',
+              overview: StatsOverview(),
+              performance: StatsPerformance(),
+            );
+          }
           if (errorCode == 'COURIER_PROFILE_NOT_FOUND') {
-            throw Exception('Profil coursier non trouvé. Ce compte n\'est pas un compte livreur.');
+            throw Exception(
+              'Profil coursier non trouvé. Ce compte n\'est pas un compte livreur.',
+            );
           }
           throw Exception(message ?? 'Accès refusé.');
         } else if (statusCode == 401) {

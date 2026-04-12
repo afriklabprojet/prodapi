@@ -5,25 +5,10 @@ import 'package:riverpod/legacy.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 /// Mode de thème
-enum ThemeMode {
-  system,
-  light,
-  dark,
-  oled,
-  custom,
-}
+enum ThemeMode { system, light, dark, oled, custom }
 
 /// Variante de couleur
-enum ColorVariant {
-  blue,
-  green,
-  orange,
-  purple,
-  red,
-  teal,
-  pink,
-  custom,
-}
+enum ColorVariant { blue, green, orange, purple, red, teal, pink, custom }
 
 /// Préréglage de thème
 class ThemePreset {
@@ -155,7 +140,8 @@ class AppThemeState {
         return true;
       case ThemeMode.system:
       case ThemeMode.custom:
-        final brightness = SchedulerBinding.instance.platformDispatcher.platformBrightness;
+        final brightness =
+            SchedulerBinding.instance.platformDispatcher.platformBrightness;
         return brightness == Brightness.dark;
     }
   }
@@ -242,10 +228,13 @@ const List<ThemePreset> themePresets = [
 class ThemeService extends StateNotifier<AppThemeState> {
   late Box _themeBox;
 
-  ThemeService() : super(AppThemeState(
-    lightTheme: _buildDefaultLightTheme(),
-    darkTheme: _buildDefaultDarkTheme(),
-  )) {
+  ThemeService()
+    : super(
+        AppThemeState(
+          lightTheme: _buildDefaultLightTheme(),
+          darkTheme: _buildDefaultDarkTheme(),
+        ),
+      ) {
     _init();
   }
 
@@ -317,7 +306,7 @@ class ThemeService extends StateNotifier<AppThemeState> {
     final scale = textScale ?? state.textScale;
 
     final primaryColor = _getPrimaryColor(variant, settings);
-    
+
     final lightTheme = _buildLightTheme(
       primaryColor: primaryColor,
       customSettings: settings,
@@ -380,12 +369,23 @@ class ThemeService extends StateNotifier<AppThemeState> {
 
     return ThemeData(
       useMaterial3: customSettings.useMaterial3,
-      colorScheme: highContrast 
-          ? colorScheme.copyWith(
-              onSurface: Colors.black,
-            )
+      colorScheme: highContrast
+          ? colorScheme.copyWith(onSurface: Colors.black)
           : colorScheme,
       fontFamily: customSettings.fontFamily,
+      // AppBar avec icônes noires sur fond clair
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        iconTheme: IconThemeData(color: Colors.black),
+        actionsIconTheme: IconThemeData(color: Colors.black),
+        titleTextStyle: TextStyle(
+          color: Colors.black,
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
       cardTheme: CardThemeData(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(customSettings.borderRadius),
@@ -416,9 +416,9 @@ class ThemeService extends StateNotifier<AppThemeState> {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: primaryColor,
       brightness: Brightness.dark,
-    ).copyWith(
-      surface: useOledBlack ? Colors.black : null,
-    );
+    ).copyWith(surface: useOledBlack ? Colors.black : null);
+
+    final appBarBgColor = useOledBlack ? Colors.black : const Color(0xFF1E1E1E);
 
     return ThemeData(
       useMaterial3: customSettings.useMaterial3,
@@ -431,9 +431,19 @@ class ThemeService extends StateNotifier<AppThemeState> {
           borderRadius: BorderRadius.circular(customSettings.borderRadius),
         ),
       ),
+      // AppBar avec icônes blanches sur fond sombre
       appBarTheme: AppBarTheme(
-        backgroundColor: useOledBlack ? Colors.black : null,
+        backgroundColor: appBarBgColor,
+        foregroundColor: Colors.white,
+        elevation: 0,
         surfaceTintColor: useOledBlack ? Colors.transparent : null,
+        iconTheme: const IconThemeData(color: Colors.white),
+        actionsIconTheme: const IconThemeData(color: Colors.white),
+        titleTextStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+        ),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: useOledBlack ? Colors.black : null,
@@ -532,7 +542,7 @@ class ThemeService extends StateNotifier<AppThemeState> {
   /// Réinitialiser vers le thème par défaut
   Future<void> resetToDefault() async {
     await _themeBox.clear();
-    
+
     state = AppThemeState(
       lightTheme: _buildDefaultLightTheme(),
       darkTheme: _buildDefaultDarkTheme(),
@@ -546,6 +556,18 @@ class ThemeService extends StateNotifier<AppThemeState> {
         seedColor: const Color(0xFF2196F3),
         brightness: Brightness.light,
       ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        iconTheme: IconThemeData(color: Colors.black),
+        actionsIconTheme: IconThemeData(color: Colors.black),
+        titleTextStyle: TextStyle(
+          color: Colors.black,
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 
@@ -556,14 +578,28 @@ class ThemeService extends StateNotifier<AppThemeState> {
         seedColor: const Color(0xFF2196F3),
         brightness: Brightness.dark,
       ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xFF1E1E1E),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: IconThemeData(color: Colors.white),
+        actionsIconTheme: IconThemeData(color: Colors.white),
+        titleTextStyle: TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }
 
 /// Provider pour le service de thème
-final themeServiceProvider = StateNotifierProvider<ThemeService, AppThemeState>((ref) {
-  return ThemeService();
-});
+final themeServiceProvider = StateNotifierProvider<ThemeService, AppThemeState>(
+  (ref) {
+    return ThemeService();
+  },
+);
 
 /// Provider pour le thème actif
 final activeThemeProvider = Provider<ThemeData>((ref) {

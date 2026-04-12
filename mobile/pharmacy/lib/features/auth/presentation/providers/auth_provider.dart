@@ -5,24 +5,63 @@ import '../../domain/repositories/auth_repository.dart';
 import '../providers/auth_di_providers.dart';
 import 'state/auth_state.dart';
 
+/// AuthNotifier gère l'état d'authentification global de l'application.
+///
+/// Pattern: StateNotifier avec gestion sécurisée du mounted state.
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthRepository _repository;
   bool _isInitialized = false;
 
-  AuthNotifier(this._repository) : super(const AuthState()) {
-    // Ne pas appeler checkAuthStatus ici pour éviter le loading initial
-    // L'initialisation sera faite manuellement quand nécessaire
+  AuthNotifier(this._repository) : super(const AuthState());
+
+  // ============================================================
+  // HELPERS
+  // ============================================================
+
+  /// Log helper - no-op in release mode
+  void _log(String message) {
+    if (kDebugMode) debugPrint('[AuthNotifier] $message');
   }
 
-  /// Helper pour éviter l'assertion Riverpod "setState after dispose"
-  void _safeSetState(AuthState newState) {
-    if (mounted) {
-      state = newState;
-    }
+  /// Safe state update - prevents "setState after dispose"
+  void _setState(AuthState newState) {
+    if (mounted) state = newState;
   }
 
-  /// Initialise le provider en vérifiant l'état d'authentification
-  /// Doit être appelé une seule fois au démarrage de l'app
+  /// Sets loading state
+  void _setLoading() => _setState(state.copyWith(
+        status: AuthStatus.loading,
+        errorMessage: null,
+        originalError: null,
+      ));
+
+  /// Sets error state from Failure
+  void _setError(Failure failure, {Map<String, String>? fieldErrors}) {
+    _log('❌ Error: ${failure.message}');
+    _setState(state.copyWith(
+      status: AuthStatus.error,
+      errorMessage: failure.message,
+      originalError: failure.originalError,
+      fieldErrors: fieldErrors,
+    ));
+  }
+
+  /// Sets error state from exception
+  void _setException(Object error, [StackTrace? stack]) {
+    _log('💥 Exception: $error');
+    if (kDebugMode && stack != null) debugPrint('$stack');
+    _setState(state.copyWith(
+      status: AuthStatus.error,
+      errorMessage: 'Erreur inattendue: $error',
+      originalError: error,
+    ));
+  }
+
+  // ============================================================
+  // INITIALIZATION
+  // ============================================================
+
+  /// Initialise l'état d'auth. Appelé une seule fois au démarrage.
   Future<void> initialize() async {
     if (_isInitialized) return;
     _isInitialized = true;
@@ -30,65 +69,79 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> checkAuthStatus() async {
-    if (kDebugMode) debugPrint('🔍 [AuthNotifier] checkAuthStatus() appelé');
-    
-    final result = await _repository.getCurrentUser();
+    _log('🔍 checkAuthStatus()');
 
+    final result = await _repository.getCurrentUser();
     if (!mounted) return;
 
     result.fold(
       (failure) {
-        if (kDebugMode) debugPrint('🔍 [AuthNotifier] checkAuthStatus - Pas d\'utilisateur connecté: ${failure.message}');
-        _safeSetState(state.copyWith(status: AuthStatus.unauthenticated, errorMessage: null));
+        _log('🔍 No user: ${failure.message}');
+        _setState(state.copyWith(status: AuthStatus.unauthenticated, errorMessage: null));
       },
       (user) {
-        if (kDebugMode) debugPrint('🔍 [AuthNotifier] checkAuthStatus - Utilisateur trouvé: ${user.email}');
-        _safeSetState(state.copyWith(status: AuthStatus.authenticated, user: user, errorMessage: null));
+        _log('🔍 User found: ${user.email}');
+        _setState(state.copyWith(status: AuthStatus.authenticated, user: user, errorMessage: null));
       },
     );
   }
 
+  // ============================================================
+  // LOGIN
+  // ============================================================
+
   Future<void> login(String email, String password) async {
-    if (kDebugMode) debugPrint('🔐 [AuthNotifier] login() appelé avec email: $email');
-    if (kDebugMode) debugPrint('🔐 [AuthNotifier] État actuel: ${state.status}');
-    
-    _safeSetState(state.copyWith(status: AuthStatus.loading, errorMessage: null, originalError: null));
-    if (kDebugMode) debugPrint('🔐 [AuthNotifier] État mis à loading');
+    _log('🔑 login($email)');
+    _setLoading();
 
     try {
-      if (kDebugMode) debugPrint('🔐 [AuthNotifier] Appel de repository.login()...');
       final result = await _repository.login(email: email, password: password);
-      if (kDebugMode) debugPrint('🔐 [AuthNotifier] Résultat reçu du repository');
-
       if (!mounted) return;
 
       result.fold(
-        (failure) {
-          if (kDebugMode) debugPrint('❌ [AuthNotifier] Échec login: ${failure.message}');
-          _safeSetState(state.copyWith(
-            status: AuthStatus.error,
-            errorMessage: failure.message,
-            originalError: failure.originalError,
-          ));
-        },
+        _setError,
         (authResponse) {
-          if (kDebugMode) debugPrint('✅ [AuthNotifier] Login réussi pour: ${authResponse.user.email}');
-          _safeSetState(state.copyWith(
+          _log('✅ Login OK: ${authResponse.user.email}');
+          _setState(state.copyWith(
             status: AuthStatus.authenticated,
             user: authResponse.user,
           ));
         },
       );
-    } catch (e, stackTrace) {
-      if (kDebugMode) debugPrint('💥 [AuthNotifier] Exception inattendue: $e');
-      if (kDebugMode) debugPrint('💥 [AuthNotifier] StackTrace: $stackTrace');
-      _safeSetState(state.copyWith(
-        status: AuthStatus.error,
-        errorMessage: 'Erreur inattendue: $e',
-        originalError: e,
-      ));
+    } catch (e, stack) {
+      if (!mounted) return;
+      _setException(e, stack);
     }
   }
+
+  /// Login with biometric authentication (uses saved email, server validates biometric token)
+  Future<void> loginWithBiometric(String email) async {
+    _log('🔐 loginWithBiometric($email)');
+    _setLoading();
+
+    try {
+      final result = await _repository.loginWithBiometric(email: email);
+      if (!mounted) return;
+
+      result.fold(
+        _setError,
+        (authResponse) {
+          _log('✅ Biometric OK: ${authResponse.user.email}');
+          _setState(state.copyWith(
+            status: AuthStatus.authenticated,
+            user: authResponse.user,
+          ));
+        },
+      );
+    } catch (e, stack) {
+      if (!mounted) return;
+      _setException(e, stack);
+    }
+  }
+
+  // ============================================================
+  // REGISTER
+  // ============================================================
 
   Future<void> register({
     required String name,
@@ -102,11 +155,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required double latitude,
     required double longitude,
   }) async {
-    if (kDebugMode) debugPrint('📝 [AuthNotifier] register() appelé');
-    _safeSetState(state.copyWith(
-      status: AuthStatus.loading, 
+    _log('📝 register($email)');
+    _setState(state.copyWith(
+      status: AuthStatus.loading,
       errorMessage: null,
-      fieldErrors: null, // Clear previous field errors
+      fieldErrors: null,
     ));
 
     final result = await _repository.register(
@@ -126,24 +179,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     result.fold(
       (failure) {
-        if (kDebugMode) debugPrint('❌ [AuthNotifier] Échec inscription: ${failure.message}');
-        
-        // Extract field-specific errors if it's a validation failure
         Map<String, String>? fieldErrors;
         if (failure is ValidationFailure) {
           fieldErrors = _extractFieldErrors(failure.errors);
-          if (kDebugMode) debugPrint('❌ [AuthNotifier] Field errors: $fieldErrors');
+          _log('❌ Validation errors: $fieldErrors');
         }
-        
-        _safeSetState(state.copyWith(
-          status: AuthStatus.error,
-          errorMessage: failure.message,
-          fieldErrors: fieldErrors,
-        ));
+        _setError(failure, fieldErrors: fieldErrors);
       },
       (authResponse) {
-        if (kDebugMode) debugPrint('✅ [AuthNotifier] Inscription réussie');
-        _safeSetState(state.copyWith(
+        _log('✅ Register OK');
+        _setState(state.copyWith(
           status: AuthStatus.registered,
           user: authResponse.user,
           fieldErrors: null,
@@ -151,110 +196,112 @@ class AuthNotifier extends StateNotifier<AuthState> {
       },
     );
   }
-  
+
+  // ============================================================
+  // FIELD ERROR HANDLING
+  // ============================================================
+
   /// Extracts first error message for each field from validation errors
   Map<String, String> _extractFieldErrors(Map<String, List<String>> errors) {
-    final Map<String, String> fieldErrors = {};
-    
-    errors.forEach((field, messages) {
-      if (messages.isNotEmpty) {
-        // Map API field names to form field names
-        final formField = _mapApiFieldToFormField(field);
-        fieldErrors[formField] = _translateErrorMessage(messages.first);
-      }
-    });
-    
-    return fieldErrors;
-  }
-  
-  /// Maps API field names to form field names
-  String _mapApiFieldToFormField(String apiField) {
-    const fieldMapping = {
-      'email': 'email',
-      'phone': 'phone',
-      'password': 'password',
-      'name': 'name',
-      'p_name': 'pharmacy_name',
-      'pharmacy_name': 'pharmacy_name',
-      'license_number': 'license',
-      'city': 'city',
-      'address': 'address',
+    return {
+      for (final entry in errors.entries)
+        if (entry.value.isNotEmpty)
+          _mapApiFieldToFormField(entry.key): _translateErrorMessage(entry.value.first),
     };
-    return fieldMapping[apiField] ?? apiField;
   }
-  
+
+  /// Maps API field names to form field names
+  static const _fieldMapping = {
+    'email': 'email',
+    'phone': 'phone',
+    'password': 'password',
+    'name': 'name',
+    'p_name': 'pharmacy_name',
+    'pharmacy_name': 'pharmacy_name',
+    'license_number': 'license',
+    'city': 'city',
+    'address': 'address',
+  };
+
+  String _mapApiFieldToFormField(String apiField) =>
+      _fieldMapping[apiField] ?? apiField;
+
   /// Translates API error messages to user-friendly French messages
   String _translateErrorMessage(String message) {
     final lowerMsg = message.toLowerCase();
-    
+
     if (lowerMsg.contains('already been taken') || lowerMsg.contains('déjà utilisé')) {
       if (lowerMsg.contains('email')) return 'Cette adresse email est déjà utilisée';
       if (lowerMsg.contains('phone')) return 'Ce numéro de téléphone est déjà utilisé';
       if (lowerMsg.contains('license')) return 'Ce numéro de licence est déjà enregistré';
       return 'Cette valeur est déjà utilisée';
     }
-    
+
     if (lowerMsg.contains('required') || lowerMsg.contains('requis')) {
       return 'Ce champ est requis';
     }
-    
+
     if (lowerMsg.contains('must be at least') || lowerMsg.contains('minimum')) {
       return 'Valeur trop courte';
     }
-    
+
     if (lowerMsg.contains('invalid') || lowerMsg.contains('invalide')) {
       return 'Format invalide';
     }
-    
+
     return message;
   }
 
-  /// Réinitialise l'état pour revenir à l'écran de login sans loader
-  /// Doit être appelé après une inscription réussie ou quand on navigue vers login
+  // ============================================================
+  // STATE MANAGEMENT
+  // ============================================================
+
+  /// Resets state to unauthenticated (after registration or navigation to login)
   void resetToUnauthenticated() {
-    if (kDebugMode) debugPrint('🔄 [AuthNotifier] resetToUnauthenticated() appelé');
-    _safeSetState(const AuthState(status: AuthStatus.unauthenticated));
+    _log('🔄 resetToUnauthenticated()');
+    _setState(const AuthState(status: AuthStatus.unauthenticated));
   }
 
-  /// Efface le message d'erreur et remet le status à unauthenticated
-  /// ✅ IMPORTANT: Doit changer le status pour éviter les états incohérents
+  /// Clears error message and resets status to unauthenticated
   void clearError() {
     if (state.status == AuthStatus.error) {
-      _safeSetState(AuthState(
+      _setState(AuthState(
         status: AuthStatus.unauthenticated,
         user: state.user,
-        // Clear all error fields
-        errorMessage: null,
-        fieldErrors: null,
-        originalError: null,
       ));
     } else if (state.errorMessage != null || state.fieldErrors != null) {
-      _safeSetState(state.copyWith(
+      _setState(state.copyWith(
         errorMessage: null,
         fieldErrors: null,
       ));
     }
   }
-  
+
   /// Clear only field errors (useful when user starts typing)
   void clearFieldError(String fieldName) {
-    if (state.fieldErrors != null && state.fieldErrors!.containsKey(fieldName)) {
-      final newErrors = Map<String, String>.from(state.fieldErrors!);
-      newErrors.remove(fieldName);
-      _safeSetState(state.copyWith(
+    final errors = state.fieldErrors;
+    if (errors != null && errors.containsKey(fieldName)) {
+      final newErrors = Map<String, String>.from(errors)..remove(fieldName);
+      _setState(state.copyWith(
         fieldErrors: newErrors.isEmpty ? null : newErrors,
       ));
     }
   }
 
+  // ============================================================
+  // LOGOUT / PROFILE
+  // ============================================================
+
   Future<void> logout() async {
-    _safeSetState(state.copyWith(status: AuthStatus.loading));
+    _log('🚪 logout()');
+    _setState(state.copyWith(status: AuthStatus.loading));
     await _repository.logout();
     if (!mounted) return;
-    _safeSetState(state.copyWith(status: AuthStatus.unauthenticated, user: null));
+    _setState(state.copyWith(status: AuthStatus.unauthenticated, user: null));
   }
 
   Future<void> forgotPassword(String email) async {
+    _log('🔑 forgotPassword($email)');
     await _repository.forgotPassword(email: email);
   }
 
@@ -263,25 +310,26 @@ class AuthNotifier extends StateNotifier<AuthState> {
     String? email,
     String? phone,
   }) async {
-    _safeSetState(state.copyWith(status: AuthStatus.loading));
+    _log('✏️ updateProfile()');
+    _setState(state.copyWith(status: AuthStatus.loading));
     try {
       await _repository.updateProfile(
         name: name,
         email: email,
         phone: phone,
       );
-      // Refresh user data
       await checkAuthStatus();
-    } catch (e) {
+    } catch (e, stack) {
       if (!mounted) return;
-      _safeSetState(state.copyWith(
-        status: AuthStatus.error,
-        errorMessage: e.toString(),
-      ));
+      _setException(e, stack);
       rethrow;
     }
   }
 }
+
+// ============================================================
+// PROVIDER
+// ============================================================
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   return AuthNotifier(ref.watch(authRepositoryProvider));

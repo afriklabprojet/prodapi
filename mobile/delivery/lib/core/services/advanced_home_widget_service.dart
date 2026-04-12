@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/models/delivery.dart';
+import '../config/app_config.dart';
 
 /// Service avancé pour le widget écran d'accueil
 /// ==============================================
@@ -170,7 +171,7 @@ class HomeWidgetState {
 
 /// Service principal du home widget
 class AdvancedHomeWidgetService extends Notifier<HomeWidgetState> {
-  static const String _appGroupId = 'group.com.drpharma.courier';
+  static String get _appGroupId => AppConfig.iosAppGroup;
   static const String _androidWidgetName = 'CourierStatusWidget';
   static const String _iOSWidgetName = 'CourierStatusWidget';
 

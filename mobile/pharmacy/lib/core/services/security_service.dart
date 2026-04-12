@@ -7,6 +7,16 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+// ==================== LOGGING HELPER ====================
+
+void _log(String message, {String emoji = '🔐'}) {
+  if (kDebugMode) debugPrint('$emoji [SecurityService] $message');
+}
+
+void _logError(String message, Object error) {
+  if (kDebugMode) debugPrint('❌ [SecurityService] $message: $error');
+}
+
 /// Service de sécurité pour l'application
 /// Gère l'authentification biométrique, le session timeout, et le chiffrement
 class SecurityService {
@@ -99,7 +109,7 @@ class SecurityService {
     _sessionTimer?.cancel();
     final timeout = getSessionTimeout();
     _sessionTimer = Timer(timeout, () {
-      if (kDebugMode) debugPrint('⏰ [SecurityService] Session expired');
+      _log('Session expired', emoji: '⏰');
       _onSessionExpired?.call();
     });
   }
@@ -120,8 +130,8 @@ class SecurityService {
         hasIris: availableBiometrics.contains(BiometricType.iris),
       );
     } catch (e) {
-      if (kDebugMode) debugPrint('❌ [SecurityService] Error checking biometric: $e');
-      return BiometricCapability(
+      _logError('Error checking biometric', e);
+      return const BiometricCapability(
         isAvailable: false,
         hasFaceId: false,
         hasFingerprint: false,
@@ -131,14 +141,11 @@ class SecurityService {
   }
 
   /// Active/désactive l'authentification biométrique
-  Future<void> setBiometricEnabled(bool enabled) async {
-    await _prefs.setBool(_keyBiometricEnabled, enabled);
-  }
+  Future<void> setBiometricEnabled(bool enabled) async =>
+      _prefs.setBool(_keyBiometricEnabled, enabled);
 
   /// Vérifie si l'authentification biométrique est activée
-  bool isBiometricEnabled() {
-    return _prefs.getBool(_keyBiometricEnabled) ?? false;
-  }
+  bool isBiometricEnabled() => _prefs.getBool(_keyBiometricEnabled) ?? false;
 
   /// Authentifie l'utilisateur via biométrie
   Future<BiometricResult> authenticateWithBiometric({
@@ -156,37 +163,38 @@ class SecurityService {
         message: didAuthenticate ? 'Authentification réussie' : 'Authentification annulée',
       );
     } on LocalAuthException catch (e) {
-      if (kDebugMode) debugPrint('❌ [SecurityService] Biometric auth error: ${e.code} - ${e.description}');
-      String message;
-      switch (e.code) {
-        case LocalAuthExceptionCode.noBiometricHardware:
-        case LocalAuthExceptionCode.biometricHardwareTemporarilyUnavailable:
-          message = 'Biométrie non disponible';
-        case LocalAuthExceptionCode.noBiometricsEnrolled:
-        case LocalAuthExceptionCode.noCredentialsSet:
-          message = 'Aucune empreinte enregistrée sur cet appareil';
-        case LocalAuthExceptionCode.temporaryLockout:
-        case LocalAuthExceptionCode.biometricLockout:
-          message = 'Trop de tentatives. Biométrie verrouillée.';
-        case LocalAuthExceptionCode.userCanceled:
-        case LocalAuthExceptionCode.systemCanceled:
-          message = 'Authentification annulée';
-        default:
-          message = 'Erreur d\'authentification: ${e.description}';
-      }
+      _logError('Biometric auth error: ${e.code}', e.description ?? '');
+      final message = _mapBiometricError(e.code);
       return BiometricResult(
         success: false,
         message: message,
         errorCode: e.code.name,
       );
     } catch (e) {
-      if (kDebugMode) debugPrint('❌ [SecurityService] Unexpected biometric error: $e');
+      _logError('Unexpected biometric error', e);
       return BiometricResult(
         success: false,
         message: 'Erreur: $e',
       );
     }
   }
+  
+  /// Maps biometric error codes to user-friendly messages (Dart 3 switch expression)
+  String _mapBiometricError(LocalAuthExceptionCode code) => switch (code) {
+    LocalAuthExceptionCode.noBiometricHardware ||
+    LocalAuthExceptionCode.biometricHardwareTemporarilyUnavailable =>
+      'Biométrie non disponible',
+    LocalAuthExceptionCode.noBiometricsEnrolled ||
+    LocalAuthExceptionCode.noCredentialsSet =>
+      'Aucune empreinte enregistrée sur cet appareil',
+    LocalAuthExceptionCode.temporaryLockout ||
+    LocalAuthExceptionCode.biometricLockout =>
+      'Trop de tentatives. Biométrie verrouillée.',
+    LocalAuthExceptionCode.userCanceled ||
+    LocalAuthExceptionCode.systemCanceled =>
+      'Authentification annulée',
+    _ => 'Erreur d\'authentification',
+  };
 
   // ==================== PIN AUTHENTICATION ====================
 
@@ -205,9 +213,7 @@ class SecurityService {
   }
 
   /// Vérifie si l'authentification par PIN est activée
-  bool isPinEnabled() {
-    return _prefs.getBool(_keyPinEnabled) ?? false;
-  }
+  bool isPinEnabled() => _prefs.getBool(_keyPinEnabled) ?? false;
 
   /// Vérifie le PIN
   Future<PinResult> verifyPin(String pin) async {
@@ -307,19 +313,16 @@ class SecurityService {
   // ==================== SECURE DATA ====================
 
   /// Stocke des données de manière sécurisée (FlutterSecureStorage)
-  Future<void> setSecureData(String key, String value) async {
-    await _secureStorage.write(key: 'secure_$key', value: value);
-  }
+  Future<void> setSecureData(String key, String value) =>
+      _secureStorage.write(key: 'secure_$key', value: value);
 
   /// Récupère des données sécurisées
-  Future<String?> getSecureData(String key) async {
-    return await _secureStorage.read(key: 'secure_$key');
-  }
+  Future<String?> getSecureData(String key) =>
+      _secureStorage.read(key: 'secure_$key');
 
   /// Supprime des données sécurisées
-  Future<void> removeSecureData(String key) async {
-    await _secureStorage.delete(key: 'secure_$key');
-  }
+  Future<void> removeSecureData(String key) =>
+      _secureStorage.delete(key: 'secure_$key');
 
   // ==================== CLEANUP ====================
 
@@ -329,7 +332,7 @@ class SecurityService {
     await _prefs.remove(_keyLastActivity);
     await _prefs.remove(_keyFailedAttempts);
     await _prefs.remove(_keyLockoutUntil);
-    if (kDebugMode) debugPrint('🧹 [SecurityService] Security data cleared');
+    _log('Security data cleared', emoji: '🧹');
   }
 
   /// Dispose du service
@@ -345,7 +348,7 @@ class BiometricCapability {
   final bool hasFingerprint;
   final bool hasIris;
 
-  BiometricCapability({
+  const BiometricCapability({
     required this.isAvailable,
     required this.hasFaceId,
     required this.hasFingerprint,
@@ -353,10 +356,11 @@ class BiometricCapability {
   });
 
   String get availableMethodsText {
-    final methods = <String>[];
-    if (hasFaceId) methods.add('Face ID');
-    if (hasFingerprint) methods.add('Empreinte digitale');
-    if (hasIris) methods.add('Iris');
+    final methods = <String>[
+      if (hasFaceId) 'Face ID',
+      if (hasFingerprint) 'Empreinte digitale',
+      if (hasIris) 'Iris',
+    ];
     return methods.isEmpty ? 'Aucune' : methods.join(', ');
   }
 }
@@ -367,7 +371,7 @@ class BiometricResult {
   final String message;
   final String? errorCode;
 
-  BiometricResult({
+  const BiometricResult({
     required this.success,
     required this.message,
     this.errorCode,
@@ -381,7 +385,7 @@ class PinResult {
   final bool isLockedOut;
   final int? attemptsRemaining;
 
-  PinResult({
+  const PinResult({
     required this.success,
     required this.message,
     this.isLockedOut = false,

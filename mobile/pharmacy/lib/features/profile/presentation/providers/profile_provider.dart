@@ -7,12 +7,15 @@ import '../../../../core/providers/core_providers.dart';
 ///
 /// Utilise [ProfileRepository] pour les opérations réseau
 /// et rafraîchit l'état d'auth après chaque mise à jour.
-class ProfileNotifier extends StateNotifier<AsyncValue<void>> {
-  final ProfileRepository _repository;
-  final Ref _ref;
+class ProfileNotifier extends Notifier<AsyncValue<void>> {
+  late final ProfileRepository _repository;
 
-  ProfileNotifier(this._repository, this._ref)
-      : super(const AsyncData<void>(null));
+  @override
+  AsyncValue<void> build() {
+    final apiClient = ref.watch(apiClientProvider);
+    _repository = ProfileRepositoryImpl(apiClient: apiClient);
+    return const AsyncData<void>(null);
+  }
 
   /// Met à jour les informations d'une pharmacie.
   Future<void> updatePharmacy(int pharmacyId, Map<String, dynamic> data) async {
@@ -27,7 +30,7 @@ class ProfileNotifier extends StateNotifier<AsyncValue<void>> {
       (_) {
         state = const AsyncData<void>(null);
         // Refresh auth state to pick up new pharmacy data
-        _ref.read(authProvider.notifier).checkAuthStatus();
+        ref.read(authProvider.notifier).checkAuthStatus();
       },
     );
   }
@@ -41,20 +44,18 @@ class ProfileNotifier extends StateNotifier<AsyncValue<void>> {
     result.fold(
       (failure) {
         state = AsyncError(failure.message, StackTrace.current);
-        throw Exception(failure.message);
+        // State is already set to error, no need to throw
       },
       (_) {
         state = const AsyncData<void>(null);
         // Refresh auth state to pick up new profile data
-        _ref.read(authProvider.notifier).checkAuthStatus();
+        ref.read(authProvider.notifier).checkAuthStatus();
       },
     );
   }
 }
 
 final profileProvider =
-    StateNotifierProvider<ProfileNotifier, AsyncValue<void>>((ref) {
-  final apiClient = ref.watch(apiClientProvider);
-  final repository = ProfileRepositoryImpl(apiClient: apiClient);
-  return ProfileNotifier(repository, ref);
-});
+    NotifierProvider<ProfileNotifier, AsyncValue<void>>(
+  ProfileNotifier.new,
+);

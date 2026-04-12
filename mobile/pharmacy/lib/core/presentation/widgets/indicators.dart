@@ -20,37 +20,58 @@ class StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = _getColors();
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: colors.backgroundColor,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (showDot) ...[
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: colors.dotColor,
-                shape: BoxShape.circle,
+    return Semantics(
+      label: '${_getSemanticType()}: $label',
+      excludeSemantics: true,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: colors.backgroundColor,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (showDot) ...[
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: colors.dotColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                color: colors.textColor,
+                fontSize: fontSize,
+                fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(width: 6),
           ],
-          Text(
-            label,
-            style: TextStyle(
-              color: colors.textColor,
-              fontSize: fontSize,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
+        ),
       ),
     );
+  }
+
+  String _getSemanticType() {
+    switch (type) {
+      case StatusType.success:
+        return 'Succès';
+      case StatusType.warning:
+        return 'Attention';
+      case StatusType.error:
+        return 'Erreur';
+      case StatusType.info:
+        return 'Information';
+      case StatusType.pending:
+        return 'En attente';
+      case StatusType.neutral:
+        return 'Statut';
+    }
   }
 
   _StatusColors _getColors() {

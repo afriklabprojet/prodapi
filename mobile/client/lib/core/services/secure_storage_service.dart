@@ -2,9 +2,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Service de stockage sécurisé pour les données sensibles
 class SecureStorageService {
-  static const _storage = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-  );
+  static const _storage = FlutterSecureStorage(aOptions: AndroidOptions());
 
   static const String _tokenKey = 'auth_token';
   static const String _userKey = 'cached_user';

@@ -20,6 +20,8 @@ node_modules/
 *.tar.gz
 *.rar
 package-lock.json
+.env
+!.env.docker.example
 
 # ====================
 # API (Laravel)

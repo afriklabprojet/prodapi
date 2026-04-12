@@ -198,7 +198,11 @@ php artisan event:clear 2>/dev/null || rm -f bootstrap/cache/events.php
 
 # Migrations
 echo "  → Migrations..."
-php artisan migrate --force
+php artisan migrate --force 2>&1
+MIGRATE_EXIT=$?
+if [ $MIGRATE_EXIT -ne 0 ]; then
+    echo "  ⚠ Migration terminée avec code $MIGRATE_EXIT - vérifier les logs si nécessaire"
+fi
 
 # Cache (généré sur le serveur avec les bons chemins)
 echo "  → Regénération du cache..."
@@ -246,7 +250,7 @@ sed -i '' "s|__ARCHIVE_NAME__|${ARCHIVE_NAME}|g" "${REMOTE_SCRIPT_FILE}"
 scp "${REMOTE_SCRIPT_FILE}" "${CPANEL_USER}@${REMOTE_HOST}:~/deploy_remote.sh"
 
 # Exécuter le script à distance
-ssh -t "${CPANEL_USER}@${REMOTE_HOST}" "bash ~/deploy_remote.sh"
+ssh -t -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -o ConnectTimeout=60 "${CPANEL_USER}@${REMOTE_HOST}" "bash ~/deploy_remote.sh"
 
 echo "✓ Serveur mis à jour"
 

@@ -70,7 +70,7 @@ void main() {
         throwsA(isA<Exception>().having(
           (e) => e.toString(),
           'msg',
-          contains('défis'),
+          contains('serveur'),
         )),
       );
     });

@@ -14,7 +14,7 @@ GOOGLE_MAPS_API_KEY=""  # ← Mettez votre clé Google Maps ici
 # --- Configuration support (optionnel, les defaults suffisent en dev) ---
 # SUPPORT_PHONE="+22507000000000"
 # SUPPORT_WHATSAPP="22507000000000"
-# SUPPORT_EMAIL="support@drlpharma.com"
+# SUPPORT_EMAIL="support@drlpharma.pro"
 
 # --- Lancement ---
 DEVICE="${1:-}"

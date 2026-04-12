@@ -1,0 +1,253 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Laravel API Tests ───────────────────────────────────────────────
+  api-tests:
+    name: API Tests (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['8.2']
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: drpharma_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, dom, fileinfo, mysql, gd, bcmath, redis
+          coverage: xdebug
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: api/vendor
+          key: composer-${{ hashFiles('api/composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install dependencies
+        working-directory: api
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Copy env
+        working-directory: api
+        run: cp .env.example .env || cp .env.testing .env || true
+
+      - name: Generate key
+        working-directory: api
+        run: php artisan key:generate --env=testing || php artisan key:generate || true
+
+      - name: Run migrations
+        working-directory: api
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: drpharma_test
+          DB_USERNAME: root
+          DB_PASSWORD: password
+        run: php artisan migrate --force
+
+      - name: Run PHPUnit
+        working-directory: api
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: drpharma_test
+          DB_USERNAME: root
+          DB_PASSWORD: password
+          CACHE_DRIVER: redis
+          REDIS_HOST: 127.0.0.1
+        run: php artisan test --parallel
+
+      - name: Laravel Pint (lint)
+        working-directory: api
+        run: vendor/bin/pint --test
+
+  # ── Flutter Client App ──────────────────────────────────────────────
+  client-build:
+    name: Client App (Flutter)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.x'
+          channel: stable
+          cache: true
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: mobile/client/.dart_tool
+          key: client-pub-${{ hashFiles('mobile/client/pubspec.lock') }}
+          restore-keys: client-pub-
+
+      - name: Get dependencies
+        working-directory: mobile/client
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: mobile/client
+        run: flutter analyze --no-fatal-infos
+
+      - name: Build APK
+        working-directory: mobile/client
+        run: |
+          flutter build apk --release \
+            --dart-define=API_BASE_URL=https://api.drlpharma.com/api \
+            --dart-define=GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-apk
+          path: mobile/client/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 7
+
+  # ── Flutter Delivery App ────────────────────────────────────────────
+  delivery-build:
+    name: Delivery App (Flutter)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.x'
+          channel: stable
+          cache: true
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: mobile/delivery/.dart_tool
+          key: delivery-pub-${{ hashFiles('mobile/delivery/pubspec.lock') }}
+          restore-keys: delivery-pub-
+
+      - name: Get dependencies
+        working-directory: mobile/delivery
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: mobile/delivery
+        run: flutter analyze --no-fatal-infos
+
+      - name: Build APK
+        working-directory: mobile/delivery
+        run: |
+          flutter build apk --release \
+            --dart-define=API_BASE_URL=https://api.drlpharma.com/api
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: delivery-apk
+          path: mobile/delivery/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 7
+
+  # ── Flutter Pharmacy App ────────────────────────────────────────────
+  pharmacy-build:
+    name: Pharmacy App (Flutter)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.x'
+          channel: stable
+          cache: true
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: mobile/pharmacy/.dart_tool
+          key: pharmacy-pub-${{ hashFiles('mobile/pharmacy/pubspec.lock') }}
+          restore-keys: pharmacy-pub-
+
+      - name: Get dependencies
+        working-directory: mobile/pharmacy
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: mobile/pharmacy
+        run: flutter analyze --no-fatal-infos
+
+      - name: Build APK
+        working-directory: mobile/pharmacy
+        run: |
+          flutter build apk --release \
+            --dart-define=API_BASE_URL=https://api.drlpharma.com/api
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pharmacy-apk
+          path: mobile/pharmacy/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 7
+
+  # ── Deploy (only on main push) ──────────────────────────────────────
+  deploy-api:
+    name: Deploy API
+    needs: [api-tests]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+            git pull origin main
+            composer install --no-dev --optimize-autoloader
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan queue:restart

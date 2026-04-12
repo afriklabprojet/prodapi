@@ -24,6 +24,7 @@ abstract class OrdersRepository {
     String? prescriptionImage,
     String? customerNotes,
     int? prescriptionId, // ID de la prescription uploadée via checkout
+    String? promoCode,
   });
 
   /// Cancel an order

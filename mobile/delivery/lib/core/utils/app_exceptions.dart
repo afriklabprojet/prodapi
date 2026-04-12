@@ -131,3 +131,25 @@ class RateLimitException extends AppException {
     super.code,
   });
 }
+
+/// Compte en attente d'approbation.
+class PendingApprovalException extends AppException {
+  final String status; // pending_approval, suspended, rejected
+  const PendingApprovalException({
+    super.message = 'Pending approval',
+    super.userMessage = 'Votre compte est en attente d\'approbation.',
+    super.code = 'PENDING_APPROVAL',
+    this.status = 'pending_approval',
+  });
+}
+
+/// KYC incomplet.
+class IncompleteKycException extends AppException {
+  final String? rejectionReason;
+  const IncompleteKycException({
+    super.message = 'Incomplete KYC',
+    super.userMessage = 'Veuillez compléter votre vérification d\'identité.',
+    super.code = 'INCOMPLETE_KYC',
+    this.rejectionReason,
+  });
+}

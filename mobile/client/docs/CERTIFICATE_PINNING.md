@@ -23,14 +23,14 @@ Le Certificate Pinning protège l'application contre les attaques Man-in-the-Mid
 
 ```bash
 chmod +x scripts/generate_cert_hashes.sh
-./scripts/generate_cert_hashes.sh api.drlpharma.com
+./scripts/generate_cert_hashes.sh api.drlpharma.pro
 ```
 
 ### Méthode 2: Manuelle avec OpenSSL
 
 ```bash
 # 1. Récupérer le certificat
-openssl s_client -servername api.drlpharma.com -connect api.drlpharma.com:443 < /dev/null 2>/dev/null | \
+openssl s_client -servername api.drlpharma.pro -connect api.drlpharma.pro:443 < /dev/null 2>/dev/null | \
   openssl x509 -outform DER > cert.der
 
 # 2. Générer le hash SHA-256 en Base64
@@ -122,7 +122,7 @@ print('Certificate hash: $hash');
 ```dart
 test('should have valid pinning configuration', () {
   expect(CertificatePinningConfig.pinnedCertificateHashes.length, greaterThanOrEqualTo(2));
-  expect(CertificatePinningConfig.pinnedDomains, contains('api.drlpharma.com'));
+  expect(CertificatePinningConfig.pinnedDomains, contains('api.drlpharma.pro'));
 });
 ```
 

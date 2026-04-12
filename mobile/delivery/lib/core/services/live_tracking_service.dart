@@ -57,9 +57,17 @@ class LiveTrackingService {
         accuracy: LocationAccuracy.high,
         distanceFilter: 20, // Mise à jour tous les 20m
       ),
-    ).listen((Position position) {
-      _updatePosition(position);
-    });
+    ).listen(
+      (Position position) {
+        _updatePosition(position);
+      },
+      onError: (error) {
+        if (kDebugMode) debugPrint('Live tracking position error: $error');
+      },
+      onDone: () {
+        if (kDebugMode) debugPrint('Live tracking position stream done');
+      },
+    );
     
     // Heartbeat toutes les 60 secondes pour confirmer la présence
     // (pas de GPS query — utilise la dernière position connue)

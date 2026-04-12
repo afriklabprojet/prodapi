@@ -30,6 +30,8 @@ abstract class AuthRemoteDataSource {
   Future<UserModel> getCurrentUser(String token);
 
   Future<void> forgotPassword({required String email});
+
+  Future<AuthResponseModel> refreshSession({required String token});
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -128,6 +130,28 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     await apiClient.post(
       '/auth/forgot-password',
       data: {'email': email.toLowerCase().trim()},
+    );
+  }
+
+  @override
+  Future<AuthResponseModel> refreshSession({required String token}) async {
+    if (kDebugMode) debugPrint('🌐 [AuthRemoteDataSource] refreshSession() - Validation du token...');
+    
+    // Utiliser /auth/me pour valider le token et récupérer les données utilisateur
+    final response = await apiClient.get(
+      '/auth/me',
+      options: apiClient.authorizedOptions(token),
+    );
+
+    if (kDebugMode) debugPrint('🌐 [AuthRemoteDataSource] Token valide, session restaurée');
+
+    final json = _safeData(response.data);
+    final user = UserModel.fromJson(json['data'] ?? json);
+    
+    // Construire AuthResponseModel avec le token existant
+    return AuthResponseModel(
+      token: token,
+      user: user,
     );
   }
 }

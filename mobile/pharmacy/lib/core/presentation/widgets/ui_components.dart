@@ -1,62 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/app_text_styles.dart';
-
-// --- BUTTONS ---
-class PrimaryButton extends StatelessWidget {
-  final String label;
-  final VoidCallback? onPressed;
-  final IconData? icon;
-  final bool isLoading;
-
-  const PrimaryButton({
-    super.key,
-    required this.label,
-    required this.onPressed,
-    this.icon,
-    this.isLoading = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: isLoading ? null : onPressed,
-        child: isLoading
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (icon != null) ...[Icon(icon, size: 20), const SizedBox(width: 8)],
-                  Text(label),
-                ],
-              ),
-      ),
-    );
-  }
-}
-
-class SecondaryButton extends StatelessWidget {
-  final String label;
-  final VoidCallback? onPressed;
-
-  const SecondaryButton({super.key, required this.label, required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton(
-        onPressed: onPressed,
-        child: Text(label),
-      ),
-    );
-  }
-}
+import 'app_empty_state.dart';
+import 'buttons.dart' show PrimaryButton;
 
 // --- CARDS ---
 class AppCard extends StatelessWidget {
@@ -76,7 +22,7 @@ class AppCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Container(
       decoration: BoxDecoration(
         color: color ?? (isDark ? Colors.grey.shade900 : Colors.white),
@@ -102,13 +48,38 @@ class AppCard extends StatelessWidget {
 }
 
 // --- BADGES ---
+// @deprecated Use StatusBadge from 'indicators.dart' instead
+// This duplicate will be removed in a future version
+@Deprecated('Use StatusBadge from indicators.dart with StatusType enum instead')
 enum BadgeType { success, error, warning, info, neutral }
 
+@Deprecated(
+  'Use StatusBadge from indicators.dart instead. This duplicate exists for backwards compatibility.',
+)
 class StatusBadge extends StatelessWidget {
   final String label;
   final BadgeType type;
 
-  const StatusBadge({super.key, required this.label, this.type = BadgeType.neutral});
+  const StatusBadge({
+    super.key,
+    required this.label,
+    this.type = BadgeType.neutral,
+  });
+
+  String _getSemanticType() {
+    switch (type) {
+      case BadgeType.success:
+        return 'Succès';
+      case BadgeType.error:
+        return 'Erreur';
+      case BadgeType.warning:
+        return 'Attention';
+      case BadgeType.info:
+        return 'Information';
+      default:
+        return 'Statut';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -137,63 +108,94 @@ class StatusBadge extends StatelessWidget {
         text = Colors.grey[700]!;
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: text.withValues(alpha: 0.1)),
-      ),
-      child: Text(
-        label,
-        style: AppTextStyles.label.copyWith(color: text),
+    return Semantics(
+      label: '${_getSemanticType()}: $label',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: text.withValues(alpha: 0.1)),
+        ),
+        child: Text(label, style: AppTextStyles.label.copyWith(color: text)),
       ),
     );
   }
 }
 
 // --- EMPTY STATE ---
+// @deprecated Use EmptyStateWidget from 'indicators.dart' or AppEmptyState instead
+@Deprecated(
+  'Use EmptyStateWidget from indicators.dart or AppEmptyState widget instead.',
+)
 class EmptyStateWidget extends StatelessWidget {
   final String title;
   final String message;
   final IconData icon;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   const EmptyStateWidget({
     super.key,
     required this.title,
     required this.message,
     this.icon = Icons.inbox_outlined,
+    this.actionLabel,
+    this.onAction,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                shape: BoxShape.circle,
+    return Semantics(
+      label:
+          '$title. $message${actionLabel != null ? '. Action disponible: $actionLabel' : ''}',
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 48, color: Colors.grey[400]),
               ),
-              child: Icon(icon, size: 48, color: Colors.grey[400]),
-            ),
-            const SizedBox(height: 24),
-            Text(title, style: AppTextStyles.h3.copyWith(
-              color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
-            )),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey.shade600,
+              const SizedBox(height: 24),
+              Text(
+                title,
+                style: AppTextStyles.h3.copyWith(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white
+                      : Colors.black87,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.grey.shade400
+                      : Colors.grey.shade600,
+                ),
+              ),
+              if (actionLabel != null && onAction != null) ...[
+                const SizedBox(height: 24),
+                Semantics(
+                  button: true,
+                  label: actionLabel,
+                  child: TextButton.icon(
+                    onPressed: onAction,
+                    icon: const Icon(Icons.add_circle_outline),
+                    label: Text(actionLabel!),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -227,7 +229,11 @@ class ErrorStateWidget extends StatelessWidget {
                 color: Colors.orange.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.warning_amber_rounded, size: 48, color: Colors.orange),
+              child: const Icon(
+                Icons.warning_amber_rounded,
+                size: 48,
+                color: Colors.orange,
+              ),
             ),
             const SizedBox(height: 24),
             Text(title, style: AppTextStyles.h2),
@@ -236,7 +242,9 @@ class ErrorStateWidget extends StatelessWidget {
               message,
               textAlign: TextAlign.center,
               style: AppTextStyles.bodyLarge.copyWith(
-                color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey.shade600,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.grey.shade400
+                    : Colors.grey.shade600,
               ),
             ),
             const SizedBox(height: 32),
@@ -266,6 +274,62 @@ class LoadingStateWidget extends StatelessWidget {
   }
 }
 
+// --- ASYNC VALUE WIDGET ---
+/// Widget générique pour gérer les états AsyncValue (loading, error, data)
+/// Réduit la duplication de code dans toute l'application
+class AsyncValueWidget<T> extends StatelessWidget {
+  final AsyncValue<T> value;
+  final Widget Function(T data) data;
+  final Widget Function()? loading;
+  final Widget Function(Object error, StackTrace stackTrace)? error;
+  final VoidCallback? onRetry;
+  final String? emptyTitle;
+  final String? emptyMessage;
+  final bool Function(T data)? isEmpty;
+
+  const AsyncValueWidget({
+    super.key,
+    required this.value,
+    required this.data,
+    this.loading,
+    this.error,
+    this.onRetry,
+    this.emptyTitle,
+    this.emptyMessage,
+    this.isEmpty,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return value.when(
+      data: (dataValue) {
+        // Check if data is empty
+        if (isEmpty != null && isEmpty!(dataValue)) {
+          return AppEmptyState(
+            icon: Icons.inbox_outlined,
+            title: emptyTitle ?? 'Aucune donnée',
+            subtitle:
+                emptyMessage ?? 'Aucun élément à afficher pour le moment.',
+            actionLabel: onRetry != null ? 'Actualiser' : null,
+            onAction: onRetry,
+          );
+        }
+        return data(dataValue);
+      },
+      loading: () => loading?.call() ?? const LoadingStateWidget(),
+      error: (err, stack) {
+        if (error != null) {
+          return error!(err, stack);
+        }
+        return ErrorStateWidget(
+          message: err.toString(),
+          onRetry: onRetry ?? () {},
+        );
+      },
+    );
+  }
+}
+
 // --- CUSTOM HEADER ---
 class CustomHeader extends StatelessWidget {
   final String title;
@@ -285,7 +349,7 @@ class CustomHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final primaryColor = Theme.of(context).colorScheme.primary;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Container(
       decoration: BoxDecoration(
         color: primaryColor.withValues(alpha: 0.1),
@@ -305,10 +369,11 @@ class CustomHeader extends StatelessWidget {
                 IconButton(
                   icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
                   onPressed: () => Navigator.of(context).pop(),
+                  tooltip: 'Retour',
                   style: IconButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     padding: EdgeInsets.zero,
-                    minimumSize: const Size(40, 40),
+                    minimumSize: const Size(48, 48),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -320,7 +385,7 @@ class CustomHeader extends StatelessWidget {
                   if (subtitle != null) ...[
                     const SizedBox(height: 2),
                     Text(subtitle!, style: AppTextStyles.bodySmall),
-                  ]
+                  ],
                 ],
               ),
             ],
@@ -359,7 +424,7 @@ class EnhancedPageHeader extends StatelessWidget {
     final primaryColor = Theme.of(context).colorScheme.primary;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = iconBackgroundColor ?? primaryColor;
-    
+
     return Padding(
       padding: padding,
       child: Row(
@@ -370,10 +435,7 @@ class EnhancedPageHeader extends StatelessWidget {
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    bgColor,
-                    bgColor.withValues(alpha: 0.7),
-                  ],
+                  colors: [bgColor, bgColor.withValues(alpha: 0.7)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -386,15 +448,11 @@ class EnhancedPageHeader extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Icon(
-                icon,
-                color: Colors.white,
-                size: 26,
-              ),
+              child: Icon(icon, color: Colors.white, size: 26),
             ),
             const SizedBox(width: 16),
           ],
-          
+
           // Titre et sous-titre
           Expanded(
             child: Column(
@@ -417,14 +475,16 @@ class EnhancedPageHeader extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                      color: isDark
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade600,
                     ),
                   ),
                 ],
               ],
             ),
           ),
-          
+
           // Widget trailing (optionnel)
           if (trailing != null) trailing!,
         ],
@@ -468,16 +528,17 @@ class _AnimatedPageTitleState extends State<AnimatedPageTitle>
       duration: const Duration(milliseconds: 600),
       vsync: this,
     );
-    
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-    
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+
     _slideAnimation = Tween<Offset>(
       begin: const Offset(-0.1, 0),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
-    
+
     _controller.forward();
   }
 
@@ -491,7 +552,9 @@ class _AnimatedPageTitleState extends State<AnimatedPageTitle>
   Widget build(BuildContext context) {
     final primaryColor = Theme.of(context).colorScheme.primary;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colors = widget.gradientColors ?? [primaryColor, primaryColor.withValues(alpha: 0.6)];
+    final colors =
+        widget.gradientColors ??
+        [primaryColor, primaryColor.withValues(alpha: 0.6)];
 
     return SlideTransition(
       position: _slideAnimation,
@@ -515,7 +578,7 @@ class _AnimatedPageTitleState extends State<AnimatedPageTitle>
                 ),
               ),
               const SizedBox(width: 16),
-              
+
               // Contenu
               Expanded(
                 child: Column(
@@ -524,11 +587,7 @@ class _AnimatedPageTitleState extends State<AnimatedPageTitle>
                     Row(
                       children: [
                         if (widget.icon != null) ...[
-                          Icon(
-                            widget.icon,
-                            color: primaryColor,
-                            size: 28,
-                          ),
+                          Icon(widget.icon, color: primaryColor, size: 28),
                           const SizedBox(width: 10),
                         ],
                         Expanded(
@@ -556,14 +615,16 @@ class _AnimatedPageTitleState extends State<AnimatedPageTitle>
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
-                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                          color: isDark
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade600,
                         ),
                       ),
                     ],
                   ],
                 ),
               ),
-              
+
               if (widget.action != null) widget.action!,
             ],
           ),
@@ -627,7 +688,10 @@ class SectionHeader extends StatelessWidget {
               onPressed: onActionTap,
               style: TextButton.styleFrom(
                 foregroundColor: primaryColor,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),

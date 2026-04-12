@@ -19,6 +19,7 @@ class AppearanceSettingsPage extends ConsumerWidget {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios),
           onPressed: () => Navigator.of(context).pop(),
+          tooltip: 'Retour',
         ),
       ),
       body: ListView(
@@ -34,9 +35,9 @@ class AppearanceSettingsPage extends ConsumerWidget {
               HapticFeedback.lightImpact();
             },
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Accent Color Section
           _SectionTitle(title: 'Couleur d\'accent', icon: Icons.color_lens),
           const SizedBox(height: 12),
@@ -47,16 +48,16 @@ class AppearanceSettingsPage extends ConsumerWidget {
               HapticFeedback.lightImpact();
             },
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Preview Section
           _SectionTitle(title: 'Aperçu', icon: Icons.preview),
           const SizedBox(height: 12),
           _ThemePreview(isDark: isDark),
-          
+
           const SizedBox(height: 24),
-          
+
           // Additional Options
           _SectionTitle(title: 'Options supplémentaires', icon: Icons.tune),
           const SizedBox(height: 12),
@@ -71,9 +72,9 @@ class AppearanceSettingsPage extends ConsumerWidget {
               },
             ),
           ),
-          
+
           const SizedBox(height: 8),
-          
+
           _OptionCard(
             title: 'Suivre le système',
             subtitle: 'Le thème s\'adapte aux paramètres du système',
@@ -88,9 +89,9 @@ class AppearanceSettingsPage extends ConsumerWidget {
             ),
             onTap: () => themeNotifier.setThemeMode(ThemeMode.system),
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Info
           Container(
             padding: const EdgeInsets.all(16),
@@ -100,18 +101,12 @@ class AppearanceSettingsPage extends ConsumerWidget {
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.info_outline,
-                  color: Colors.grey.shade600,
-                ),
+                Icon(Icons.info_outline, color: Colors.grey.shade600),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Les modifications de thème sont appliquées instantanément et sauvegardées automatiquement.',
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 13,
-                    ),
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                   ),
                 ),
               ],
@@ -128,25 +123,19 @@ class _SectionTitle extends StatelessWidget {
   final String title;
   final IconData icon;
 
-  const _SectionTitle({
-    required this.title,
-    required this.icon,
-  });
+  const _SectionTitle({required this.title, required this.icon});
 
   @override
   Widget build(BuildContext context) {
     final primaryColor = Theme.of(context).colorScheme.primary;
-    
+
     return Row(
       children: [
         Icon(icon, size: 20, color: primaryColor),
         const SizedBox(width: 8),
         Text(
           title,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ],
     );
@@ -210,43 +199,49 @@ class _ThemeModeOption extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = Theme.of(context).colorScheme.primary;
-    
+
     return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? primaryColor.withValues(alpha: isDark ? 0.3 : 0.1)
-                : (isDark ? Colors.grey.shade800 : Colors.grey.shade100),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isSelected ? primaryColor : Colors.transparent,
-              width: 2,
-            ),
-          ),
-          child: Column(
-            children: [
-              Icon(
-                icon,
-                size: 32,
-                color: isSelected
-                    ? primaryColor
-                    : (isDark ? Colors.white70 : Colors.grey.shade600),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? primaryColor.withValues(alpha: isDark ? 0.3 : 0.1)
+                  : (isDark ? Colors.grey.shade800 : Colors.grey.shade100),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isSelected ? primaryColor : Colors.transparent,
+                width: 2,
               ),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  icon,
+                  size: 32,
                   color: isSelected
                       ? primaryColor
-                      : (isDark ? Colors.white70 : Colors.grey.shade700),
+                      : (isDark ? Colors.white70 : Colors.grey.shade600),
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                    color: isSelected
+                        ? primaryColor
+                        : (isDark ? Colors.white70 : Colors.grey.shade700),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -270,35 +265,43 @@ class _AccentColorSelector extends StatelessWidget {
       spacing: 12,
       runSpacing: 12,
       children: AppThemes.accentColors.entries.map((entry) {
-        final isSelected = currentColor == entry.key || 
+        final isSelected =
+            currentColor == entry.key ||
             (currentColor == null && entry.key == 'green');
-        
-        return GestureDetector(
-          onTap: () => onColorChanged(entry.key == 'green' ? null : entry.key),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: entry.value,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isSelected ? Colors.white : Colors.transparent,
-                width: 3,
+
+        return Material(
+          color: entry.value,
+          shape: const CircleBorder(),
+          child: InkWell(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              onColorChanged(entry.key == 'green' ? null : entry.key);
+            },
+            customBorder: const CircleBorder(),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected ? Colors.white : Colors.transparent,
+                  width: 3,
+                ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: entry.value.withValues(alpha: 0.5),
+                          blurRadius: 8,
+                          spreadRadius: 2,
+                        ),
+                      ]
+                    : null,
               ),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: entry.value.withValues(alpha: 0.5),
-                        blurRadius: 8,
-                        spreadRadius: 2,
-                      ),
-                    ]
+              child: isSelected
+                  ? const Icon(Icons.check, color: Colors.white, size: 24)
                   : null,
             ),
-            child: isSelected
-                ? const Icon(Icons.check, color: Colors.white, size: 24)
-                : null,
           ),
         );
       }).toList(),
@@ -318,7 +321,7 @@ class _ThemePreview extends StatelessWidget {
     final successColor = Colors.green;
     final warningColor = Colors.orange;
     final errorColor = Colors.red;
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -358,19 +361,23 @@ class _ThemePreview extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          
+
           // Mini cards
           Row(
             children: [
               _MiniCard(isDark: isDark, color: successColor, icon: Icons.check),
               const SizedBox(width: 8),
-              _MiniCard(isDark: isDark, color: warningColor, icon: Icons.access_time),
+              _MiniCard(
+                isDark: isDark,
+                color: warningColor,
+                icon: Icons.access_time,
+              ),
               const SizedBox(width: 8),
               _MiniCard(isDark: isDark, color: errorColor, icon: Icons.close),
             ],
           ),
           const SizedBox(height: 12),
-          
+
           // Mini button
           Container(
             width: double.infinity,
@@ -455,52 +462,54 @@ class _OptionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = Theme.of(context).colorScheme.primary;
-    
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? Colors.grey.shade900 : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.grey.shade900 : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+            ),
           ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: primaryColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: primaryColor, size: 20),
               ),
-              child: Icon(icon, color: primaryColor, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 12,
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            trailing,
-          ],
+              trailing,
+            ],
+          ),
         ),
       ),
     );

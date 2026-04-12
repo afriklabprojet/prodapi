@@ -4,7 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/config/env_config.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/api_constants.dart';
-import '../../../../core/services/whatsapp_service.dart';
+import '../../../../core/services/messaging/messaging.dart';
 import '../../../../config/providers.dart';
 
 // ─── FAQ Model ───────────────────────────────────────────────────────────────
@@ -16,28 +16,47 @@ class _FAQItem {
   const _FAQItem({required this.question, required this.answer});
 }
 
+// ─── Support Settings Model ──────────────────────────────────────────────────
+
+class _SupportSettings {
+  final String phone;
+  final String email;
+  final String whatsapp;
+
+  const _SupportSettings({
+    required this.phone,
+    required this.email,
+    required this.whatsapp,
+  });
+}
+
 // ─── Default FAQ (fallback si l'API échoue) ──────────────────────────────────
 
 const _defaultFaqItems = [
   _FAQItem(
     question: 'Comment suivre ma commande ?',
-    answer: 'Allez dans l\'onglet "Commandes" en bas de l\'écran pour voir toutes vos commandes en cours et leur statut.',
+    answer:
+        'Allez dans l\'onglet "Commandes" en bas de l\'écran pour voir toutes vos commandes en cours et leur statut.',
   ),
   _FAQItem(
     question: 'Comment payer ?',
-    answer: 'Nous acceptons les paiements par Mobile Money (Orange, MTN, Moov) et les paiements à la livraison.',
+    answer:
+        'Nous acceptons les paiements par Mobile Money (Orange, MTN, Moov) et les paiements à la livraison.',
   ),
   _FAQItem(
     question: 'Comment annuler une commande ?',
-    answer: 'Vous pouvez annuler une commande tant qu\'elle n\'a pas été confirmée par la pharmacie. Allez dans les détails de la commande pour voir l\'option.',
+    answer:
+        'Vous pouvez annuler une commande tant qu\'elle n\'a pas été confirmée par la pharmacie. Allez dans les détails de la commande pour voir l\'option.',
   ),
   _FAQItem(
     question: 'J\'ai un problème avec ma livraison',
-    answer: 'Si le coursier a du retard ou un problème, vous pouvez le contacter directement depuis la page de suivi de commande.',
+    answer:
+        'Si le coursier a du retard ou un problème, vous pouvez le contacter directement depuis la page de suivi de commande.',
   ),
   _FAQItem(
     question: 'Comment uploader une ordonnance ?',
-    answer: 'Dans l\'onglet "Ordonnances" ou lors d\'une commande, appuyez sur "Ajouter une ordonnance" et prenez une photo de votre prescription.',
+    answer:
+        'Dans l\'onglet "Ordonnances" ou lors d\'une commande, appuyez sur "Ajouter une ordonnance" et prenez une photo de votre prescription.',
   ),
 ];
 
@@ -50,12 +69,15 @@ final customerFaqProvider = FutureProvider<List<_FAQItem>>((ref) async {
     final data = response.data;
 
     if (data['success'] == true && data['data'] is List) {
-      final items = (data['data'] as List).map((json) {
-        return _FAQItem(
-          question: json['question'] as String? ?? '',
-          answer: json['answer'] as String? ?? '',
-        );
-      }).where((item) => item.question.isNotEmpty).toList();
+      final items = (data['data'] as List)
+          .map((json) {
+            return _FAQItem(
+              question: json['question'] as String? ?? '',
+              answer: json['answer'] as String? ?? '',
+            );
+          })
+          .where((item) => item.question.isNotEmpty)
+          .toList();
 
       if (items.isNotEmpty) return items;
     }
@@ -63,6 +85,37 @@ final customerFaqProvider = FutureProvider<List<_FAQItem>>((ref) async {
     // Fallback silencieux
   }
   return _defaultFaqItems;
+});
+
+// ─── Support Settings Provider ────────────────────────────────────────────────
+
+final supportSettingsProvider = FutureProvider<_SupportSettings>((ref) async {
+  try {
+    final apiClient = ref.read(apiClientProvider);
+    final response = await apiClient.get(ApiConstants.supportSettings);
+    final data = response.data;
+
+    if (data['success'] == true && data['data'] is Map) {
+      final d = data['data'] as Map<String, dynamic>;
+      return _SupportSettings(
+        phone: (d['support_phone'] as String?) ?? EnvConfig.supportPhone,
+        email: (d['support_email'] as String?) ?? EnvConfig.supportEmail,
+        whatsapp:
+            (d['support_whatsapp'] as String?)?.replaceAll(
+              RegExp(r'[^0-9+]'),
+              '',
+            ) ??
+            EnvConfig.supportWhatsApp,
+      );
+    }
+  } catch (_) {
+    // Fallback silencieux aux valeurs build-time
+  }
+  return _SupportSettings(
+    phone: EnvConfig.supportPhone,
+    email: EnvConfig.supportEmail,
+    whatsapp: EnvConfig.supportWhatsApp,
+  );
 });
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -74,6 +127,16 @@ class HelpSupportPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final faqAsync = ref.watch(customerFaqProvider);
+    final settingsAsync = ref.watch(supportSettingsProvider);
+
+    // Resolve support settings (show data or fallback, never block UI)
+    final settings =
+        settingsAsync.valueOrNull ??
+        _SupportSettings(
+          phone: EnvConfig.supportPhone,
+          email: EnvConfig.supportEmail,
+          whatsapp: EnvConfig.supportWhatsApp,
+        );
 
     return Scaffold(
       appBar: AppBar(
@@ -102,10 +165,14 @@ class HelpSupportPage extends ConsumerWidget {
               ),
             ),
             error: (e, s) => Column(
-              children: _defaultFaqItems.map((item) => _buildFAQItem(item.question, item.answer)).toList(),
+              children: _defaultFaqItems
+                  .map((item) => _buildFAQItem(item.question, item.answer))
+                  .toList(),
             ),
             data: (items) => Column(
-              children: items.map((item) => _buildFAQItem(item.question, item.answer)).toList(),
+              children: items
+                  .map((item) => _buildFAQItem(item.question, item.answer))
+                  .toList(),
             ),
           ),
           const SizedBox(height: 24),
@@ -126,10 +193,10 @@ class HelpSupportPage extends ConsumerWidget {
             context,
             icon: Icons.email_outlined,
             title: 'Email',
-            subtitle: EnvConfig.supportEmail,
+            subtitle: settings.email,
             color: Colors.blue,
             onTap: () async {
-              final uri = Uri.parse('mailto:${EnvConfig.supportEmail}');
+              final uri = Uri.parse('mailto:${settings.email}');
               if (await canLaunchUrl(uri)) {
                 await launchUrl(uri);
               }
@@ -142,10 +209,10 @@ class HelpSupportPage extends ConsumerWidget {
             context,
             icon: Icons.phone_outlined,
             title: 'Téléphone',
-            subtitle: EnvConfig.supportPhone,
+            subtitle: settings.phone,
             color: Colors.green,
             onTap: () async {
-              final uri = Uri.parse('tel:${EnvConfig.supportPhone}');
+              final uri = Uri.parse('tel:${settings.phone}');
               if (await canLaunchUrl(uri)) {
                 await launchUrl(uri);
               }
@@ -160,19 +227,32 @@ class HelpSupportPage extends ConsumerWidget {
             title: 'WhatsApp',
             subtitle: 'Chat en direct avec le support',
             color: const Color(0xFF25D366),
-            onTap: () => WhatsAppService.contactSupport(
-              supportNumber: EnvConfig.supportWhatsApp,
-              message: 'Bonjour, j\'ai besoin d\'aide avec l\'application DR-PHARMA.',
-            ),
+            onTap: () async {
+              final messaging = ref.read(messagingServiceProvider);
+              final result = await messaging.contactSupport(
+                supportNumber: settings.whatsapp,
+                message:
+                    'Bonjour, j\'ai besoin d\'aide avec l\'application DR-PHARMA.',
+              );
+              result.fold((failure) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(failure.message)));
+                }
+              }, (_) {});
+            },
           ),
-          
+
           const SizedBox(height: 24),
 
           // Note horaires
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isDark ? Colors.blue.shade900.withValues(alpha: 0.3) : Colors.blue.shade50,
+              color: isDark
+                  ? Colors.blue.shade900.withValues(alpha: 0.3)
+                  : Colors.blue.shade50,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: isDark ? Colors.blue.shade800 : Colors.blue.shade100,
@@ -198,7 +278,9 @@ class HelpSupportPage extends ConsumerWidget {
                         'Notre équipe est disponible 7j/7 de 8h à 22h',
                         style: TextStyle(
                           fontSize: 13,
-                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                          color: isDark
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade600,
                         ),
                       ),
                     ],
@@ -221,7 +303,7 @@ class HelpSupportPage extends ConsumerWidget {
     required VoidCallback onTap,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Card(
       elevation: isDark ? 0 : 1,
       color: isDark ? const Color(0xFF1E1E1E) : Colors.white,

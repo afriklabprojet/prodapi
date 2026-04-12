@@ -3,15 +3,25 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/presentation/widgets/widgets.dart';
+import '../../../../core/utils/phone_masker.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/order_entity.dart';
+import '../../domain/enums/order_status.dart';
+import '../extensions/order_status_l10n.dart';
 
 /// Carte de commande améliorée avec animations et actions
 class EnhancedOrderCard extends StatefulWidget {
   final OrderEntity order;
   final VoidCallback? onTap;
-  final VoidCallback? onConfirm;
+
+  /// Callback async pour confirmer - retourne true si succès
+  final Future<bool> Function()? onConfirm;
+
+  /// Callback sync pour rejeter (ouvre un dialogue)
   final VoidCallback? onReject;
-  final VoidCallback? onMarkReady;
+
+  /// Callback async pour marquer prête - retourne true si succès
+  final Future<bool> Function()? onMarkReady;
 
   const EnhancedOrderCard({
     super.key,
@@ -39,9 +49,10 @@ class _EnhancedOrderCardState extends State<EnhancedOrderCard>
       duration: const Duration(milliseconds: 150),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.98).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.98,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -51,34 +62,22 @@ class _EnhancedOrderCardState extends State<EnhancedOrderCard>
   }
 
   Color get _statusColor {
-    switch (widget.order.status.toLowerCase()) {
-      case 'pending':
-        // Unpaid orders get a distinct red-ish color
-        return widget.order.isPaid ? Colors.orange : Colors.red.shade400;
-      case 'confirmed':
-        return Colors.blue;
-      case 'ready_for_pickup':
-      case 'ready':
-        return Colors.green;
-      case 'cancelled':
-      case 'rejected':
-        return Colors.red;
-      default:
-        return Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey.shade600;
+    if (widget.order.status == OrderStatus.pending && !widget.order.isPaid) {
+      return Colors.red.shade400;
     }
+    return widget.order.status.color;
   }
 
   StatusType get _statusType {
-    switch (widget.order.status.toLowerCase()) {
-      case 'pending':
+    switch (widget.order.status) {
+      case OrderStatus.pending:
         return widget.order.isPaid ? StatusType.pending : StatusType.error;
-      case 'confirmed':
+      case OrderStatus.confirmed:
         return StatusType.info;
-      case 'ready_for_pickup':
-      case 'ready':
+      case OrderStatus.ready:
         return StatusType.success;
-      case 'cancelled':
-      case 'rejected':
+      case OrderStatus.cancelled:
+      case OrderStatus.rejected:
         return StatusType.error;
       default:
         return StatusType.neutral;
@@ -86,30 +85,16 @@ class _EnhancedOrderCardState extends State<EnhancedOrderCard>
   }
 
   String get _statusLabel {
-    switch (widget.order.status.toLowerCase()) {
-      case 'pending':
-        return widget.order.isPaid ? 'En attente' : 'Non payé';
-      case 'confirmed':
-        return 'Confirmée';
-      case 'ready_for_pickup':
-      case 'ready':
-        return 'Prête';
-      case 'cancelled':
-        return 'Annulée';
-      case 'rejected':
-        return 'Refusée';
-      case 'delivered':
-        return 'Livrée';
-      default:
-        return widget.order.status;
+    final l10n = AppLocalizations.of(context);
+    if (widget.order.status == OrderStatus.pending && !widget.order.isPaid) {
+      return l10n.orderStatusUnpaid;
     }
+    return widget.order.status.localizedLabel(l10n);
   }
 
   bool get _showActions {
-    final status = widget.order.status.toLowerCase();
-    // Show actions only for paid pending orders or confirmed orders
-    if (status == 'pending') return widget.order.isPaid;
-    if (status == 'confirmed') return true;
+    if (widget.order.status == OrderStatus.pending) return widget.order.isPaid;
+    if (widget.order.status == OrderStatus.confirmed) return true;
     return false;
   }
 
@@ -125,244 +110,218 @@ class _EnhancedOrderCardState extends State<EnhancedOrderCard>
     final primaryLight = primaryColor.withValues(alpha: 0.1);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black87;
-    final secondaryTextColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+    final secondaryTextColor = isDark
+        ? Colors.grey.shade400
+        : Colors.grey.shade600;
 
-    return GestureDetector(
-      onTapDown: (_) => _controller.forward(),
-      onTapUp: (_) {
-        _controller.reverse();
-        HapticFeedback.lightImpact();
-        widget.onTap?.call();
-      },
-      onTapCancel: () => _controller.reverse(),
-      onLongPress: () {
-        HapticFeedback.mediumImpact();
-        setState(() => _isExpanded = !_isExpanded);
-      },
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          margin: const EdgeInsets.only(bottom: 16),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.grey.shade900 : Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: _statusColor.withValues(alpha: 0.1),
-                blurRadius: 20,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              // En-tête de la carte
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  border: Border(
-                    left: BorderSide(
-                      color: _statusColor,
-                      width: 4,
+    return Semantics(
+      button: true,
+      label:
+          'Commande ${widget.order.reference}, ${widget.order.customerName}, $_statusLabel, ${currencyFormat.format(widget.order.totalAmount)}. Appuyer pour voir les détails, maintenir pour plus d\'options.',
+      onTap: widget.onTap,
+      onLongPress: () => setState(() => _isExpanded = !_isExpanded),
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTapDown: (_) => _controller.forward(),
+        onTapUp: (_) {
+          _controller.reverse();
+          HapticFeedback.lightImpact();
+          widget.onTap?.call();
+        },
+        onTapCancel: () => _controller.reverse(),
+        onLongPress: () {
+          HapticFeedback.mediumImpact();
+          setState(() => _isExpanded = !_isExpanded);
+        },
+        child: ScaleTransition(
+          scale: _scaleAnimation,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.grey.shade900 : Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: _statusColor.withValues(alpha: 0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                // En-tête de la carte
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      left: BorderSide(color: _statusColor, width: 4),
                     ),
                   ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Ligne du haut: Référence + Status
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: primaryLight,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                Icons.receipt_long_outlined,
-                                color: primaryColor,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '#${widget.order.reference}',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                    color: textColor,
-                                  ),
-                                ),
-                                Text(
-                                  _formatDate(widget.order.createdAt),
-                                  style: TextStyle(
-                                    color: secondaryTextColor,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        StatusBadge(
-                          label: _statusLabel,
-                          type: _statusType,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Infos client
-                    Row(
-                      children: [
-                        UserAvatar(
-                          name: widget.order.customerName,
-                          size: 40,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Ligne du haut: Référence + Status
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
                             children: [
-                              Text(
-                                widget.order.customerName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 15,
+                              Hero(
+                                tag: 'order_icon_${widget.order.id}',
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: primaryLight,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(
+                                    Icons.receipt_long_outlined,
+                                    color: primaryColor,
+                                    size: 20,
+                                  ),
                                 ),
                               ),
-                              Row(
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(
-                                    Icons.phone_outlined,
-                                    size: 14,
-                                    color: secondaryTextColor,
-                                  ),
-                                  const SizedBox(width: 4),
                                   Text(
-                                    widget.order.customerPhone,
+                                    '#${widget.order.reference}',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: textColor,
+                                    ),
+                                  ),
+                                  Text(
+                                    _formatDate(widget.order.createdAt),
                                     style: TextStyle(
                                       color: secondaryTextColor,
-                                      fontSize: 13,
+                                      fontSize: 12,
                                     ),
                                   ),
                                 ],
                               ),
                             ],
                           ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              currencyFormat.format(widget.order.totalAmount),
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                                color: primaryColor,
-                              ),
-                            ),
-                            if (widget.order.items != null)
-                              Text(
-                                '${widget.order.items!.length} article(s)',
-                                style: TextStyle(
-                                  color: secondaryTextColor,
-                                  fontSize: 12,
+                          StatusBadge(label: _statusLabel, type: _statusType),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Infos client
+                      Row(
+                        children: [
+                          UserAvatar(name: widget.order.customerName, size: 40),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.order.customerName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 15,
+                                  ),
                                 ),
-                              ),
-                            // Payment status indicator for unpaid orders
-                            if (widget.order.isPendingUnpaid)
-                              Container(
-                                margin: const EdgeInsets.only(top: 4),
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.shade50,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: Colors.red.shade200, width: 0.5),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
+                                Row(
                                   children: [
-                                    Icon(Icons.payment_rounded, size: 12, color: Colors.red.shade600),
-                                    const SizedBox(width: 3),
+                                    Icon(
+                                      Icons.phone_outlined,
+                                      size: 14,
+                                      color: secondaryTextColor,
+                                    ),
+                                    const SizedBox(width: 4),
                                     Text(
-                                      'Non payé',
+                                      PhoneMasker.mask(
+                                        widget.order.customerPhone,
+                                      ),
                                       style: TextStyle(
-                                        color: Colors.red.shade700,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
+                                        color: secondaryTextColor,
+                                        fontSize: 13,
                                       ),
                                     ),
                                   ],
                                 ),
+                              ],
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                currencyFormat.format(widget.order.totalAmount),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                  color: primaryColor,
+                                ),
                               ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Banner for unpaid pending orders
-              if (widget.order.isPendingUnpaid)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(20),
-                      bottomRight: Radius.circular(20),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.hourglass_top_rounded, size: 16, color: Colors.red.shade600),
-                      const SizedBox(width: 6),
-                      Text(
-                        'En attente de paiement',
-                        style: TextStyle(
-                          color: Colors.red.shade700,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
+                              if (widget.order.items != null)
+                                Text(
+                                  '${widget.order.items!.length} article(s)',
+                                  style: TextStyle(
+                                    color: secondaryTextColor,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              // Payment status indicator for unpaid orders
+                              if (widget.order.isPendingUnpaid)
+                                Container(
+                                  margin: const EdgeInsets.only(top: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade50,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: Colors.red.shade200,
+                                      width: 0.5,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.payment_rounded,
+                                        size: 12,
+                                        color: Colors.red.shade600,
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        'Non payé',
+                                        style: TextStyle(
+                                          color: Colors.red.shade700,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
 
-              // Section d'actions (expandable)
-              if (_showActions)
-                AnimatedCrossFade(
-                  firstChild: const SizedBox.shrink(),
-                  secondChild: _buildActionsSection(),
-                  crossFadeState: _isExpanded
-                      ? CrossFadeState.showSecond
-                      : CrossFadeState.showFirst,
-                  duration: const Duration(milliseconds: 300),
-                ),
-              
-              // Bouton pour montrer/cacher les actions
-              if (_showActions)
-                InkWell(
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    setState(() => _isExpanded = !_isExpanded);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                // Banner for unpaid pending orders
+                if (widget.order.isPendingUnpaid)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 10,
+                      horizontal: 16,
+                    ),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).scaffoldBackgroundColor,
+                      color: Colors.red.shade50,
                       borderRadius: const BorderRadius.only(
                         bottomLeft: Radius.circular(20),
                         bottomRight: Radius.circular(20),
@@ -371,29 +330,80 @@ class _EnhancedOrderCardState extends State<EnhancedOrderCard>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
+                        Icon(
+                          Icons.hourglass_top_rounded,
+                          size: 16,
+                          color: Colors.red.shade600,
+                        ),
+                        const SizedBox(width: 6),
                         Text(
-                          _isExpanded ? 'Masquer les actions' : 'Voir les actions',
+                          'En attente de paiement',
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.primary,
+                            color: Colors.red.shade700,
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        AnimatedRotation(
-                          turns: _isExpanded ? 0.5 : 0,
-                          duration: const Duration(milliseconds: 300),
-                          child: Icon(
-                            Icons.keyboard_arrow_down,
-                            color: Theme.of(context).colorScheme.primary,
-                            size: 20,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
-            ],
+
+                // Section d'actions (expandable)
+                if (_showActions)
+                  AnimatedCrossFade(
+                    firstChild: const SizedBox.shrink(),
+                    secondChild: _buildActionsSection(),
+                    crossFadeState: _isExpanded
+                        ? CrossFadeState.showSecond
+                        : CrossFadeState.showFirst,
+                    duration: const Duration(milliseconds: 300),
+                  ),
+
+                // Bouton pour montrer/cacher les actions
+                if (_showActions)
+                  InkWell(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() => _isExpanded = !_isExpanded);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).scaffoldBackgroundColor,
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(20),
+                          bottomRight: Radius.circular(20),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            _isExpanded
+                                ? 'Masquer les actions'
+                                : 'Voir les actions',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          AnimatedRotation(
+                            turns: _isExpanded ? 0.5 : 0,
+                            duration: const Duration(milliseconds: 300),
+                            child: Icon(
+                              Icons.keyboard_arrow_down,
+                              color: Theme.of(context).colorScheme.primary,
+                              size: 20,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -401,7 +411,7 @@ class _EnhancedOrderCardState extends State<EnhancedOrderCard>
   }
 
   Widget _buildActionsSection() {
-    final status = widget.order.status.toLowerCase();
+    final status = widget.order.status;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -409,20 +419,20 @@ class _EnhancedOrderCardState extends State<EnhancedOrderCard>
         children: [
           const Divider(),
           const SizedBox(height: 12),
-          if (status == 'pending') ...[
+          if (status == OrderStatus.pending) ...[
             Row(
               children: [
                 Expanded(
-                  child: _ActionButton(
+                  child: AsyncSmallButton(
                     label: 'Confirmer',
                     icon: Icons.check_circle_outline,
                     color: Colors.green,
-                    onTap: widget.onConfirm,
+                    onPressed: widget.onConfirm,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _ActionButton(
+                  child: _SyncActionButton(
                     label: 'Refuser',
                     icon: Icons.cancel_outlined,
                     color: Colors.red,
@@ -432,12 +442,12 @@ class _EnhancedOrderCardState extends State<EnhancedOrderCard>
                 ),
               ],
             ),
-          ] else if (status == 'confirmed') ...[
-            _ActionButton(
+          ] else if (status == OrderStatus.confirmed) ...[
+            AsyncSmallButton(
               label: 'Marquer comme prête',
               icon: Icons.inventory_2_outlined,
               color: Colors.blue,
-              onTap: widget.onMarkReady,
+              onPressed: widget.onMarkReady,
               isFullWidth: true,
             ),
           ],
@@ -462,21 +472,20 @@ class _EnhancedOrderCardState extends State<EnhancedOrderCard>
   }
 }
 
-class _ActionButton extends StatelessWidget {
+/// Bouton d'action synchrone (pour actions qui ouvrent un dialogue)
+class _SyncActionButton extends StatelessWidget {
   final String label;
   final IconData icon;
   final Color color;
   final VoidCallback? onTap;
   final bool isOutlined;
-  final bool isFullWidth;
 
-  const _ActionButton({
+  const _SyncActionButton({
     required this.label,
     required this.icon,
     required this.color,
     this.onTap,
     this.isOutlined = false,
-    this.isFullWidth = false,
   });
 
   @override
@@ -491,25 +500,16 @@ class _ActionButton extends StatelessWidget {
         },
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 12,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            border: isOutlined
-                ? Border.all(color: color, width: 1.5)
-                : null,
+            border: isOutlined ? Border.all(color: color, width: 1.5) : null,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: isFullWidth ? MainAxisSize.max : MainAxisSize.min,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                icon,
-                size: 18,
-                color: isOutlined ? color : Colors.white,
-              ),
+              Icon(icon, size: 18, color: isOutlined ? color : Colors.white),
               const SizedBox(width: 8),
               Text(
                 label,

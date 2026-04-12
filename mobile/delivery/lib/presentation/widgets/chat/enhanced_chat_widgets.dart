@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:record/record.dart';
@@ -13,6 +13,7 @@ import '../../../data/models/enhanced_chat_message.dart';
 import '../../../core/services/enhanced_chat_service.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/utils/snackbar_extension.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // BULLE DE MESSAGE ENRICHIE
@@ -998,9 +999,7 @@ class _EnhancedChatInputState extends ConsumerState<EnhancedChatInput> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erreur lors de la sélection de l\'image')),
-        );
+        context.showErrorMessage('Erreur lors de la sélection de l\'image');
       }
     }
   }
@@ -1018,9 +1017,7 @@ class _EnhancedChatInputState extends ConsumerState<EnhancedChatInput> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erreur lors de la prise de photo')),
-        );
+        context.showErrorMessage('Erreur lors de la prise de photo');
       }
     }
   }
@@ -1067,9 +1064,7 @@ class _EnhancedChatInputState extends ConsumerState<EnhancedChatInput> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erreur lors de l\'arrêt de l\'enregistrement')),
-        );
+        context.showErrorMessage('Erreur lors de l\'arrêt de l\'enregistrement');
       }
     }
   }

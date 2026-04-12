@@ -6,9 +6,10 @@ import 'core/utils/responsive_utils.dart';
 import 'config/providers.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/orders/presentation/providers/cart_provider.dart';
+import 'features/orders/presentation/providers/orders_provider.dart';
 import 'features/home/presentation/widgets/widgets.dart';
 import 'features/home/domain/models/promo_item.dart';
-import 'l10n/app_localizations.dart';
+import 'features/treatments/presentation/widgets/smart_refill_banner.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -30,7 +31,10 @@ class _HomePageState extends ConsumerState<HomePage> {
       badge: 'Nouveau',
       title: 'Livraison Gratuite',
       subtitle: 'Sur votre première commande',
-      gradientColorValues: [AppColors.primary.toARGB32(), AppColors.primaryDark.toARGB32()],
+      gradientColorValues: [
+        AppColors.primary.toARGB32(),
+        AppColors.primaryDark.toARGB32(),
+      ],
     ),
     PromoItem(
       badge: '-20%',
@@ -58,9 +62,12 @@ class _HomePageState extends ConsumerState<HomePage> {
   void initState() {
     super.initState();
     _startPromoTimer();
-    // Load featured pharmacies
+    // Load featured pharmacies and orders for frequent products
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(pharmaciesProvider.notifier).fetchFeaturedPharmacies();
+      ref
+          .read(ordersProvider.notifier)
+          .loadOrders(); // For frequent products analysis
     });
   }
 
@@ -76,7 +83,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   void _startPharmacyTimer(int pharmacyCount) {
     _pharmacyTimer?.cancel();
     if (pharmacyCount <= 1) return;
-    
+
     _pharmacyTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       if (_pharmacyPageController.hasClients) {
         _currentPharmacyIndex = (_currentPharmacyIndex + 1) % pharmacyCount;
@@ -111,10 +118,16 @@ class _HomePageState extends ConsumerState<HomePage> {
     final r = ResponsiveUtils(context);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF1A1A2E) : Colors.grey[50],
+      backgroundColor: isDark ? AppColors.darkBackgroundDeep : Colors.grey[50],
       body: Center(
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: r.value(mobile: double.infinity, tablet: 700.0, desktop: 900.0)),
+          constraints: BoxConstraints(
+            maxWidth: r.value(
+              mobile: double.infinity,
+              tablet: 700.0,
+              desktop: 900.0,
+            ),
+          ),
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
@@ -126,37 +139,108 @@ class _HomePageState extends ConsumerState<HomePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       WelcomeSection(userName: user?.name, isDark: isDark),
-                      SizedBox(height: r.value(mobile: 32.0, tablet: 40.0, desktop: 48.0)),
+                      SizedBox(
+                        height: r.value(
+                          mobile: 20.0,
+                          tablet: 24.0,
+                          desktop: 28.0,
+                        ),
+                      ),
+                      HomeSearchBar(isDark: isDark),
+                      SizedBox(
+                        height: r.value(
+                          mobile: 24.0,
+                          tablet: 28.0,
+                          desktop: 32.0,
+                        ),
+                      ),
+                      SizedBox(
+                        height: r.value(
+                          mobile: 32.0,
+                          tablet: 40.0,
+                          desktop: 48.0,
+                        ),
+                      ),
                       FeaturedPharmaciesSection(
-                        pharmacies: ref.watch(pharmaciesProvider).featuredPharmacies,
-                        isLoading: ref.watch(pharmaciesProvider).isFeaturedLoading,
+                        pharmacies: ref
+                            .watch(pharmaciesProvider)
+                            .featuredPharmacies,
+                        isLoading: ref
+                            .watch(pharmaciesProvider)
+                            .isFeaturedLoading,
                         isDark: isDark,
                         pageController: _pharmacyPageController,
                         currentIndex: _currentPharmacyIndex,
-                        onRefresh: () => ref.read(pharmaciesProvider.notifier).fetchFeaturedPharmacies(),
+                        onRefresh: () => ref
+                            .read(pharmaciesProvider.notifier)
+                            .fetchFeaturedPharmacies(),
                         onPageChanged: (index) {
                           setState(() => _currentPharmacyIndex = index);
-                          final pharmacies = ref.read(pharmaciesProvider).featuredPharmacies;
+                          final pharmacies = ref
+                              .read(pharmaciesProvider)
+                              .featuredPharmacies;
                           if (pharmacies.isNotEmpty && _pharmacyTimer == null) {
                             _startPharmacyTimer(pharmacies.length);
                           }
                         },
                       ),
-                      SizedBox(height: r.value(mobile: 32.0, tablet: 40.0, desktop: 48.0)),
-                      SectionTitle(title: AppLocalizations.of(context).homeServices, isDark: isDark),
+                      SizedBox(
+                        height: r.value(
+                          mobile: 32.0,
+                          tablet: 40.0,
+                          desktop: 48.0,
+                        ),
+                      ),
+                      SectionTitle(title: 'Nos Services', isDark: isDark),
                       const SizedBox(height: 16),
                       QuickActionsGrid(isDark: isDark),
-                      SizedBox(height: r.value(mobile: 32.0, tablet: 40.0, desktop: 48.0)),
-                      SectionTitle(title: AppLocalizations.of(context).homeFeatured, isDark: isDark),
+                      SizedBox(
+                        height: r.value(
+                          mobile: 24.0,
+                          tablet: 28.0,
+                          desktop: 32.0,
+                        ),
+                      ),
+                      // Section Smart Refill (rappels proactifs)
+                      const SmartRefillSection(),
+                      SizedBox(
+                        height: r.value(
+                          mobile: 32.0,
+                          tablet: 40.0,
+                          desktop: 48.0,
+                        ),
+                      ),
+                      // Section "Vos habituels" (basé sur l'historique d'achat)
+                      FrequentProductsSection(isDark: isDark),
+                      SizedBox(
+                        height: r.value(
+                          mobile: 32.0,
+                          tablet: 40.0,
+                          desktop: 48.0,
+                        ),
+                      ),
+                      // Section "Mes habituels" (favoris)
+                      FavoriteProductsSection(isDark: isDark),
+                      SizedBox(
+                        height: r.value(
+                          mobile: 32.0,
+                          tablet: 40.0,
+                          desktop: 48.0,
+                        ),
+                      ),
+                      SectionTitle(title: 'À la une', isDark: isDark),
                       const SizedBox(height: 16),
                       PromoSlider(
                         items: _promoItems,
                         controller: _promoPageController,
                         currentIndex: _currentPromoIndex,
                         isDark: isDark,
-                        onPageChanged: (index) => setState(() => _currentPromoIndex = index),
+                        onPageChanged: (index) =>
+                            setState(() => _currentPromoIndex = index),
                       ),
-                      const SizedBox(height: 100),
+                      SizedBox(
+                        height: MediaQuery.paddingOf(context).bottom + 24,
+                      ),
                     ],
                   ),
                 ),

@@ -1,5 +1,7 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import '../network/api_client.dart';
+import '../constants/api_constants.dart';
 import 'app_logger.dart';
 
 /// Service de gestion des notifications push (FCM)
@@ -24,8 +26,13 @@ class NotificationService {
         final token = await _messaging.getToken();
         if (token != null) {
           AppLogger.info('FCM Token obtained (${token.substring(0, 10)}...)');
-          // TODO: Send token to backend
         }
+        
+        // Écouter les changements de token (expiration/rotation)
+        _messaging.onTokenRefresh.listen((newToken) {
+          AppLogger.info('FCM Token refreshed');
+          // Token sera synchronisé au prochain login ou via syncTokenToBackend
+        });
       }
     } catch (e) {
       AppLogger.error('Failed to init notifications', error: e);
@@ -40,6 +47,39 @@ class NotificationService {
     } catch (e) {
       AppLogger.error('Failed to get FCM token', error: e);
       return null;
+    }
+  }
+
+  /// Synchroniser le token FCM avec le backend
+  /// Doit être appelé après le login de l'utilisateur
+  Future<bool> syncTokenToBackend(ApiClient apiClient) async {
+    try {
+      final token = await getToken();
+      if (token == null) {
+        AppLogger.warning('No FCM token to sync');
+        return false;
+      }
+
+      await apiClient.post(
+        ApiConstants.updateFcmToken,
+        data: {'fcm_token': token},
+      );
+
+      AppLogger.info('FCM token synced to backend');
+      return true;
+    } catch (e) {
+      AppLogger.error('Failed to sync FCM token', error: e);
+      return false;
+    }
+  }
+
+  /// Supprimer le token FCM du backend (logout)
+  Future<void> removeTokenFromBackend(ApiClient apiClient) async {
+    try {
+      await apiClient.delete(ApiConstants.updateFcmToken);
+      AppLogger.info('FCM token removed from backend');
+    } catch (e) {
+      AppLogger.error('Failed to remove FCM token', error: e);
     }
   }
 }

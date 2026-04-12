@@ -11,7 +11,7 @@ void main() {
   late SharedPreferences sharedPreferences;
 
   setUp(() async {
-  SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({});
     sharedPreferences = await SharedPreferences.getInstance();
   });
 
@@ -22,11 +22,7 @@ void main() {
         apiClientProvider.overrideWithValue(FakeApiClient()),
       ],
       child: MaterialApp(
-        home: Scaffold(
-          body: AddressSelector(
-            onAddressSelected: (address) {},
-          ),
-        ),
+        home: Scaffold(body: AddressSelector(onAddressSelected: (address) {})),
       ),
     );
   }
@@ -59,10 +55,10 @@ void main() {
 
     testWidgets('should be accessible', (tester) async {
       await tester.pumpWidget(createTestWidget());
-    
+
       final semanticsHandle = tester.ensureSemantics();
       semanticsHandle.dispose();
-    
+
       expect(find.byType(AddressSelector), findsOneWidget);
     });
   });

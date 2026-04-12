@@ -19,7 +19,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 version: 1.0.0-beta.1+1
 
 environment:
-  sdk: ^3.10.1
+  sdk: ^3.10.0
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -46,6 +46,9 @@ dependencies:
   mobile_scanner: ^5.1.1
   firebase_core: ^4.3.0
   firebase_messaging: ^16.1.0
+  firebase_analytics: ^12.2.0
+  firebase_crashlytics: ^5.1.0
+  firebase_performance: ^0.11.2
   infobip_mobilemessaging: ^9.6.1
   flutter_local_notifications: ^19.5.0
   google_fonts: ^7.0.2
@@ -69,9 +72,21 @@ dependencies:
   google_maps_flutter: ^2.10.0
   cached_network_image: ^3.3.1
   shimmer: ^3.0.0
+  image_cropper: ^8.0.2
   http_parser: ^4.1.2
+  audioplayers: ^6.1.0
+  fl_chart: ^0.70.2
+  app_links: ^6.3.3
+  web_socket_channel: ^3.0.1
+  # Animations & UX
+  tutorial_coach_mark: ^1.2.11
+  dynamic_color: ^1.7.0
+  flutter_native_splash: ^2.4.3
+  http: any
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  integration_test:
     sdk: flutter
 
   # The "flutter_lints" package below contains a set of recommended lints to
@@ -110,16 +125,36 @@ flutter_launcher_icons:
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/images/logo.png"
 
+# Native Splash Screen Configuration
+flutter_native_splash:
+  color: "#FFFFFF"
+  color_dark: "#121212"
+  image: assets/images/logo.png
+  image_dark: assets/images/logo.png
+  android_12:
+    color: "#FFFFFF"
+    color_dark: "#121212"
+    icon_background_color: "#FFFFFF"
+    icon_background_color_dark: "#121212"
+    image: assets/images/logo.png
+    image_dark: assets/images/logo.png
+  android: true
+  ios: true
+  web: false
+  fullscreen: true
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
 # The following section is specific to Flutter packages.
 flutter:
+  generate: true
   uses-material-design: true
 
   assets:
     - .env
     - assets/images/
+    - assets/sounds/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

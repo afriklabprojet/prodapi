@@ -160,7 +160,7 @@ if (NetworkSecurity.isUrlSafe(url)) {
 }
 
 // Vérifier le domaine autorisé
-final allowedDomains = ['api.drlpharma.com', 'cdn.drlpharma.com'];
+final allowedDomains = ['api.drlpharma.pro', 'cdn.drlpharma.pro'];
 if (NetworkSecurity.isDomainAllowed(url, allowedDomains)) {
   // OK
 }

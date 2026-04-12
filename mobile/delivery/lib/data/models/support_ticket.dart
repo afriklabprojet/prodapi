@@ -48,10 +48,8 @@ abstract class SupportMessage with _$SupportMessage {
 
 @freezed
 abstract class SupportUser with _$SupportUser {
-  const factory SupportUser({
-    required int id,
-    required String name,
-  }) = _SupportUser;
+  const factory SupportUser({required int id, required String name}) =
+      _SupportUser;
 
   factory SupportUser.fromJson(Map<String, dynamic> json) =>
       _$SupportUserFromJson(json);
@@ -133,11 +131,13 @@ class FAQItem {
   final String question;
   final String answer;
   final String icon;
+  final String? category;
 
   const FAQItem({
     required this.question,
     required this.answer,
     required this.icon,
+    this.category,
   });
 
   factory FAQItem.fromJson(Map<String, dynamic> json) {
@@ -145,6 +145,7 @@ class FAQItem {
       question: json['question'] as String? ?? '',
       answer: json['answer'] as String? ?? '',
       icon: json['icon'] as String? ?? 'help',
+      category: json['category'] as String?,
     );
   }
 }

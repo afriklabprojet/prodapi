@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import 'package:go_router/go_router.dart';
+import '../../core/router/route_names.dart';
 import '../../data/models/scanned_document.dart';
 import '../../data/services/document_scanner_service.dart';
 import '../widgets/scanner/document_scanner_widgets.dart';
@@ -65,8 +66,8 @@ class _DocumentScannerScreenState extends ConsumerState<DocumentScannerScreen> {
       body: state.isProcessing
           ? _buildLoadingState()
           : (_showPreview && _capturedDocument != null)
-              ? _buildPreviewState()
-              : _buildCaptureState(isDark),
+          ? _buildPreviewState()
+          : _buildCaptureState(isDark),
     );
   }
 
@@ -94,7 +95,8 @@ class _DocumentScannerScreenState extends ConsumerState<DocumentScannerScreen> {
             selectedType: _selectedType,
             onTypeSelected: (type) {
               setState(() => _selectedType = type);
-              ref.read(documentScannerStateProvider.notifier)
+              ref
+                  .read(documentScannerStateProvider.notifier)
                   .selectDocumentType(type);
             },
           ),
@@ -102,7 +104,27 @@ class _DocumentScannerScreenState extends ConsumerState<DocumentScannerScreen> {
 
           // Instructions
           _InstructionsCard(documentType: _selectedType),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
+
+          // Guide visuel du cadrage
+          if (_selectedType != null)
+            Center(
+              child: AspectRatio(
+                aspectRatio: _selectedType == DocumentType.idCard
+                    ? 1.586
+                    : 1 / 1.414,
+                child: ScannerGuideFrame(
+                  aspectRatio: _selectedType == DocumentType.idCard
+                      ? 1.586
+                      : 1 / 1.414,
+                  hintText: _selectedType == DocumentType.idCard
+                      ? 'Cadrez la pièce d\'identité ici'
+                      : 'Cadrez le document ici',
+                  frameColor: _selectedType!.color,
+                ),
+              ),
+            ),
+          const SizedBox(height: 24),
 
           // Boutons de capture
           Row(
@@ -252,7 +274,8 @@ class _DocumentScannerScreenState extends ConsumerState<DocumentScannerScreen> {
   void _resetCapture() {
     // Supprime le document temporaire
     if (_capturedDocument != null) {
-      ref.read(documentScannerStateProvider.notifier)
+      ref
+          .read(documentScannerStateProvider.notifier)
           .removeDocument(_capturedDocument!.id);
     }
 
@@ -353,7 +376,9 @@ class _InstructionsCard extends StatelessWidget {
                       child: Text(
                         entry.value,
                         style: TextStyle(
-                          color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                          color: isDark
+                              ? Colors.grey.shade300
+                              : Colors.grey.shade700,
                         ),
                       ),
                     ),
@@ -453,9 +478,7 @@ class _CaptureButton extends StatelessWidget {
       label: Text(label),
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     );
   }
@@ -554,10 +577,12 @@ class DeliveryDocumentsScreen extends ConsumerWidget {
             children: [
               _SectionHeader(type: entry.key, count: entry.value.length),
               const SizedBox(height: 12),
-              ...entry.value.map((doc) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: ScannedDocumentCard(document: doc),
-                  )),
+              ...entry.value.map(
+                (doc) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: ScannedDocumentCard(document: doc),
+                ),
+              ),
               const SizedBox(height: 16),
             ],
           );
@@ -567,12 +592,7 @@ class DeliveryDocumentsScreen extends ConsumerWidget {
   }
 
   void _openScanner(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => DocumentScannerScreen(deliveryId: deliveryId),
-      ),
-    );
+    context.push(AppRoutes.deliveryScanner, extra: {'deliveryId': deliveryId});
   }
 }
 

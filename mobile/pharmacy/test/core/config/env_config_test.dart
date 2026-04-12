@@ -9,13 +9,15 @@ void main() {
       await dotenv.load(fileName: '.env');
     } catch (_) {
       // If .env not found, set test defaults
-      dotenv.testLoad(fileInput: '''
+      dotenv.testLoad(
+        fileInput: '''
 APP_NAME=DR-PHARMA
 APP_ENV=development
 API_BASE_URL=http://127.0.0.1:8000
 LOCAL_MACHINE_IP=192.168.1.100
 API_TIMEOUT=15000
-''');
+''',
+      );
     }
   });
 
@@ -103,10 +105,7 @@ API_TIMEOUT=15000
     group('Initialization', () {
       test('init should not throw', () async {
         // act & assert
-        await expectLater(
-          EnvConfig.init(),
-          completes,
-        );
+        await expectLater(EnvConfig.init(), completes);
       });
 
       test('isInitialized should be true after init', () async {
@@ -123,13 +122,6 @@ API_TIMEOUT=15000
           EnvConfig.init(environment: 'development'),
           completes,
         );
-      });
-    });
-
-    group('printConfig', () {
-      test('should not throw when called', () {
-        // act & assert
-        expect(() => EnvConfig.printConfig(), returnsNormally);
       });
     });
 

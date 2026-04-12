@@ -4,15 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../l10n/app_localizations.dart';
+import '../widgets/settings_tile.dart';
 import '../../../notifications/presentation/providers/notifications_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../../auth/domain/entities/pharmacy_entity.dart';
-import '../../../on_call/presentation/pages/on_call_page.dart';
-import 'edit_pharmacy_page.dart';
-import 'edit_profile_page.dart';
-
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -49,10 +48,7 @@ class ProfilePage extends ConsumerWidget {
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              colors: [
-                                Colors.indigo,
-                                Colors.indigo.shade300,
-                              ],
+                              colors: [Colors.indigo, Colors.indigo.shade300],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
@@ -72,7 +68,7 @@ class ProfilePage extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(width: 16),
-                        
+
                         // Titre
                         Expanded(
                           child: Column(
@@ -94,63 +90,68 @@ class ProfilePage extends ConsumerWidget {
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
-                                  color: isDark ? Colors.grey.shade400 : Colors.grey,
+                                  color: isDark
+                                      ? Colors.grey.shade400
+                                      : Colors.grey,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        
+
                         // Actions
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Container(
                               decoration: BoxDecoration(
-                                color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
+                                color: isDark
+                                    ? Colors.grey.shade800
+                                    : Colors.grey.shade100,
                                 shape: BoxShape.circle,
                               ),
                               child: IconButton(
                                 icon: Consumer(
                                   builder: (context, ref, child) {
-                                    final unreadCount = ref.watch(unreadNotificationCountProvider);
+                                    final unreadCount = ref.watch(
+                                      unreadNotificationCountProvider,
+                                    );
                                     return Badge(
                                       isLabelVisible: unreadCount > 0,
                                       label: Text(unreadCount.toString()),
-                                      child: Icon(Icons.notifications_outlined, color: isDark ? Colors.white : Colors.black87, size: 24),
+                                      child: Icon(
+                                        Icons.notifications_outlined,
+                                        color: isDark
+                                            ? Colors.white
+                                            : Colors.black87,
+                                        size: 24,
+                                      ),
                                     );
                                   },
                                 ),
                                 onPressed: () => context.push('/notifications'),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.red.shade50,
-                                shape: BoxShape.circle,
-                              ),
-                              child: IconButton(
-                                icon: Icon(Icons.logout_rounded, color: Colors.red.shade400, size: 22),
-                                onPressed: () => _confirmLogout(context, ref),
+                                tooltip: 'Notifications',
                               ),
                             ),
                           ],
                         ),
                       ],
                     ),
-                    
+
                     const SizedBox(height: 24),
-                    
+
                     // Profile Header centered
                     _buildProfileHeader(user),
                   ],
                 ),
               ),
-              
+
               // Contenu
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 20,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -188,7 +189,10 @@ class ProfilePage extends ConsumerWidget {
                         onPressed: () => _confirmLogout(context, ref),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.red[400],
-                          side: BorderSide(color: Colors.red.withValues(alpha: 0.2), width: 1),
+                          side: BorderSide(
+                            color: Colors.red.withValues(alpha: 0.2),
+                            width: 1,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -259,28 +263,37 @@ class ProfilePage extends ConsumerWidget {
   }
 
   Widget _buildEmptyState(BuildContext context) {
-     final isDark = Theme.of(context).brightness == Brightness.dark;
-     return Card(
-        elevation: 0,
-        color: isDark ? AppColors.darkCard : Colors.grey[50],
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: isDark ? Colors.grey.shade800 : Colors.grey[200]!)
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Card(
+      elevation: 0,
+      color: isDark ? AppColors.darkCard : Colors.grey[50],
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: isDark ? Colors.grey.shade800 : Colors.grey[200]!,
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            children: [
-               Icon(Icons.store_mall_directory_outlined, size: 48, color: isDark ? Colors.grey.shade600 : Colors.grey),
-               const SizedBox(height: 12),
-               Text(
-                "Aucune pharmacie associée",
-                style: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey, fontWeight: FontWeight.w500),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            Icon(
+              Icons.store_mall_directory_outlined,
+              size: 48,
+              color: isDark ? Colors.grey.shade600 : Colors.grey,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              "Aucune pharmacie associée",
+              style: TextStyle(
+                color: isDark ? Colors.grey.shade400 : Colors.grey,
+                fontWeight: FontWeight.w500,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
   }
 
   Widget _buildSettingsSection(BuildContext context) {
@@ -289,14 +302,18 @@ class ProfilePage extends ConsumerWidget {
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkCard : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? Colors.grey.shade800 : Colors.grey.shade200),
-        boxShadow: isDark ? null : [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
+        border: Border.all(
+          color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+        ),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
       ),
       child: Column(
         children: [
@@ -308,7 +325,26 @@ class ProfilePage extends ConsumerWidget {
             subtitle: 'Statistiques de vente et performance',
             onTap: () => context.push('/reports'),
           ),
-          Divider(height: 1, thickness: 1, color: isDark ? Colors.grey.shade800 : Colors.grey.shade100, indent: 60),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
+            indent: 60,
+          ),
+          _buildSettingsTile(
+            context,
+            icon: Icons.people_outline,
+            iconColor: Colors.deepPurple,
+            title: 'Mon Équipe',
+            subtitle: 'Gérer les membres et invitations',
+            onTap: () => context.push('/team'),
+          ),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
+            indent: 60,
+          ),
           _buildSettingsTile(
             context,
             icon: Icons.palette_outlined,
@@ -317,7 +353,12 @@ class ProfilePage extends ConsumerWidget {
             subtitle: 'Thème, couleurs et mode sombre',
             onTap: () => context.push('/appearance-settings'),
           ),
-          Divider(height: 1, thickness: 1, color: isDark ? Colors.grey.shade800 : Colors.grey.shade100, indent: 60),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
+            indent: 60,
+          ),
           _buildSettingsTile(
             context,
             icon: Icons.security_outlined,
@@ -326,7 +367,12 @@ class ProfilePage extends ConsumerWidget {
             subtitle: 'Mot de passe et connexion',
             onTap: () => context.push('/security-settings'),
           ),
-          Divider(height: 1, thickness: 1, color: isDark ? Colors.grey.shade800 : Colors.grey.shade100, indent: 60),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
+            indent: 60,
+          ),
           _buildSettingsTile(
             context,
             icon: Icons.notifications_outlined,
@@ -335,7 +381,12 @@ class ProfilePage extends ConsumerWidget {
             subtitle: 'Gérer vos alertes et préférences',
             onTap: () => context.push('/notification-settings'),
           ),
-          Divider(height: 1, thickness: 1, color: isDark ? Colors.grey.shade800 : Colors.grey.shade100, indent: 60),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
+            indent: 60,
+          ),
           _buildSettingsTile(
             context,
             icon: Icons.help_outline,
@@ -344,7 +395,12 @@ class ProfilePage extends ConsumerWidget {
             subtitle: 'FAQ, contact et ressources',
             onTap: () => context.push('/help-support'),
           ),
-          Divider(height: 1, thickness: 1, color: isDark ? Colors.grey.shade800 : Colors.grey.shade100, indent: 60),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
+            indent: 60,
+          ),
           _buildSettingsTile(
             context,
             icon: Icons.description_outlined,
@@ -353,7 +409,12 @@ class ProfilePage extends ConsumerWidget {
             subtitle: 'CGU et mentions légales',
             onTap: () => context.push('/terms'),
           ),
-          Divider(height: 1, thickness: 1, color: isDark ? Colors.grey.shade800 : Colors.grey.shade100, indent: 60),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
+            indent: 60,
+          ),
           _buildSettingsTile(
             context,
             icon: Icons.privacy_tip_outlined,
@@ -375,50 +436,12 @@ class ProfilePage extends ConsumerWidget {
     required String subtitle,
     required VoidCallback onTap,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return InkWell(
+    return SettingsTile(
+      icon: icon,
+      iconColor: iconColor,
+      title: title,
+      subtitle: subtitle,
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, size: 22, color: iconColor),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark ? Colors.grey.shade400 : Colors.grey[500],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right, size: 20, color: isDark ? Colors.grey.shade600 : Colors.grey[400]),
-          ],
-        ),
-      ),
     );
   }
 
@@ -431,12 +454,10 @@ class ProfilePage extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.of(context).pop(true),
             child: const Text('Me déconnecter'),
           ),
@@ -446,11 +467,11 @@ class ProfilePage extends ConsumerWidget {
 
     if (confirmed == true) {
       if (context.mounted) {
-         await ref.read(authProvider.notifier).logout();
-         
-         if (context.mounted) {
-           context.go('/login');
-         }
+        await ref.read(authProvider.notifier).logout();
+
+        if (context.mounted) {
+          context.go('/login');
+        }
       }
     }
   }
@@ -512,13 +533,13 @@ class ProfilePage extends ConsumerWidget {
       ),
       child: CircleAvatar(
         radius: 40,
-        backgroundColor: user.avatar != null && user.avatar!.isNotEmpty 
-            ? Colors.transparent 
+        backgroundColor: user.avatar != null && user.avatar!.isNotEmpty
+            ? Colors.transparent
             : dynamicColor.withValues(alpha: 0.1),
-        backgroundImage: user.avatar != null && user.avatar!.isNotEmpty 
-            ? CachedNetworkImageProvider(user.avatar!) 
+        backgroundImage: user.avatar != null && user.avatar!.isNotEmpty
+            ? CachedNetworkImageProvider(user.avatar!)
             : null,
-        child: user.avatar != null && user.avatar!.isNotEmpty 
+        child: user.avatar != null && user.avatar!.isNotEmpty
             ? null
             : Text(
                 initials,
@@ -551,22 +572,25 @@ class ProfilePage extends ConsumerWidget {
 
   String _getInitials(String name) {
     if (name.isEmpty) return '?';
-    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
     if (parts.isEmpty || parts[0].isEmpty) return '?';
-    
+
     if (parts.length == 1) {
       // Just one name, take up to 2 chars if possible, or just 1
-      return parts[0].length > 1 
-          ? parts[0].substring(0, 2).toUpperCase() 
+      return parts[0].length > 1
+          ? parts[0].substring(0, 2).toUpperCase()
           : parts[0][0].toUpperCase();
     }
-    
+
     // First and Last name initials - check last part is not empty
     final lastPart = parts.last;
     if (lastPart.isEmpty) return parts[0][0].toUpperCase();
     return '${parts[0][0]}${lastPart[0]}'.toUpperCase();
   }
-
 
   Widget _buildInfoSection(BuildContext context, UserEntity user) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -576,14 +600,18 @@ class ProfilePage extends ConsumerWidget {
           decoration: BoxDecoration(
             color: isDark ? AppColors.darkCard : Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: isDark ? Colors.grey.shade800 : Colors.grey.shade200),
-            boxShadow: isDark ? null : [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
-              ),
-            ],
+            border: Border.all(
+              color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+            ),
+            boxShadow: isDark
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -595,7 +623,12 @@ class ProfilePage extends ConsumerWidget {
                 value: user.email,
                 onTap: () => _launchEmail(user.email),
               ),
-              Divider(height: 1, thickness: 1, color: isDark ? Colors.grey.shade800 : Colors.grey.shade100, indent: 60),
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
+                indent: 60,
+              ),
               _buildContactRow(
                 context: context,
                 icon: Icons.phone_outlined,
@@ -608,30 +641,36 @@ class ProfilePage extends ConsumerWidget {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 36, // Hauteur fixe réduite
-          child: OutlinedButton.icon(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => EditProfilePage(user: user),
+          height: 48, // Touch target minimum WCAG 2.5.5
+          child: Semantics(
+            button: true,
+            label: 'Modifier mes informations personnelles',
+            child: OutlinedButton.icon(
+              onPressed: () {
+                context.push('/edit-profile', extra: user);
+              },
+              icon: Icon(
+                Icons.edit_outlined,
+                size: 16,
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+              ),
+              label: Text(
+                'Modifier mes informations',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? Colors.grey[400] : Colors.grey[700],
                 ),
-              );
-            },
-            icon: Icon(Icons.edit_outlined, size: 14, color: isDark ? Colors.grey[400] : Colors.grey[600]),
-            label: Text(
-              'Modifier mes informations',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: isDark ? Colors.grey[400] : Colors.grey[700],
               ),
-            ),
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(
+                  color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
             ),
           ),
         ),
@@ -659,9 +698,15 @@ class ProfilePage extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: isDark ? Colors.grey[800] : Colors.grey[50],
                 shape: BoxShape.circle,
-                border: Border.all(color: isDark ? Colors.grey.shade700 : Colors.grey.shade200),
+                border: Border.all(
+                  color: isDark ? Colors.grey.shade700 : Colors.grey.shade200,
+                ),
               ),
-              child: Icon(icon, size: 18, color: isDark ? Colors.grey[400] : Colors.grey[700]),
+              child: Icon(
+                icon,
+                size: 18,
+                color: isDark ? Colors.grey[400] : Colors.grey[700],
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -690,7 +735,11 @@ class ProfilePage extends ConsumerWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, size: 18, color: isDark ? Colors.grey[600] : Colors.grey[300]),
+            Icon(
+              Icons.chevron_right,
+              size: 18,
+              color: isDark ? Colors.grey[600] : Colors.grey[300],
+            ),
           ],
         ),
       ),
@@ -698,10 +747,7 @@ class ProfilePage extends ConsumerWidget {
   }
 
   Future<void> _launchEmail(String email) async {
-    final Uri emailLaunchUri = Uri(
-      scheme: 'mailto',
-      path: email,
-    );
+    final Uri emailLaunchUri = Uri(scheme: 'mailto', path: email);
     try {
       if (await canLaunchUrl(emailLaunchUri)) {
         await launchUrl(emailLaunchUri);
@@ -712,10 +758,7 @@ class ProfilePage extends ConsumerWidget {
   }
 
   Future<void> _launchPhone(String phone) async {
-    final Uri phoneLaunchUri = Uri(
-      scheme: 'tel',
-      path: phone,
-    );
+    final Uri phoneLaunchUri = Uri(scheme: 'tel', path: phone);
     try {
       if (await canLaunchUrl(phoneLaunchUri)) {
         await launchUrl(phoneLaunchUri);
@@ -732,14 +775,18 @@ class ProfilePage extends ConsumerWidget {
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkCard : Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDark ? Colors.grey.shade800 : Colors.grey.shade200),
-        boxShadow: isDark ? null : [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(
+          color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+        ),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: InkWell(
         onTap: () {
@@ -758,10 +805,16 @@ class ProfilePage extends ConsumerWidget {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: Colors.blueGrey.withValues(alpha: isDark ? 0.2 : 0.05),
+                      color: Colors.blueGrey.withValues(
+                        alpha: isDark ? 0.2 : 0.05,
+                      ),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.store_mall_directory_outlined, color: Colors.blueGrey, size: 22),
+                    child: const Icon(
+                      Icons.store_mall_directory_outlined,
+                      color: Colors.blueGrey,
+                      size: 22,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -793,7 +846,12 @@ class ProfilePage extends ConsumerWidget {
                             padding: const EdgeInsets.only(bottom: 2),
                             child: Text(
                               pharmacy.address!,
-                              style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isDark
+                                    ? Colors.grey[400]
+                                    : Colors.grey[600],
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -801,38 +859,67 @@ class ProfilePage extends ConsumerWidget {
                         if (pharmacy.city != null)
                           Text(
                             pharmacy.city!,
-                            style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[500] : Colors.grey[500]),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark
+                                  ? Colors.grey[500]
+                                  : Colors.grey[500],
+                            ),
                           ),
                       ],
                     ),
                   ),
                 ],
               ),
-              
+
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Divider(height: 1, color: isDark ? Colors.grey.shade800 : Colors.grey.shade200),
+                child: Divider(
+                  height: 1,
+                  color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                ),
+              ),
+
+              // Section Localisation
+              if (pharmacy.latitude != null && pharmacy.longitude != null)
+                _buildLocationSection(context, pharmacy)
+              else
+                _buildNoLocationSection(context, pharmacy),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Divider(
+                  height: 1,
+                  color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                ),
               ),
 
               Row(
                 children: [
-                   Expanded(
+                  Expanded(
                     child: SizedBox(
                       height: 36,
                       child: OutlinedButton.icon(
                         onPressed: () {
-                           Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => EditPharmacyPage(pharmacy: pharmacy),
-                            ),
-                          );
+                          context.push('/edit-pharmacy', extra: pharmacy);
                         },
                         icon: const Icon(Icons.edit, size: 16),
-                        label: const Text('Modifier', style: TextStyle(fontSize: 13)),
+                        label: Text(
+                          AppLocalizations.of(context).edit,
+                          style: const TextStyle(fontSize: 13),
+                        ),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: Theme.of(context).colorScheme.primary,
-                          side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          foregroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
+                          side: BorderSide(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.5),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                           padding: EdgeInsets.zero,
                         ),
                       ),
@@ -844,16 +931,20 @@ class ProfilePage extends ConsumerWidget {
                       height: 36,
                       child: FilledButton.icon(
                         onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const OnCallPage()),
-                          );
+                          context.push('/on-call');
                         },
                         icon: const Icon(Icons.access_time, size: 16),
-                        label: const Text('Gardes', style: TextStyle(fontSize: 13)),
+                        label: const Text(
+                          'Gardes',
+                          style: TextStyle(fontSize: 13),
+                        ),
                         style: FilledButton.styleFrom(
-                          backgroundColor: Theme.of(context).colorScheme.primary,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                           padding: EdgeInsets.zero,
                         ),
                       ),
@@ -863,6 +954,139 @@ class ProfilePage extends ConsumerWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocationSection(BuildContext context, PharmacyEntity pharmacy) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final position = LatLng(pharmacy.latitude!, pharmacy.longitude!);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.location_on, color: Colors.green.shade600, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              'Localisation',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.grey[300] : Colors.black87,
+              ),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'GPS actif',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.green.shade700,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: SizedBox(
+            height: 140,
+            child: IgnorePointer(
+              child: GoogleMap(
+                initialCameraPosition: CameraPosition(
+                  target: position,
+                  zoom: 15,
+                ),
+                markers: {
+                  Marker(
+                    markerId: const MarkerId('pharmacy'),
+                    position: position,
+                    icon: BitmapDescriptor.defaultMarkerWithHue(
+                      BitmapDescriptor.hueGreen,
+                    ),
+                  ),
+                },
+                zoomControlsEnabled: false,
+                scrollGesturesEnabled: false,
+                rotateGesturesEnabled: false,
+                tiltGesturesEnabled: false,
+                myLocationButtonEnabled: false,
+                mapToolbarEnabled: false,
+                liteModeEnabled: true,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          '${pharmacy.latitude!.toStringAsFixed(6)}, ${pharmacy.longitude!.toStringAsFixed(6)}',
+          style: TextStyle(
+            fontSize: 11,
+            color: isDark ? Colors.grey[500] : Colors.grey[500],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNoLocationSection(
+    BuildContext context,
+    PharmacyEntity pharmacy,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return InkWell(
+      onTap: () {
+        context.push('/edit-pharmacy', extra: pharmacy);
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.orange.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.orange.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.location_off, color: Colors.orange.shade600, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Position non définie',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: isDark
+                          ? Colors.orange[300]
+                          : Colors.orange.shade800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Appuyez pour ajouter votre localisation GPS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: Colors.orange.shade400, size: 20),
+          ],
         ),
       ),
     );

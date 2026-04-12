@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
@@ -21,17 +22,33 @@ class EncryptedStorageService {
 
   HiveCipher? _cipher;
   bool _initialized = false;
+  Completer<void>? _initCompleter;
 
   /// Initialiser Hive avec le chiffrement.
   /// Doit être appelé une fois au démarrage (dans SplashScreen).
+  /// Thread-safe : les appels concurrents attendent la même initialisation.
   Future<void> initialize() async {
     if (_initialized) return;
 
-    await Hive.initFlutter();
-    _cipher = HiveAesCipher(await _getOrCreateEncryptionKey());
-    _initialized = true;
+    // Si une init est déjà en cours, attendre qu'elle se termine
+    if (_initCompleter != null) {
+      await _initCompleter!.future;
+      return;
+    }
 
-    if (kDebugMode) debugPrint('🔐 [EncryptedStorage] Hive chiffré initialisé');
+    _initCompleter = Completer<void>();
+    try {
+      await Hive.initFlutter();
+      _cipher = HiveAesCipher(await _getOrCreateEncryptionKey());
+      _initialized = true;
+
+      if (kDebugMode) debugPrint('🔐 [EncryptedStorage] Hive chiffré initialisé');
+      _initCompleter!.complete();
+    } catch (e) {
+      _initCompleter!.completeError(e);
+      _initCompleter = null;
+      rethrow;
+    }
   }
 
   /// Obtenir le cipher pour ouvrir des boxes chiffrées.

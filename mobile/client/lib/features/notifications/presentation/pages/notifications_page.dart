@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/services/navigation_service.dart';
+import '../../../../core/widgets/shimmer_loading.dart';
 import '../../domain/entities/notification_entity.dart';
 import '../providers/notifications_provider.dart';
 import '../providers/notifications_state.dart';
@@ -72,7 +74,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
         ],
       ),
       body: notificationsState.status == NotificationsStatus.loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const NotificationsListSkeleton()
           : hasNotifications
           ? _buildNotificationsList(notifications)
           : _buildEmptyState(),
@@ -106,6 +108,32 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
         color: AppColors.error,
         child: const Icon(Icons.delete, color: Colors.white),
       ),
+      confirmDismiss: (direction) async {
+        HapticFeedback.mediumImpact();
+        return await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Supprimer la notification'),
+                content: const Text(
+                  'Voulez-vous supprimer cette notification ?',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Annuler'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                    ),
+                    child: const Text('Supprimer'),
+                  ),
+                ],
+              ),
+            ) ??
+            false;
+      },
       onDismissed: (_) => _deleteNotification(notification.id),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
@@ -195,7 +223,12 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.notifications_none, size: 100, color: isDark ? Colors.grey[600] : Colors.grey[300]),
+          Icon(
+            Icons.notifications_none,
+            size: 100,
+            color: isDark ? Colors.grey[600] : Colors.grey[300],
+            semanticLabel: 'Aucune notification',
+          ),
           const SizedBox(height: 16),
           Text(
             'Aucune notification',
@@ -221,14 +254,108 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
       _markAsRead(notification.id);
     }
 
-    // Navigate based on type and data
-    final data = notification.data;
-    if (data != null) {
-      NavigationService.handleNotificationTap(
-        type: notification.type,
-        data: data,
-      );
-    }
+    // Show notification detail bottom sheet
+    _showNotificationDetail(notification);
+  }
+
+  void _showNotificationDetail(NotificationEntity notification) {
+    final data = notification.data ?? {};
+    // The short type is inside data['type'] (e.g. 'order_status'),
+    // notification.type contains the full Laravel class name.
+    final shortType = data['type'] as String? ?? notification.type;
+    final orderId = data['order_id'];
+    final isOrderRelated = orderId != null;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle bar
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            // Icon + Title
+            Row(
+              children: [
+                _getNotificationIcon(shortType),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    notification.title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Body
+            Text(
+              notification.body,
+              style: TextStyle(
+                fontSize: 15,
+                color: AppColors.textSecondary,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Date
+            Text(
+              _dateFormat.format(notification.createdAt),
+              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            ),
+            const SizedBox(height: 24),
+            // Action button — navigate to order if relevant
+            if (isOrderRelated)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pop(); // Close bottom sheet
+                    final id = orderId is int
+                        ? orderId
+                        : int.tryParse(orderId.toString());
+                    if (id != null) {
+                      context.push('/orders/$id');
+                    }
+                  },
+                  icon: const Icon(Icons.visibility_outlined),
+                  label: const Text('Voir la commande'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
   }
 
   void _markAsRead(String notificationId) {
@@ -236,6 +363,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   }
 
   void _markAllAsRead() {
+    HapticFeedback.lightImpact();
     ref.read(notificationsProvider.notifier).markAllAsRead();
   }
 

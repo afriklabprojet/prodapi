@@ -6,23 +6,27 @@ import '../providers/prescriptions_state.dart';
 import '../../domain/entities/prescription_entity.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../core/widgets/shimmer_loading.dart';
 
 class PrescriptionsListPage extends ConsumerStatefulWidget {
   const PrescriptionsListPage({super.key});
 
   @override
-  ConsumerState<PrescriptionsListPage> createState() => _PrescriptionsListPageState();
+  ConsumerState<PrescriptionsListPage> createState() =>
+      _PrescriptionsListPageState();
 }
 
 class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    Future.microtask(() => ref.read(prescriptionsProvider.notifier).loadPrescriptions());
+    Future.microtask(
+      () => ref.read(prescriptionsProvider.notifier).loadPrescriptions(),
+    );
   }
 
   @override
@@ -31,7 +35,10 @@ class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
     super.dispose();
   }
 
-  List<PrescriptionEntity> _filterPrescriptions(List<PrescriptionEntity> prescriptions, int tabIndex) {
+  List<PrescriptionEntity> _filterPrescriptions(
+    List<PrescriptionEntity> prescriptions,
+    int tabIndex,
+  ) {
     switch (tabIndex) {
       case 0:
         return prescriptions;
@@ -40,7 +47,16 @@ class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
       case 2:
         return prescriptions.where((p) => p.status == 'quoted').toList();
       case 3:
-        return prescriptions.where((p) => ['processing', 'validated', 'paid', 'rejected'].contains(p.status)).toList();
+        return prescriptions
+            .where(
+              (p) => [
+                'processing',
+                'validated',
+                'paid',
+                'rejected',
+              ].contains(p.status),
+            )
+            .toList();
       default:
         return prescriptions;
     }
@@ -49,7 +65,7 @@ class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(prescriptionsProvider);
-    
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: NestedScrollView(
@@ -58,15 +74,33 @@ class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
         ],
         body: TabBarView(
           controller: _tabController,
-          children: List.generate(4, (index) => _buildPrescriptionsList(state, index)),
+          children: List.generate(
+            4,
+            (index) => _buildPrescriptionsList(state, index),
+          ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _navigateToUpload,
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_photo_alternate),
-        label: const Text('Nouvelle'),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton(
+            heroTag: 'scan_fab',
+            onPressed: () => context.goToPrescriptionScanner(),
+            backgroundColor: AppColors.secondary,
+            foregroundColor: Colors.white,
+            tooltip: 'Scanner',
+            child: const Icon(Icons.document_scanner_outlined),
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton.extended(
+            heroTag: 'upload_fab',
+            onPressed: _navigateToUpload,
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            icon: const Icon(Icons.add_photo_alternate),
+            label: const Text('Nouvelle'),
+          ),
+        ],
       ),
     );
   }
@@ -94,12 +128,19 @@ class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
                 children: [
                   const Text(
                     'Mes Ordonnances',
-                    style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Gérez vos prescriptions médicales',
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 14),
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontSize: 14,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   _buildStatsRow(state),
@@ -116,15 +157,39 @@ class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
           child: TabBar(
             controller: _tabController,
             labelColor: AppColors.primary,
-            unselectedLabelColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey.shade600,
+            unselectedLabelColor:
+                Theme.of(context).brightness == Brightness.dark
+                ? Colors.grey.shade400
+                : Colors.grey.shade600,
             indicatorColor: AppColors.primary,
             indicatorWeight: 3,
-            labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+            labelStyle: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
             tabs: [
               _buildTab('Toutes', state.prescriptions.length),
-              _buildTab('Attente', state.prescriptions.where((p) => p.status == 'pending').length),
-              _buildTab('Devis', state.prescriptions.where((p) => p.status == 'quoted').length),
-              _buildTab('Terminées', state.prescriptions.where((p) => ['processing', 'validated', 'paid', 'rejected'].contains(p.status)).length),
+              _buildTab(
+                'Attente',
+                state.prescriptions.where((p) => p.status == 'pending').length,
+              ),
+              _buildTab(
+                'Devis',
+                state.prescriptions.where((p) => p.status == 'quoted').length,
+              ),
+              _buildTab(
+                'Terminées',
+                state.prescriptions
+                    .where(
+                      (p) => [
+                        'processing',
+                        'validated',
+                        'paid',
+                        'rejected',
+                      ].contains(p.status),
+                    )
+                    .length,
+              ),
             ],
           ),
         ),
@@ -146,7 +211,14 @@ class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
                 color: AppColors.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Text(count.toString(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary)),
+              child: Text(
+                count.toString(),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
             ),
           ],
         ],
@@ -155,8 +227,12 @@ class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
   }
 
   Widget _buildStatsRow(PrescriptionsState state) {
-    final pending = state.prescriptions.where((p) => p.status == 'pending').length;
-    final quoted = state.prescriptions.where((p) => p.status == 'quoted').length;
+    final pending = state.prescriptions
+        .where((p) => p.status == 'pending')
+        .length;
+    final quoted = state.prescriptions
+        .where((p) => p.status == 'quoted')
+        .length;
     return Row(
       children: [
         _buildStatChip(Icons.description, '${state.prescriptions.length}'),
@@ -171,13 +247,23 @@ class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
   Widget _buildStatChip(IconData icon, String value) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, color: Colors.white, size: 16),
           const SizedBox(width: 6),
-          Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
         ],
       ),
     );
@@ -185,7 +271,7 @@ class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
 
   Widget _buildPrescriptionsList(PrescriptionsState state, int tabIndex) {
     if (state.status.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const ListItemSkeleton(itemCount: 4);
     }
 
     if (state.errorMessage != null) {
@@ -198,7 +284,8 @@ class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
             Text(state.errorMessage!, textAlign: TextAlign.center),
             const SizedBox(height: 16),
             ElevatedButton.icon(
-              onPressed: () => ref.read(prescriptionsProvider.notifier).loadPrescriptions(),
+              onPressed: () =>
+                  ref.read(prescriptionsProvider.notifier).loadPrescriptions(),
               icon: const Icon(Icons.refresh),
               label: const Text('Réessayer'),
             ),
@@ -213,11 +300,13 @@ class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
     }
 
     return RefreshIndicator(
-      onRefresh: () => ref.read(prescriptionsProvider.notifier).loadPrescriptions(),
+      onRefresh: () =>
+          ref.read(prescriptionsProvider.notifier).loadPrescriptions(),
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: filtered.length,
-        itemBuilder: (context, index) => _buildPrescriptionCard(filtered[index], index),
+        itemBuilder: (context, index) =>
+            _buildPrescriptionCard(filtered[index], index),
       ),
     );
   }
@@ -230,15 +319,26 @@ class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
       builder: (context, value, child) {
         return Opacity(
           opacity: value,
-          child: Transform.translate(offset: Offset(0, 20 * (1 - value)), child: child),
+          child: Transform.translate(
+            offset: Offset(0, 20 * (1 - value)),
+            child: child,
+          ),
         );
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E1E1E) : Colors.white,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF1E1E1E)
+              : Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Material(
           color: Colors.transparent,
@@ -252,9 +352,17 @@ class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
                   Row(
                     children: [
                       Container(
-                        width: 48, height: 48,
-                        decoration: BoxDecoration(color: config['color'].withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                        child: Icon(config['icon'], color: config['color'], size: 24),
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: config['color'].withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          config['icon'],
+                          color: config['color'],
+                          size: 24,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -263,7 +371,13 @@ class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
                           children: [
                             Row(
                               children: [
-                                Text('Ordonnance #${prescription.id}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                Text(
+                                  'Ordonnance #${prescription.id}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
                                 if (prescription.isLinkedToOrder) ...[
                                   const SizedBox(width: 8),
                                   _buildOrderBadge(prescription),
@@ -271,23 +385,51 @@ class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
                               ],
                             ),
                             const SizedBox(height: 4),
-                            Text(DateFormat('dd MMM yyyy - HH:mm').format(prescription.createdAt), style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey.shade600, fontSize: 13)),
+                            Text(
+                              DateFormat(
+                                'dd MMM yyyy - HH:mm',
+                              ).format(prescription.createdAt),
+                              style: TextStyle(
+                                color:
+                                    Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.grey.shade400
+                                    : Colors.grey.shade600,
+                                fontSize: 13,
+                              ),
+                            ),
                           ],
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(color: config['color'].withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
-                        child: Text(config['label'], style: TextStyle(color: config['color'], fontWeight: FontWeight.w600, fontSize: 12)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: config['color'].withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          config['label'],
+                          style: TextStyle(
+                            color: config['color'],
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                  if (prescription.status == 'quoted' && prescription.quoteAmount != null) ...[
+                  if (prescription.status == 'quoted' &&
+                      prescription.quoteAmount != null) ...[
                     const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(colors: [Colors.blue.shade50, Colors.blue.shade100]),
+                        gradient: LinearGradient(
+                          colors: [Colors.blue.shade50, Colors.blue.shade100],
+                        ),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: Colors.blue.shade200),
                       ),
@@ -295,39 +437,131 @@ class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
                         children: [
                           Container(
                             padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(color: Colors.blue, borderRadius: BorderRadius.circular(8)),
-                            child: const Icon(Icons.monetization_on, color: Colors.white, size: 20),
+                            decoration: BoxDecoration(
+                              color: Colors.blue,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.monetization_on,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('Devis disponible', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
-                                Text(NumberFormat.currency(symbol: 'FCFA ', decimalDigits: 0).format(prescription.quoteAmount),
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.blue)),
+                                const Text(
+                                  'Devis disponible',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                Text(
+                                  NumberFormat.currency(
+                                    symbol: 'FCFA ',
+                                    decimalDigits: 0,
+                                  ).format(prescription.quoteAmount),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                    color: Colors.blue,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
                           ElevatedButton(
                             onPressed: () => _navigateToDetails(prescription),
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                            ),
                             child: const Text('Payer'),
                           ),
                         ],
                       ),
                     ),
                   ],
-                  if (prescription.status == 'rejected' && prescription.rejectionReason != null) ...[
+                  if (prescription.status == 'rejected' &&
+                      prescription.rejectionReason != null) ...[
                     const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.red.shade200)),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.red.shade200),
+                      ),
                       child: Row(
                         children: [
-                          Icon(Icons.info_outline, color: Colors.red.shade700, size: 20),
+                          Icon(
+                            Icons.info_outline,
+                            color: Colors.red.shade700,
+                            size: 20,
+                          ),
                           const SizedBox(width: 12),
-                          Expanded(child: Text(prescription.rejectionReason!, style: TextStyle(color: Colors.red.shade700, fontSize: 13))),
+                          Expanded(
+                            child: Text(
+                              prescription.rejectionReason!,
+                              style: TextStyle(
+                                color: Colors.red.shade700,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  // Dispensing status indicator
+                  if (prescription.fulfillmentStatus != 'none') ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: prescription.isFullyDispensed
+                            ? Colors.green.shade50
+                            : Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: prescription.isFullyDispensed
+                              ? Colors.green.shade300
+                              : Colors.orange.shade300,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            prescription.isFullyDispensed
+                                ? Icons.check_circle
+                                : Icons.timelapse,
+                            size: 16,
+                            color: prescription.isFullyDispensed
+                                ? Colors.green.shade700
+                                : Colors.orange.shade700,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            prescription.isFullyDispensed
+                                ? 'Médicaments délivrés'
+                                : 'Partiellement délivré',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: prescription.isFullyDispensed
+                                  ? Colors.green.shade700
+                                  : Colors.orange.shade700,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -337,14 +571,41 @@ class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
                     children: [
                       if (prescription.imageUrls.isNotEmpty)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2C2C2C) : Colors.grey.shade100, borderRadius: BorderRadius.circular(20)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFF2C2C2C)
+                                : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.image, size: 14, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey.shade700),
+                              Icon(
+                                Icons.image,
+                                size: 14,
+                                color:
+                                    Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.grey.shade400
+                                    : Colors.grey.shade700,
+                              ),
                               const SizedBox(width: 4),
-                              Text('${prescription.imageUrls.length} photo${prescription.imageUrls.length > 1 ? 's' : ''}', style: TextStyle(fontSize: 12, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey.shade700)),
+                              Text(
+                                '${prescription.imageUrls.length} photo${prescription.imageUrls.length > 1 ? 's' : ''}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color:
+                                      Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? Colors.grey.shade400
+                                      : Colors.grey.shade700,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -353,7 +614,9 @@ class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
                         onPressed: () => _navigateToDetails(prescription),
                         icon: const Icon(Icons.visibility, size: 18),
                         label: const Text('Voir détails'),
-                        style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                        ),
                       ),
                     ],
                   ),
@@ -368,20 +631,43 @@ class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
 
   Map<String, dynamic> _getStatusConfig(String status) {
     switch (status) {
-      case 'pending': return {'color': Colors.orange, 'icon': Icons.hourglass_empty, 'label': 'En attente'};
-      case 'processing': return {'color': Colors.blue, 'icon': Icons.sync, 'label': 'En traitement'};
-      case 'quoted': return {'color': Colors.blue, 'icon': Icons.receipt_long, 'label': 'Devis reçu'};
-      case 'paid': return {'color': Colors.teal, 'icon': Icons.payment, 'label': 'Payé'};
-      case 'validated': return {'color': Colors.green, 'icon': Icons.check_circle, 'label': 'Validée'};
-      case 'rejected': return {'color': Colors.red, 'icon': Icons.cancel, 'label': 'Refusée'};
-      default: return {'color': Colors.grey, 'icon': Icons.info, 'label': status};
+      case 'pending':
+        return {
+          'color': Colors.orange,
+          'icon': Icons.hourglass_empty,
+          'label': 'En attente',
+        };
+      case 'processing':
+        return {
+          'color': Colors.blue,
+          'icon': Icons.sync,
+          'label': 'En traitement',
+        };
+      case 'quoted':
+        return {
+          'color': Colors.blue,
+          'icon': Icons.receipt_long,
+          'label': 'Devis reçu',
+        };
+      case 'paid':
+        return {'color': Colors.teal, 'icon': Icons.payment, 'label': 'Payé'};
+      case 'validated':
+        return {
+          'color': Colors.green,
+          'icon': Icons.check_circle,
+          'label': 'Validée',
+        };
+      case 'rejected':
+        return {'color': Colors.red, 'icon': Icons.cancel, 'label': 'Refusée'};
+      default:
+        return {'color': Colors.grey, 'icon': Icons.info, 'label': status};
     }
   }
 
   /// Badge indiquant que la prescription est liée à une commande
   Widget _buildOrderBadge(PrescriptionEntity prescription) {
     return Tooltip(
-      message: prescription.orderReference != null 
+      message: prescription.orderReference != null
           ? 'Commande ${prescription.orderReference}'
           : 'Liée à une commande',
       child: Container(
@@ -420,10 +706,26 @@ class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
 
   Widget _buildEmptyState(int tabIndex) {
     final configs = [
-      {'title': 'Aucune ordonnance', 'subtitle': 'Envoyez votre première ordonnance', 'icon': Icons.description_outlined},
-      {'title': 'Aucune en attente', 'subtitle': 'Toutes vos ordonnances ont été traitées', 'icon': Icons.hourglass_empty},
-      {'title': 'Aucun devis', 'subtitle': 'Les devis apparaîtront ici', 'icon': Icons.receipt_long_outlined},
-      {'title': 'Aucune terminée', 'subtitle': 'Les ordonnances finalisées apparaîtront ici', 'icon': Icons.check_circle_outline},
+      {
+        'title': 'Aucune ordonnance',
+        'subtitle': 'Envoyez votre première ordonnance',
+        'icon': Icons.description_outlined,
+      },
+      {
+        'title': 'Aucune en attente',
+        'subtitle': 'Toutes vos ordonnances ont été traitées',
+        'icon': Icons.hourglass_empty,
+      },
+      {
+        'title': 'Aucun devis',
+        'subtitle': 'Les devis apparaîtront ici',
+        'icon': Icons.receipt_long_outlined,
+      },
+      {
+        'title': 'Aucune terminée',
+        'subtitle': 'Les ordonnances finalisées apparaîtront ici',
+        'icon': Icons.check_circle_outline,
+      },
     ];
     final config = configs[tabIndex];
     return Center(
@@ -432,20 +734,44 @@ class _PrescriptionsListPageState extends ConsumerState<PrescriptionsListPage>
         children: [
           Container(
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), shape: BoxShape.circle),
-            child: Icon(config['icon'] as IconData, size: 64, color: AppColors.primary.withValues(alpha: 0.5)),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              config['icon'] as IconData,
+              size: 64,
+              color: AppColors.primary.withValues(alpha: 0.5),
+            ),
           ),
           const SizedBox(height: 24),
-          Text(config['title'] as String, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          Text(
+            config['title'] as String,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
-          Text(config['subtitle'] as String, style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey.shade600)),
+          Text(
+            config['subtitle'] as String,
+            style: TextStyle(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.grey.shade400
+                  : Colors.grey.shade600,
+            ),
+          ),
           if (tabIndex == 0) ...[
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _navigateToUpload,
               icon: const Icon(Icons.add_photo_alternate),
               label: const Text('Envoyer une ordonnance'),
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+              ),
             ),
           ],
         ],

@@ -47,6 +47,8 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
   static List _extractList(dynamic data) {
     if (data is List) return data;
     if (data is Map) {
+      // L'API retourne { success, messages: [...] }
+      if (data['messages'] is List) return data['messages'] as List;
       final inner = data['data'];
       if (inner is List) return inner;
       if (inner is Map && inner['data'] is List) return inner['data'] as List;
@@ -70,7 +72,10 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
       },
     );
     final data = response.data;
-    final msgData = data is Map && data['data'] != null ? data['data'] : data;
+    // L'API retourne { success, message: {...} }
+    final msgData = data is Map
+        ? (data['message'] ?? data['data'] ?? data)
+        : data;
     return ChatMessageModel.fromJson(msgData);
   }
 

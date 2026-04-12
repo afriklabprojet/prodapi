@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod/legacy.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
+import '../config/app_config.dart';
 
 /// État de connectivité de l'application
 enum ConnectivityStatus {
@@ -77,25 +78,28 @@ class ConnectivityService extends StateNotifier<ConnectivityState> {
   StreamSubscription<List<ConnectivityResult>>? _subscription;
   Timer? _pingTimer;
   bool _initialized = false;
+  bool _initializing = false;
   bool _disposed = false;
   Dio? _pingDio; // Réutiliser une seule instance Dio pour les pings
   
   // URL pour vérifier la connectivité réelle (ping)
-  static const String _pingUrl = 'https://www.google.com/generate_204';
+  static String get _pingUrl => AppConfig.connectivityCheckUrl;
 
   void _ensureInitialized() {
-    if (_initialized) return;
+    if (_initialized || _initializing) return;
+    _initializing = true;
     _initialized = true;
 
     // Écouter les changements de connectivité
     _subscription = _connectivity.onConnectivityChanged.listen(_handleConnectivityChange);
 
     // Ping périodique pour vérifier la connectivité réelle (toutes les 60s)
+    // Ping aussi quand offline pour détecter le retour en ligne
     _pingTimer = Timer.periodic(const Duration(seconds: 60), (_) {
-      if (state.status != ConnectivityStatus.offline) {
-        _verifyRealConnectivity();
-      }
+      _verifyRealConnectivity();
     });
+    
+    _initializing = false;
   }
 
   /// Vérifie l'état actuel de la connectivité
@@ -218,13 +222,15 @@ final connectivityProvider = StateNotifierProvider<ConnectivityService, Connecti
   return ConnectivityService();
 });
 
-/// Shortcut pour savoir si on est en ligne
-final isOnlineProvider = Provider<bool>((ref) {
+/// Shortcut pour savoir si on est connecté au réseau
+/// NOTE: ne pas confondre avec isOnlineProvider de delivery_providers.dart
+/// (celui-ci concerne la connectivité réseau, l'autre le statut "disponible" du livreur)
+final isConnectedProvider = Provider<bool>((ref) {
   return ref.watch(connectivityProvider).isOnline;
 });
 
 /// Shortcut pour savoir si on est hors-ligne
-final isOfflineProvider = Provider<bool>((ref) {
+final isDisconnectedProvider = Provider<bool>((ref) {
   return ref.watch(connectivityProvider).isOffline;
 });
 

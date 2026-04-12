@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../config/providers.dart';
 import '../../../notifications/presentation/providers/notifications_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
@@ -11,11 +12,7 @@ class HomeAppBar extends ConsumerWidget {
   final CartState cartState;
   final bool isDark;
 
-  const HomeAppBar({
-    super.key,
-    required this.cartState,
-    required this.isDark,
-  });
+  const HomeAppBar({super.key, required this.cartState, required this.isDark});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -119,11 +116,7 @@ class CartButton extends StatelessWidget {
   final CartState cartState;
   final bool isDark;
 
-  const CartButton({
-    super.key,
-    required this.cartState,
-    required this.isDark,
-  });
+  const CartButton({super.key, required this.cartState, required this.isDark});
 
   @override
   Widget build(BuildContext context) {
@@ -228,6 +221,8 @@ class ProfileMenuButton extends ConsumerWidget {
         context.goToOrders();
         break;
       case 'logout':
+        // Supprimer le token FCM du backend avant déconnexion
+        await removeFcmTokenOnLogout(ref);
         await ref.read(authProvider.notifier).logout();
         if (context.mounted) context.goToLogin();
         break;
@@ -235,54 +230,171 @@ class ProfileMenuButton extends ConsumerWidget {
   }
 }
 
-/// Section de bienvenue avec nom utilisateur
-class WelcomeSection extends StatelessWidget {
+/// Section de bienvenue avec nom utilisateur et animation
+class WelcomeSection extends StatefulWidget {
   final String? userName;
   final bool isDark;
 
-  const WelcomeSection({
-    super.key,
-    this.userName,
-    required this.isDark,
-  });
+  const WelcomeSection({super.key, this.userName, required this.isDark});
+
+  @override
+  State<WelcomeSection> createState() => _WelcomeSectionState();
+}
+
+class _WelcomeSectionState extends State<WelcomeSection>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(-0.1, 0),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Bonjour';
+    if (hour < 18) return 'Bon après-midi';
+    return 'Bonsoir';
+  }
+
+  IconData _getGreetingIcon() {
+    final hour = DateTime.now().hour;
+    if (hour < 6) return Icons.nightlight_round;
+    if (hour < 12) return Icons.wb_sunny_rounded;
+    if (hour < 18) return Icons.wb_cloudy_rounded;
+    return Icons.nights_stay_rounded;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Bonjour,',
-          style: TextStyle(
-            fontSize: 16,
-            color: isDark ? Colors.grey[400] : AppColors.textSecondary,
-          ),
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        _getGreetingIcon(),
+                        size: 18,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${_getGreeting()},',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: widget.isDark
+                              ? Colors.grey[400]
+                              : AppColors.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    widget.userName ?? 'Cher Client',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: widget.isDark
+                          ? Colors.white
+                          : AppColors.textPrimary,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Comment allez-vous aujourd\'hui ?',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: widget.isDark
+                          ? Colors.grey[500]
+                          : AppColors.textHint,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Avatar décoratif
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppColors.primary, AppColors.primaryDark],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  (widget.userName?.isNotEmpty == true)
+                      ? widget.userName![0].toUpperCase()
+                      : 'C',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          userName ?? 'Client',
-          style: TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.bold,
-            color: isDark ? Colors.white : AppColors.textPrimary,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
 
-/// Titre de section réutilisable
+/// Titre de section réutilisable avec design premium
 class SectionTitle extends StatelessWidget {
   final String title;
   final bool isDark;
   final Widget? trailing;
+  final bool showAccent;
 
   const SectionTitle({
     super.key,
     required this.title,
     required this.isDark,
     this.trailing,
+    this.showAccent = true,
   });
 
   @override
@@ -290,13 +402,33 @@ class SectionTitle extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: isDark ? Colors.white : AppColors.textPrimary,
-          ),
+        Row(
+          children: [
+            if (showAccent) ...[
+              Container(
+                width: 4,
+                height: 22,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [AppColors.primary, AppColors.primaryLight],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 10),
+            ],
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white : AppColors.textPrimary,
+                letterSpacing: -0.3,
+              ),
+            ),
+          ],
         ),
         if (trailing != null) trailing!,
       ],

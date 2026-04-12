@@ -8,13 +8,13 @@
 # =============================================================
 
 # --- Configuration production ---
-API_BASE_URL="https://drlpharma.com/api"
+API_BASE_URL="https://drlpharma.pro/api"
 GOOGLE_MAPS_API_KEY=""           # ← OBLIGATOIRE : votre clé Google Maps
 SUPPORT_PHONE="+22507000000000"
 SUPPORT_WHATSAPP="22507000000000"
-SUPPORT_EMAIL="support@drlpharma.com"
-PRIVACY_URL="https://drlpharma.com/privacy"
-TERMS_URL="https://drlpharma.com/terms"
+SUPPORT_EMAIL="support@drlpharma.pro"
+PRIVACY_URL="https://drlpharma.pro/privacy"
+TERMS_URL="https://drlpharma.pro/terms"
 
 # --- Vérification ---
 if [ -z "$GOOGLE_MAPS_API_KEY" ]; then

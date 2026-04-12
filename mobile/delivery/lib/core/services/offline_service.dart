@@ -17,6 +17,17 @@ class OfflineService {
 
   Box<String>? _box;
 
+  /// In-memory fallback for unit tests (avoids platform channel calls).
+  @visibleForTesting
+  static Map<String, String>? testStore;
+
+  /// Réinitialise l'instance interne (pour les tests uniquement).
+  @visibleForTesting
+  void resetForTesting() {
+    _box = null;
+    testStore = {};
+  }
+
   // ── Clés de cache ──────────────────────────────────
   static const String _keyActiveDeliveries = 'offline_active_deliveries';
   static const String _keyCurrentDelivery = 'offline_current_delivery';
@@ -29,6 +40,7 @@ class OfflineService {
   // ── Initialisation ─────────────────────────────────
 
   Future<void> init() async {
+    if (testStore != null) return; // test mode
     if (_box != null && _box!.isOpen) return;
     _box = await EncryptedStorageService.instance.openEncryptedBox('offline_data');
     if (kDebugMode) debugPrint('💾 [Offline] Service initialisé (chiffré)');
@@ -39,13 +51,36 @@ class OfflineService {
     return _box!;
   }
 
+  // ── Storage helpers (test-mode aware) ──────────────
+
+  String? _get(String key) {
+    if (testStore != null) return testStore![key];
+    return _storage.get(key);
+  }
+
+  Future<void> _put(String key, String value) async {
+    if (testStore != null) {
+      testStore![key] = value;
+      return;
+    }
+    await _storage.put(key, value);
+  }
+
+  Future<void> _delete(String key) async {
+    if (testStore != null) {
+      testStore!.remove(key);
+      return;
+    }
+    await _storage.delete(key);
+  }
+
   // ── Livraisons ─────────────────────────────────────
 
   /// Sauvegarde la liste des livraisons actives pour accès hors-ligne
   Future<void> cacheActiveDeliveries(List<Delivery> deliveries) async {
     await init();
     final jsonList = deliveries.map((d) => d.toJson()).toList();
-    await _storage.put(_keyActiveDeliveries, jsonEncode(jsonList));
+    await _put(_keyActiveDeliveries, jsonEncode(jsonList));
     await _updateSyncTime();
     if (kDebugMode) debugPrint('💾 [Offline] ${deliveries.length} livraisons mises en cache');
   }
@@ -53,7 +88,7 @@ class OfflineService {
   /// Récupère les livraisons actives depuis le cache
   Future<List<Delivery>> getCachedActiveDeliveries() async {
     await init();
-    final raw = _storage.get(_keyActiveDeliveries);
+    final raw = _get(_keyActiveDeliveries);
     if (raw == null) return [];
 
     try {
@@ -69,9 +104,9 @@ class OfflineService {
   Future<void> cacheCurrentDelivery(Delivery? delivery) async {
     await init();
     if (delivery == null) {
-      await _storage.delete(_keyCurrentDelivery);
+      await _delete(_keyCurrentDelivery);
     } else {
-      await _storage.put(_keyCurrentDelivery, jsonEncode(delivery.toJson()));
+      await _put(_keyCurrentDelivery, jsonEncode(delivery.toJson()));
     }
     if (kDebugMode) debugPrint('💾 [Offline] Livraison courante ${delivery != null ? "sauvegardée" : "effacée"}');
   }
@@ -79,7 +114,7 @@ class OfflineService {
   /// Récupère la livraison en cours
   Future<Delivery?> getCachedCurrentDelivery() async {
     await init();
-    final raw = _storage.get(_keyCurrentDelivery);
+    final raw = _get(_keyCurrentDelivery);
     if (raw == null) return null;
 
     try {
@@ -94,13 +129,13 @@ class OfflineService {
   /// Sauvegarde le profil livreur
   Future<void> cacheCourierProfile(CourierProfile profile) async {
     await init();
-    await _storage.put(_keyCourierProfile, jsonEncode(profile.toJson()));
+    await _put(_keyCourierProfile, jsonEncode(profile.toJson()));
   }
 
   /// Récupère le profil livreur
   Future<CourierProfile?> getCachedCourierProfile() async {
     await init();
-    final raw = _storage.get(_keyCourierProfile);
+    final raw = _get(_keyCourierProfile);
     if (raw == null) return null;
 
     try {
@@ -115,7 +150,7 @@ class OfflineService {
   /// Sauvegarde le solde du wallet
   Future<void> cacheWalletBalance(double balance, double pendingEarnings) async {
     await init();
-    await _storage.put(_keyWalletBalance, jsonEncode({
+    await _put(_keyWalletBalance, jsonEncode({
       'balance': balance,
       'pending_earnings': pendingEarnings,
       'cached_at': DateTime.now().toIso8601String(),
@@ -125,7 +160,7 @@ class OfflineService {
   /// Récupère le solde du wallet
   Future<Map<String, double>?> getCachedWalletBalance() async {
     await init();
-    final raw = _storage.get(_keyWalletBalance);
+    final raw = _get(_keyWalletBalance);
     if (raw == null) return null;
 
     try {
@@ -163,13 +198,13 @@ class OfflineService {
       'created_at': DateTime.now().toIso8601String(),
     });
 
-    await _storage.put(_keyPendingProofs, jsonEncode(pendingList));
+    await _put(_keyPendingProofs, jsonEncode(pendingList));
     if (kDebugMode) debugPrint('💾 [Offline] Preuve ajoutée en attente (total: ${pendingList.length})');
   }
 
   /// Récupère les preuves en attente
   Future<List<Map<String, dynamic>>> _getPendingProofs() async {
-    final raw = _storage.get(_keyPendingProofs);
+    final raw = _get(_keyPendingProofs);
     if (raw == null) return [];
 
     try {
@@ -183,7 +218,7 @@ class OfflineService {
   Future<List<Map<String, dynamic>>> getPendingProofsAndClear() async {
     await init();
     final proofs = await _getPendingProofs();
-    await _storage.delete(_keyPendingProofs);
+    await _delete(_keyPendingProofs);
     return proofs;
   }
 
@@ -211,12 +246,12 @@ class OfflineService {
       'created_at': DateTime.now().toIso8601String(),
     });
 
-    await _storage.put(_keyPendingActions, jsonEncode(pendingList));
+    await _put(_keyPendingActions, jsonEncode(pendingList));
     if (kDebugMode) debugPrint('💾 [Offline] Action "$type" mise en file (total: ${pendingList.length})');
   }
 
   Future<List<Map<String, dynamic>>> _getPendingActions() async {
-    final raw = _storage.get(_keyPendingActions);
+    final raw = _get(_keyPendingActions);
     if (raw == null) return [];
 
     try {
@@ -230,7 +265,7 @@ class OfflineService {
   Future<List<Map<String, dynamic>>> getPendingActionsAndClear() async {
     await init();
     final actions = await _getPendingActions();
-    await _storage.delete(_keyPendingActions);
+    await _delete(_keyPendingActions);
     return actions;
   }
 
@@ -243,13 +278,13 @@ class OfflineService {
   // ── Synchronisation ────────────────────────────────
 
   Future<void> _updateSyncTime() async {
-    await _storage.put(_keyLastSyncTime, DateTime.now().toIso8601String());
+    await _put(_keyLastSyncTime, DateTime.now().toIso8601String());
   }
 
   /// Récupère la dernière date de synchronisation
   Future<DateTime?> getLastSyncTime() async {
     await init();
-    final raw = _storage.get(_keyLastSyncTime);
+    final raw = _get(_keyLastSyncTime);
     if (raw == null) return null;
     return DateTime.tryParse(raw);
   }
@@ -275,7 +310,7 @@ class OfflineService {
       // Ne pas effacer _keyPendingProofs et _keyPendingActions !
     ];
     for (final key in keys) {
-      await _storage.delete(key);
+      await _delete(key);
     }
     if (kDebugMode) debugPrint('🗑️ [Offline] Cache nettoyé');
   }

@@ -7,124 +7,91 @@ import 'package:flutter/material.dart';
 import '../services/app_logger.dart';
 import 'exceptions.dart' as exc;
 
-/// Service centralisé pour la gestion des erreurs
-/// Fournit des patterns consistants pour gérer les erreurs à travers l'application
+/// Service centralisé pour la gestion des erreurs.
 class ErrorHandler {
   ErrorHandler._();
 
-  /// Convertit une exception en message utilisateur friendly
-  static String getErrorMessage(dynamic error) {
-    // --- AppException hierarchy (error_handler.dart) ---
-    if (error is AppException) {
-      return error.userMessage;
-    }
+  // ---------------------------------------------------------------------------
+  // Message d'erreur
+  // ---------------------------------------------------------------------------
 
-    // --- Data-layer exceptions (exceptions.dart) ---
-    if (error is exc.ServerException) {
-      return error.message;
-    }
-    if (error is exc.NetworkException) {
-      return error.message;
-    }
+  /// Retourne un message lisible à partir de n'importe quelle exception.
+  static String getErrorMessage(dynamic error) {
+    if (error is AppException) return error.userMessage;
+
+    if (error is exc.ServerException) return error.message;
+    if (error is exc.NetworkException) return error.message;
+    if (error is exc.CacheException) return error.message;
     if (error is exc.UnauthorizedException) {
       return 'Session expirée. Veuillez vous reconnecter';
     }
     if (error is exc.ValidationException) {
-      final first = error.errors.values.firstOrNull?.firstOrNull;
-      return first ?? 'Données invalides';
-    }
-    if (error is exc.CacheException) {
-      return error.message;
+      return error.errors.values.firstOrNull?.firstOrNull ?? 'Données invalides';
     }
 
-    if (error is DioException) {
-      return _handleDioError(error);
-    }
+    if (error is DioException) return _handleDioError(error);
 
-    // SocketException n'existe pas sur Web - vérifier le type par nom
     if (!kIsWeb && error.runtimeType.toString() == 'SocketException') {
       return 'Pas de connexion internet';
     }
+    if (error is TimeoutException) return 'La requête a pris trop de temps';
+    if (error is FormatException) return 'Données invalides reçues du serveur';
 
-    if (error is TimeoutException) {
-      return 'La requête a pris trop de temps';
-    }
-
-    if (error is FormatException) {
-      return 'Données invalides reçues du serveur';
-    }
-
-    // Log l'erreur inconnue
     AppLogger.error('Erreur non gérée', error: error);
     return 'Une erreur inattendue s\'est produite';
   }
 
-  /// Gère les erreurs Dio spécifiquement
   static String _handleDioError(DioException error) {
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
         return 'Délai de connexion dépassé';
-
       case DioExceptionType.connectionError:
-        return 'Impossible de se connecter au serveur';
-
-      case DioExceptionType.badResponse:
-        return _handleHttpError(error.response?.statusCode, error.response?.data);
-
-      case DioExceptionType.cancel:
-        return 'Requête annulée';
-
-      case DioExceptionType.badCertificate:
-        return 'Certificat de sécurité invalide';
-
-      case DioExceptionType.unknown:
-        // SocketException n'existe pas sur Web
         if (!kIsWeb && error.error?.runtimeType.toString() == 'SocketException') {
           return 'Pas de connexion internet';
         }
+        return 'Impossible de se connecter au serveur';
+      case DioExceptionType.badResponse:
+        return _handleHttpError(error.response?.statusCode, error.response?.data);
+      case DioExceptionType.cancel:
+        return 'Requête annulée';
+      case DioExceptionType.badCertificate:
+        return 'Certificat de sécurité invalide';
+      case DioExceptionType.unknown:
         return 'Erreur de connexion';
     }
   }
 
-  /// Gère les codes d'erreur HTTP
   static String _handleHttpError(int? statusCode, dynamic data) {
-    // Essayer d'extraire le message du serveur
-    String? serverMessage;
-    if (data is Map) {
-      serverMessage = data['message'] as String? ?? 
-                      data['error'] as String? ??
-                      (data['errors'] is Map ? 
-                        (data['errors'] as Map).values.first?.toString() : null);
-    }
+    final serverMessage = switch (data) {
+      Map() => data['message'] as String? ??
+          data['error'] as String? ??
+          (data['errors'] is Map
+              ? (data['errors'] as Map).values.first?.toString()
+              : null),
+      _ => null,
+    };
 
-    switch (statusCode) {
-      case 400:
-        return serverMessage ?? 'Requête invalide';
-      case 401:
-        return 'Session expirée. Veuillez vous reconnecter';
-      case 403:
-        return serverMessage ?? 'Accès non autorisé';
-      case 404:
-        return serverMessage ?? 'Ressource non trouvée';
-      case 409:
-        return serverMessage ?? 'Conflit de données';
-      case 422:
-        return serverMessage ?? 'Données invalides';
-      case 429:
-        return 'Trop de requêtes. Veuillez patienter';
-      case 500:
-        return 'Erreur serveur. Veuillez réessayer plus tard';
-      case 502:
-      case 503:
-        return 'Service temporairement indisponible';
-      default:
-        return serverMessage ?? 'Erreur $statusCode';
-    }
+    return switch (statusCode) {
+      400 => serverMessage ?? 'Requête invalide',
+      401 => 'Session expirée. Veuillez vous reconnecter',
+      403 => serverMessage ?? 'Accès non autorisé',
+      404 => serverMessage ?? 'Ressource non trouvée',
+      409 => serverMessage ?? 'Conflit de données',
+      422 => serverMessage ?? 'Données invalides',
+      429 => 'Trop de requêtes. Veuillez patienter',
+      500 => 'Erreur serveur. Veuillez réessayer plus tard',
+      502 || 503 => 'Service temporairement indisponible',
+      _ => serverMessage ?? 'Erreur $statusCode',
+    };
   }
 
-  /// Exécute une opération avec gestion d'erreur automatique
+  // ---------------------------------------------------------------------------
+  // Opération protégée
+  // ---------------------------------------------------------------------------
+
+  /// Exécute une opération en capturant les erreurs automatiquement.
   static Future<T?> runSafe<T>(
     Future<T> Function() operation, {
     required void Function(String message) onError,
@@ -142,93 +109,59 @@ class ErrorHandler {
     }
   }
 
-  /// Affiche un snackbar d'erreur
-  static void showErrorSnackBar(BuildContext context, String message) {
+  // ---------------------------------------------------------------------------
+  // Snackbars
+  // ---------------------------------------------------------------------------
+
+  static void showErrorSnackBar(BuildContext context, String message) =>
+      _showSnackBar(context, message, Colors.red.shade700, Icons.error_outline);
+
+  static void showSuccessSnackBar(BuildContext context, String message) =>
+      _showSnackBar(context, message, Colors.green.shade700, Icons.check_circle_outline);
+
+  static void showWarningSnackBar(BuildContext context, String message) =>
+      _showSnackBar(context, message, Colors.orange.shade700, Icons.warning_amber);
+
+  static void _showSnackBar(
+    BuildContext context,
+    String message,
+    Color color,
+    IconData icon, {
+    Duration duration = const Duration(seconds: 3),
+  }) {
     if (!context.mounted) return;
-    
-    ScaffoldMessenger.of(context)
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.error_outline, color: Colors.white),
+              Icon(icon, color: Colors.white),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  message,
-                  style: const TextStyle(color: Colors.white),
-                ),
+                child: Text(message, style: const TextStyle(color: Colors.white)),
               ),
             ],
           ),
-          backgroundColor: Colors.red.shade700,
+          backgroundColor: color,
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 4),
+          duration: duration,
           action: SnackBarAction(
             label: 'OK',
             textColor: Colors.white,
-            onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+            onPressed: () => messenger.hideCurrentSnackBar(),
           ),
         ),
       );
   }
 
-  /// Affiche un snackbar de succès
-  static void showSuccessSnackBar(BuildContext context, String message) {
-    if (!context.mounted) return;
-    
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle_outline, color: Colors.white),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  message,
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.green.shade700,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-  }
+  // ---------------------------------------------------------------------------
+  // Dialogs
+  // ---------------------------------------------------------------------------
 
-  /// Affiche un snackbar d'avertissement
-  static void showWarningSnackBar(BuildContext context, String message) {
-    if (!context.mounted) return;
-    
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.warning_amber, color: Colors.white),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  message,
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.orange.shade700,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-  }
-
-  /// Affiche une dialog d'erreur
+  /// Affiche une dialog d'erreur.
   static Future<void> showErrorDialog(
     BuildContext context, {
     required String title,
@@ -237,7 +170,7 @@ class ErrorHandler {
     VoidCallback? onPressed,
   }) async {
     if (!context.mounted) return;
-    
+
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
@@ -257,7 +190,7 @@ class ErrorHandler {
     );
   }
 
-  /// Affiche une dialog de confirmation
+  /// Affiche une dialog de confirmation et retourne `true` si l'utilisateur confirme.
   static Future<bool> showConfirmationDialog(
     BuildContext context, {
     required String title,
@@ -267,7 +200,7 @@ class ErrorHandler {
     bool isDangerous = false,
   }) async {
     if (!context.mounted) return false;
-    
+
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -291,12 +224,16 @@ class ErrorHandler {
         ],
       ),
     );
-    
+
     return result ?? false;
   }
 }
 
-/// Classe de base pour les exceptions de l'application
+// =============================================================================
+// Exceptions applicatives
+// =============================================================================
+
+/// Classe de base pour les exceptions métier de l'application.
 class AppException implements Exception {
   const AppException({
     required this.userMessage,
@@ -305,23 +242,15 @@ class AppException implements Exception {
     this.originalError,
   });
 
-  /// Message à afficher à l'utilisateur
   final String userMessage;
-
-  /// Message technique pour le debug
   final String? technicalMessage;
-
-  /// Code d'erreur (optionnel)
   final String? code;
-
-  /// Erreur originale
   final dynamic originalError;
 
   @override
-  String toString() => 'AppException: $userMessage (code: $code)';
+  String toString() => 'AppException[$code]: $userMessage';
 }
 
-/// Exception pour les erreurs réseau
 class NetworkException extends AppException {
   const NetworkException({
     super.userMessage = 'Erreur de connexion',
@@ -330,7 +259,6 @@ class NetworkException extends AppException {
   }) : super(code: 'NETWORK_ERROR');
 }
 
-/// Exception pour les erreurs d'authentification
 class AuthException extends AppException {
   const AuthException({
     super.userMessage = 'Erreur d\'authentification',
@@ -339,7 +267,6 @@ class AuthException extends AppException {
   }) : super(code: 'AUTH_ERROR');
 }
 
-/// Exception pour les erreurs de validation
 class ValidationException extends AppException {
   const ValidationException({
     required super.userMessage,
@@ -348,11 +275,9 @@ class ValidationException extends AppException {
     super.originalError,
   }) : super(code: 'VALIDATION_ERROR');
 
-  /// Erreurs par champ
   final Map<String, String> fieldErrors;
 }
 
-/// Exception pour les ressources non trouvées
 class NotFoundException extends AppException {
   const NotFoundException({
     super.userMessage = 'Ressource non trouvée',
@@ -361,7 +286,6 @@ class NotFoundException extends AppException {
   }) : super(code: 'NOT_FOUND');
 }
 
-/// Exception pour les opérations non autorisées
 class ForbiddenException extends AppException {
   const ForbiddenException({
     super.userMessage = 'Action non autorisée',
@@ -370,20 +294,13 @@ class ForbiddenException extends AppException {
   }) : super(code: 'FORBIDDEN');
 }
 
-/// Extension pour gérer les erreurs dans les widgets
+// =============================================================================
+// Extension BuildContext
+// =============================================================================
+
 extension ErrorHandlerContext on BuildContext {
-  /// Affiche une erreur
-  void showError(String message) {
-    ErrorHandler.showErrorSnackBar(this, message);
-  }
-
-  /// Affiche un succès
-  void showSuccess(String message) {
-    ErrorHandler.showSuccessSnackBar(this, message);
-  }
-
-  /// Affiche un avertissement
-  void showWarning(String message) {
-    ErrorHandler.showWarningSnackBar(this, message);
-  }
+  void showError(String message) => ErrorHandler.showErrorSnackBar(this, message);
+  void showSuccess(String message) => ErrorHandler.showSuccessSnackBar(this, message);
+  void showWarning(String message) => ErrorHandler.showWarningSnackBar(this, message);
 }
+

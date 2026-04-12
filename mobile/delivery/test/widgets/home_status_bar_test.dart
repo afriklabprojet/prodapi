@@ -7,6 +7,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:courier/data/models/courier_profile.dart';
 import 'package:courier/data/models/wallet_data.dart';
+import 'package:courier/presentation/providers/wallet_provider.dart';
 import 'package:courier/presentation/widgets/home/home_status_bar.dart';
 import '../helpers/widget_test_helpers.dart';
 
@@ -34,11 +35,13 @@ void main() {
     rating: 4.8,
     completedDeliveries: 150,
     earnings: 75000,
+    kycStatus: 'verified',
   );
 
   final testWallet = WalletData(
     balance: 12500,
     currency: 'XOF',
+    todayEarnings: 12500,
     transactions: [],
   );
 
@@ -49,7 +52,7 @@ void main() {
     return ProviderScope(
       overrides: commonWidgetTestOverrides(extra: [
         if (walletBuilder != null)
-          homeWalletProvider.overrideWith((ref) => walletBuilder(ref)),
+          walletDataProvider.overrideWith((ref) => walletBuilder(ref)),
       ]),
       child: MaterialApp(
         home: Scaffold(
@@ -73,7 +76,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('F'), findsAtLeastNWidgets(1));
-      expect(find.textContaining('12'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('500'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('displays monetization icon', (tester) async {

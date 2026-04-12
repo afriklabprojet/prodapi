@@ -7,9 +7,46 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/app_router.dart';
 import '../providers/cart_provider.dart';
 import '../providers/cart_state.dart';
+import '../utils/cart_ui_guards.dart';
 
 class CartPage extends ConsumerWidget {
   const CartPage({super.key});
+
+  /// Supprime un article du panier avec possibilité d'annuler
+  void _removeItemWithUndo({
+    required BuildContext context,
+    required WidgetRef ref,
+    required int productId,
+  }) {
+    // Récupérer l'article avant suppression
+    final cartState = ref.read(cartProvider);
+    final item = cartState.getItem(productId);
+    if (item == null) return;
+
+    final product = item.product;
+    final quantity = item.quantity;
+
+    // Supprimer l'article
+    ref.read(cartProvider.notifier).removeItem(productId);
+
+    // Afficher le snackbar avec option "Annuler"
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${product.name} retiré du panier'),
+        backgroundColor: AppColors.textSecondary,
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'Annuler',
+          textColor: AppColors.primary,
+          onPressed: () {
+            // Restaurer l'article avec la même quantité
+            ref.read(cartProvider.notifier).addItem(product, quantity: quantity);
+          },
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -20,36 +57,63 @@ class CartPage extends ConsumerWidget {
       decimalDigits: 0,
     );
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mon Panier'),
-        backgroundColor: AppColors.primary,
-        actions: [
-          if (cartState.isNotEmpty)
-            IconButton(
-              onPressed: () => _showClearCartDialog(context, ref),
-              icon: const Icon(Icons.delete_outline),
-              tooltip: 'Vider le panier',
+    // Listen for error changes and show snackbar automatically
+    ref.listen<CartState>(cartProvider, (previous, next) {
+      if (next.errorMessage != null && 
+          (previous?.errorMessage != next.errorMessage)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.errorMessage!),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {
+                ref.read(cartProvider.notifier).clearError();
+              },
             ),
-        ],
-      ),
-      body: cartState.isEmpty
-          ? _buildEmptyCart(context)
-          : Column(
-              children: [
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: cartState.items.length,
-                    itemBuilder: (context, index) {
-                      final item = cartState.items[index];
-                      return _buildCartItem(context, ref, item, currencyFormat);
-                    },
+          ),
+        );
+        // Auto-clear error after showing
+        Future.delayed(const Duration(seconds: 3), () {
+          ref.read(cartProvider.notifier).clearError();
+        });
+      }
+    });
+
+    return ScaffoldMessenger(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Mon Panier'),
+          backgroundColor: AppColors.primary,
+          actions: [
+            if (cartState.isNotEmpty)
+              IconButton(
+                onPressed: () => _showClearCartDialog(context, ref),
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'Vider le panier',
+              ),
+          ],
+        ),
+        body: cartState.isEmpty
+            ? _buildEmptyCart(context)
+            : Column(
+                children: [
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: cartState.items.length,
+                      itemBuilder: (context, index) {
+                        final item = cartState.items[index];
+                        return _buildCartItem(context, ref, item, currencyFormat);
+                      },
+                    ),
                   ),
-                ),
-                _buildCartSummary(context, ref, cartState, currencyFormat),
-              ],
-            ),
+                  _buildCartSummary(context, ref, cartState, currencyFormat),
+                ],
+              ),
+      ),
     );
   }
 
@@ -102,20 +166,24 @@ class CartPage extends ConsumerWidget {
     final product = item.product;
     final isAvailable = item.isAvailable;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Product Image
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2C2C2C) : Colors.grey[200],
-                borderRadius: BorderRadius.circular(8),
+    return Semantics(
+      container: true,
+      label: '${product.name}, quantité ${item.quantity}, ${currencyFormat.format(product.price * item.quantity)}${!isAvailable ? ", stock insuffisant" : ""}',
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Product Image
+              ExcludeSemantics(
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2C2C2C) : Colors.grey[200],
+                    borderRadius: BorderRadius.circular(8),
               ),
               child: product.imageUrl != null
                   ? ClipRRect(
@@ -129,6 +197,7 @@ class CartPage extends ConsumerWidget {
                     )
                   : const Icon(Icons.medication, size: 40, semanticLabel: 'Image non disponible'),
             ),
+            ), // ExcludeSemantics
             const SizedBox(width: 12),
             // Product Info
             Expanded(
@@ -194,60 +263,75 @@ class CartPage extends ConsumerWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(
-                              tooltip: item.quantity > 1 ? 'Diminuer la quantité' : 'Supprimer du panier',
-                              onPressed: () {
-                                if (item.quantity > 1) {
-                                  ref
-                                      .read(cartProvider.notifier)
-                                      .updateQuantity(
-                                        product.id,
-                                        item.quantity - 1,
-                                      );
-                                } else {
-                                  ref
-                                      .read(cartProvider.notifier)
-                                      .removeItem(product.id);
-                                }
-                              },
-                              icon: Icon(
-                                item.quantity > 1
-                                    ? Icons.remove
-                                    : Icons.delete_outline,
-                                size: 20,
+                            Semantics(
+                              button: true,
+                              label: item.quantity > 1 ? 'Diminuer la quantité' : 'Supprimer du panier',
+                              child: DebouncedIconButton(
+                                tooltip: item.quantity > 1 ? 'Diminuer la quantité' : 'Supprimer du panier',
+                                onPressed: () {
+                                  if (item.quantity > 1) {
+                                    ref
+                                        .read(cartProvider.notifier)
+                                        .updateQuantity(
+                                          product.id,
+                                          item.quantity - 1,
+                                        );
+                                  } else {
+                                    _removeItemWithUndo(
+                                      context: context,
+                                      ref: ref,
+                                      productId: product.id,
+                                    );
+                                  }
+                                },
+                                icon: Icon(
+                                  item.quantity > 1
+                                      ? Icons.remove
+                                      : Icons.delete_outline,
+                                  size: 20,
+                                  semanticLabel: item.quantity > 1 ? 'Diminuer' : 'Supprimer',
+                                ),
+                                padding: const EdgeInsets.all(4),
+                                constraints: const BoxConstraints(),
                               ),
-                              padding: const EdgeInsets.all(4),
-                              constraints: const BoxConstraints(),
                             ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              child: Text(
-                                '${item.quantity}',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
+                            Semantics(
+                              label: 'Quantité: ${item.quantity}',
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                child: Text(
+                                  '${item.quantity}',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ),
-                            IconButton(
-                              tooltip: 'Augmenter la quantité',
-                              onPressed:
-                                  isAvailable &&
-                                      item.quantity < product.stockQuantity
-                                  ? () {
-                                      ref
-                                          .read(cartProvider.notifier)
+                            Semantics(
+                              button: true,
+                              label: 'Augmenter la quantité',
+                              enabled: isAvailable && item.quantity < product.stockQuantity,
+                              child: DebouncedIconButton(
+                                tooltip: 'Augmenter la quantité',
+                                onPressed:
+                                    isAvailable &&
+                                        item.quantity < product.stockQuantity
+                                    ? () {
+                                        ref
+                                            .read(cartProvider.notifier)
                                           .updateQuantity(
                                             product.id,
                                             item.quantity + 1,
                                           );
                                     }
                                   : null,
-                              icon: const Icon(Icons.add, size: 20),
+                              icon: const Icon(Icons.add, size: 20, semanticLabel: 'Augmenter'),
                               padding: const EdgeInsets.all(4),
                               constraints: const BoxConstraints(),
+                              ),
                             ),
                           ],
                         ),
@@ -260,6 +344,7 @@ class CartPage extends ConsumerWidget {
           ],
         ),
       ),
+    ), // Semantics
     );
   }
 

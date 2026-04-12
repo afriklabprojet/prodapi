@@ -15,11 +15,17 @@ echo "\n=== Création d'un compte Coursier Actif ===\n\n";
 $existingUser = User::where('email', 'coursier@drlpharma.com')->first();
 if ($existingUser) {
     echo "⚠️ Ce compte existe déjà!\n";
+    // Mettre à jour phone_verified_at si pas fait
+    if (!$existingUser->phone_verified_at) {
+        $existingUser->phone_verified_at = now();
+        $existingUser->save();
+    }
     if ($existingUser->courier) {
-        $existingUser->courier->status = 'approved';
+        $existingUser->courier->status = 'available';
+        $existingUser->courier->kyc_status = 'approved';
         $existingUser->courier->save();
     }
-    echo "✅ Statut mis à jour: approved\n";
+    echo "✅ Statut mis à jour: available, kyc: approved\n";
 } else {
     // Créer l'utilisateur
     $user = new User();
@@ -29,6 +35,7 @@ if ($existingUser) {
     $user->password = Hash::make('Coursier@2026');
     $user->role = 'courier';
     $user->email_verified_at = now();
+    $user->phone_verified_at = now();
     $user->save();
 
     // Créer le profil coursier avec les bons noms de colonnes
@@ -39,7 +46,7 @@ if ($existingUser) {
     $courier->vehicle_type = 'motorcycle';
     $courier->vehicle_number = 'AB-1234-CI';
     $courier->license_number = 'PERM-2026-001';
-    $courier->status = 'approved';
+    $courier->status = 'available';
     $courier->kyc_status = 'approved';
     $courier->latitude = 5.3600;
     $courier->longitude = -4.0083;

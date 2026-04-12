@@ -7,6 +7,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:courier/presentation/screens/splash_screen.dart';
@@ -28,23 +29,41 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     SecureTokenService.enableTestMode();
 
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) => const SplashScreen(),
+        ),
+        GoRoute(
+          path: '/login',
+          builder: (context, state) => const SizedBox.shrink(),
+        ),
+        GoRoute(
+          path: '/dashboard',
+          builder: (context, state) => const SizedBox.shrink(),
+        ),
+        GoRoute(
+          path: '/onboarding',
+          builder: (context, state) => const SizedBox.shrink(),
+        ),
+      ],
+    );
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: commonWidgetTestOverrides(),
-        child: const MaterialApp(home: SplashScreen()),
+        child: MaterialApp.router(routerConfig: router),
       ),
     );
 
-    // Pump one frame to render initial state
     await tester.pump();
 
-    // Le splash screen affiche le logo DR-PHARMA et LIVREUR
     expect(find.text('DR-PHARMA'), findsOneWidget);
     expect(find.text('LIVREUR'), findsOneWidget);
 
-    // Advance past all pending timers:
-    // - Firebase.initializeApp().timeout(4s) resolves at t=4s
-    // - _routeUser 800ms delay fires at ~t=4.8s → navigates → dispose cancels remaining timers
     await tester.pump(const Duration(seconds: 6));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 4));
   });
 }

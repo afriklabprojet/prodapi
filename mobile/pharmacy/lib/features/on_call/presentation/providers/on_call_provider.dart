@@ -9,11 +9,7 @@ class OnCallState {
   final List<OnCallModel> onCalls;
   final String? error;
 
-  OnCallState({
-    this.isLoading = false,
-    this.onCalls = const [],
-    this.error,
-  });
+  OnCallState({this.isLoading = false, this.onCalls = const [], this.error});
 
   OnCallState copyWith({
     bool? isLoading,
@@ -28,24 +24,33 @@ class OnCallState {
   }
 }
 
-class OnCallNotifier extends StateNotifier<OnCallState> {
-  final OnCallRepository _repository;
+class OnCallNotifier extends Notifier<OnCallState> {
+  late final OnCallRepository _repository;
 
-  OnCallNotifier(this._repository) : super(OnCallState()) {
-    getOnCalls();
+  @override
+  OnCallState build() {
+    _repository = ref.watch(onCallRepositoryProvider);
+    // Defer initial fetch to avoid "Bad state: uninitialized" error
+    Future.microtask(getOnCalls);
+    return OnCallState();
   }
 
   Future<void> getOnCalls() async {
     state = state.copyWith(isLoading: true, error: null);
     final result = await _repository.getOnCalls();
-    
+
     result.fold(
-      (failure) => state = state.copyWith(isLoading: false, error: failure.message),
+      (failure) =>
+          state = state.copyWith(isLoading: false, error: failure.message),
       (onCalls) => state = state.copyWith(isLoading: false, onCalls: onCalls),
     );
   }
 
-  Future<bool> createOnCall(DateTime startAt, DateTime endAt, String type) async {
+  Future<bool> createOnCall(
+    DateTime startAt,
+    DateTime endAt,
+    String type,
+  ) async {
     state = state.copyWith(isLoading: true, error: null);
 
     // Format as 'yyyy-MM-dd HH:mm:ss' — compatible with Laravel Carbon parsing
@@ -57,7 +62,7 @@ class OnCallNotifier extends StateNotifier<OnCallState> {
     };
 
     final result = await _repository.createOnCall(data);
-    
+
     bool success = false;
     result.fold(
       (failure) {
@@ -67,7 +72,7 @@ class OnCallNotifier extends StateNotifier<OnCallState> {
       (newOnCall) {
         // Optimistically add to list or refresh
         state = state.copyWith(
-          isLoading: false, 
+          isLoading: false,
           onCalls: [newOnCall, ...state.onCalls],
         );
         success = true;
@@ -98,7 +103,6 @@ class OnCallNotifier extends StateNotifier<OnCallState> {
   }
 }
 
-final onCallProvider = StateNotifierProvider<OnCallNotifier, OnCallState>((ref) {
-  final repository = ref.watch(onCallRepositoryProvider);
-  return OnCallNotifier(repository);
-});
+final onCallProvider = NotifierProvider<OnCallNotifier, OnCallState>(
+  OnCallNotifier.new,
+);

@@ -4,13 +4,13 @@
 # =============================================================================
 # 
 # Usage: ./generate_cert_hashes.sh <domain>
-# Example: ./generate_cert_hashes.sh api.drlpharma.com
+# Example: ./generate_cert_hashes.sh api.drlpharma.pro
 #
 # Ce script génère les hashes SHA-256 nécessaires pour le Certificate Pinning
 
 set -e
 
-DOMAIN=${1:-"api.drlpharma.com"}
+DOMAIN=${1:-"api.drlpharma.pro"}
 PORT=${2:-443}
 
 echo "=============================================="

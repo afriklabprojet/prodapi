@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -54,7 +55,7 @@ class _OnDutyPharmaciesMapPageState
         await _fetchOnDutyPharmacies(null, null);
         return;
       }
-      
+
       // Vérifier si les services de localisation sont activés
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
@@ -145,10 +146,9 @@ class _OnDutyPharmaciesMapPageState
   }
 
   Future<void> _fetchOnDutyPharmacies(double? lat, double? lng) async {
-    await ref.read(pharmaciesProvider.notifier).fetchOnDutyPharmacies(
-          latitude: lat,
-          longitude: lng,
-        );
+    await ref
+        .read(pharmaciesProvider.notifier)
+        .fetchOnDutyPharmacies(latitude: lat, longitude: lng);
     if (!mounted) return;
     setState(() {
       _isLoading = false;
@@ -164,25 +164,26 @@ class _OnDutyPharmaciesMapPageState
         name: 'OnDutyPharmaciesMap',
       );
     }
-    
+
     int validCount = 0;
     int invalidCount = 0;
 
     for (final pharmacy in pharmacies) {
-      final hasValidCoords = pharmacy.latitude != null &&
+      final hasValidCoords =
+          pharmacy.latitude != null &&
           pharmacy.longitude != null &&
           pharmacy.latitude != 0.0 &&
           pharmacy.longitude != 0.0 &&
           _isValidLatitude(pharmacy.latitude!) &&
           _isValidLongitude(pharmacy.longitude!);
-      
+
       if (kDebugMode) {
         developer.log(
           '  - ${pharmacy.name}: lat=${pharmacy.latitude}, lng=${pharmacy.longitude} => ${hasValidCoords ? "✅" : "❌"}',
           name: 'OnDutyPharmaciesMap',
         );
       }
-      
+
       if (hasValidCoords) {
         validCount++;
         markers.add(
@@ -208,7 +209,7 @@ class _OnDutyPharmaciesMapPageState
         invalidCount++;
       }
     }
-    
+
     if (kDebugMode) {
       developer.log(
         '📊 On-duty markers: $validCount valid, $invalidCount invalid',
@@ -222,7 +223,7 @@ class _OnDutyPharmaciesMapPageState
       });
     }
   }
-  
+
   bool _isValidLatitude(double lat) => lat >= -90.0 && lat <= 90.0;
   bool _isValidLongitude(double lng) => lng >= -180.0 && lng <= 180.0;
 
@@ -296,7 +297,7 @@ class _OnDutyPharmaciesMapPageState
     return Scaffold(
       appBar: AppBar(
         title: const Text('Pharmacies de Garde'),
-        backgroundColor: const Color(0xFFFF5722),
+        backgroundColor: AppColors.onDuty,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -304,6 +305,7 @@ class _OnDutyPharmaciesMapPageState
             icon: Icon(_showList ? Icons.map : Icons.list),
             tooltip: _showList ? 'Voir la carte' : 'Voir la liste',
             onPressed: () {
+              HapticFeedback.selectionClick();
               setState(() {
                 _showList = !_showList;
               });
@@ -319,8 +321,8 @@ class _OnDutyPharmaciesMapPageState
       body: _isLoading
           ? _buildLoadingState()
           : _showList
-              ? _buildListView(onDutyPharmacies)
-              : _buildMapView(pharmaciesState, onDutyPharmacies),
+          ? _buildListView(onDutyPharmacies)
+          : _buildMapView(pharmaciesState, onDutyPharmacies),
       floatingActionButton: !_showList && !kIsWeb
           ? Column(
               mainAxisSize: MainAxisSize.min,
@@ -328,20 +330,27 @@ class _OnDutyPharmaciesMapPageState
                 if (_currentPosition != null)
                   FloatingActionButton.small(
                     heroTag: 'center_user',
-                    backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E1E1E) : Colors.white,
+                    backgroundColor:
+                        Theme.of(context).brightness == Brightness.dark
+                        ? AppColors.surfaceDark
+                        : Colors.white,
                     onPressed: _centerOnUser,
-                    child: const Icon(Icons.my_location, color: AppColors.primary),
+                    child: const Icon(
+                      Icons.my_location,
+                      color: AppColors.primary,
+                    ),
                   ),
                 const SizedBox(height: 8),
                 FloatingActionButton.extended(
                   heroTag: 'toggle_list',
-                  backgroundColor: const Color(0xFFFF5722),
+                  backgroundColor: AppColors.onDuty,
                   icon: const Icon(Icons.list, color: Colors.white),
                   label: Text(
                     '${onDutyPharmacies.length} pharmacie${onDutyPharmacies.length > 1 ? 's' : ''}',
                     style: const TextStyle(color: Colors.white),
                   ),
                   onPressed: () {
+                    HapticFeedback.selectionClick();
                     setState(() {
                       _showList = true;
                     });
@@ -358,14 +367,14 @@ class _OnDutyPharmaciesMapPageState
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const CircularProgressIndicator(
-            color: Color(0xFFFF5722),
-          ),
+          const CircularProgressIndicator(color: AppColors.onDuty),
           const SizedBox(height: 16),
           Text(
             'Recherche des pharmacies de garde...',
             style: TextStyle(
-              color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[400] : Colors.grey[600],
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.grey[400]
+                  : Colors.grey[600],
               fontSize: 16,
             ),
           ),
@@ -373,7 +382,9 @@ class _OnDutyPharmaciesMapPageState
           Text(
             'Localisation en cours...',
             style: TextStyle(
-              color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[500] : Colors.grey[500],
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.grey[500]
+                  : Colors.grey[500],
               fontSize: 14,
             ),
           ),
@@ -383,7 +394,9 @@ class _OnDutyPharmaciesMapPageState
   }
 
   Widget _buildMapView(
-      PharmaciesState pharmaciesState, List<PharmacyEntity> onDutyPharmacies) {
+    PharmaciesState pharmaciesState,
+    List<PharmacyEntity> onDutyPharmacies,
+  ) {
     if (kIsWeb) {
       return _buildWebFallback(onDutyPharmacies);
     }
@@ -392,8 +405,7 @@ class _OnDutyPharmaciesMapPageState
 
     if (_currentPosition != null) {
       initialPosition = CameraPosition(
-        target:
-            LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+        target: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
         zoom: 14,
       );
     } else if (onDutyPharmacies.isNotEmpty) {
@@ -432,10 +444,10 @@ class _OnDutyPharmaciesMapPageState
             right: 0,
             child: Container(
               padding: const EdgeInsets.all(12),
-              color: Colors.amber.shade100,
+              color: AppColors.warning.withValues(alpha: 0.12),
               child: Row(
                 children: [
-                  Icon(Icons.warning_amber, color: Colors.amber.shade800),
+                  const Icon(Icons.warning_amber, color: AppColors.warning),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -467,13 +479,16 @@ class _OnDutyPharmaciesMapPageState
             child: _buildSelectedPharmacyCard(_selectedPharmacy!),
           ),
         // Empty state
-        if (onDutyPharmacies.isEmpty && pharmaciesState.status != PharmaciesStatus.loading)
+        if (onDutyPharmacies.isEmpty &&
+            pharmaciesState.status != PharmaciesStatus.loading)
           Center(
             child: Container(
               margin: const EdgeInsets.all(32),
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E1E1E) : Colors.white,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFF1E1E1E)
+                    : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
@@ -489,7 +504,9 @@ class _OnDutyPharmaciesMapPageState
                   Icon(
                     Icons.local_pharmacy_outlined,
                     size: 64,
-                    color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[500] : Colors.grey[400],
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey[500]
+                        : Colors.grey[400],
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -497,7 +514,9 @@ class _OnDutyPharmaciesMapPageState
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[300] : Colors.grey[700],
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.grey[300]
+                          : Colors.grey[700],
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -505,7 +524,9 @@ class _OnDutyPharmaciesMapPageState
                     'Aucune pharmacie de garde n\'est disponible actuellement dans votre zone.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[400] : Colors.grey[600],
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.grey[400]
+                          : Colors.grey[600],
                     ),
                   ),
                 ],
@@ -522,7 +543,9 @@ class _OnDutyPharmaciesMapPageState
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E1E1E) : Colors.white,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF1E1E1E)
+              : Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
@@ -564,8 +587,10 @@ class _OnDutyPharmaciesMapPageState
                   ),
                   const SizedBox(height: 4),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFF5722),
                       borderRadius: BorderRadius.circular(10),
@@ -583,10 +608,7 @@ class _OnDutyPharmaciesMapPageState
                     const SizedBox(height: 4),
                     Text(
                       pharmacy.address,
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 13,
-                      ),
+                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -594,10 +616,7 @@ class _OnDutyPharmaciesMapPageState
                 ],
               ),
             ),
-            const Icon(
-              Icons.chevron_right,
-              color: Colors.grey,
-            ),
+            const Icon(Icons.chevron_right, color: Colors.grey),
           ],
         ),
       ),
@@ -613,7 +632,9 @@ class _OnDutyPharmaciesMapPageState
             Icon(
               Icons.local_pharmacy_outlined,
               size: 64,
-              color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[500] : Colors.grey[400],
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.grey[500]
+                  : Colors.grey[400],
             ),
             const SizedBox(height: 16),
             Text(
@@ -621,14 +642,18 @@ class _OnDutyPharmaciesMapPageState
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[300] : Colors.grey[700],
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.grey[300]
+                    : Colors.grey[700],
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Aucune pharmacie de garde disponible actuellement.',
               style: TextStyle(
-                color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[400] : Colors.grey[600],
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.grey[400]
+                    : Colors.grey[600],
               ),
             ),
           ],
@@ -649,9 +674,7 @@ class _OnDutyPharmaciesMapPageState
   Widget _buildPharmacyListItem(PharmacyEntity pharmacy) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () => _onPharmacyTap(pharmacy),
@@ -687,7 +710,9 @@ class _OnDutyPharmaciesMapPageState
                     const SizedBox(height: 4),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFF5722),
                         borderRadius: BorderRadius.circular(10),
@@ -725,18 +750,14 @@ class _OnDutyPharmaciesMapPageState
                         ],
                       ),
                     ],
-                    if (pharmacy.phone != null) ...[
+                    ...[
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(
-                            Icons.phone,
-                            size: 14,
-                            color: Colors.grey[500],
-                          ),
+                          Icon(Icons.phone, size: 14, color: Colors.grey[500]),
                           const SizedBox(width: 4),
                           Text(
-                            pharmacy.phone!,
+                            pharmacy.phone,
                             style: TextStyle(
                               color: Colors.grey[600],
                               fontSize: 13,
@@ -759,10 +780,7 @@ class _OnDutyPharmaciesMapPageState
                       tooltip: 'Voir sur la carte',
                       onPressed: () => _goToPharmacy(pharmacy),
                     ),
-                  const Icon(
-                    Icons.chevron_right,
-                    color: Colors.grey,
-                  ),
+                  const Icon(Icons.chevron_right, color: Colors.grey),
                 ],
               ),
             ],
@@ -791,9 +809,7 @@ class _OnDutyPharmaciesMapPageState
             ],
           ),
         ),
-        Expanded(
-          child: _buildListView(onDutyPharmacies),
-        ),
+        Expanded(child: _buildListView(onDutyPharmacies)),
       ],
     );
   }

@@ -61,12 +61,16 @@ class ChatNotifierState {
 }
 
 /// Notifier pour envoyer des messages
-class ChatNotifier extends StateNotifier<ChatNotifierState> {
-  final ChatRepository _repository;
+class ChatNotifier extends AutoDisposeNotifier<ChatNotifierState> {
+  late final ChatRepository _repository;
 
-  ChatNotifier(this._repository) : super(const ChatNotifierState());
+  @override
+  ChatNotifierState build() {
+    _repository = ref.watch(chatRepositoryProvider);
+    return const ChatNotifierState();
+  }
 
-  Future<void> sendMessage({
+  Future<bool> sendMessage({
     required int deliveryId,
     required String receiverType,
     required int receiverId,
@@ -80,15 +84,29 @@ class ChatNotifier extends StateNotifier<ChatNotifierState> {
       receiverId,
       message,
     );
-    result.fold(
-      (failure) => state = state.copyWith(isLoading: false, error: failure.message),
-      (_) => state = state.copyWith(isLoading: false),
+    return result.fold(
+      (failure) {
+        state = state.copyWith(isLoading: false, error: failure.message);
+        return false;
+      },
+      (_) {
+        state = state.copyWith(isLoading: false);
+        return true;
+      },
     );
+  }
+
+  Future<void> markAsRead({
+    required int deliveryId,
+    required String participantType,
+    required int participantId,
+  }) async {
+    final senderType = participantType.toSenderType();
+    await _repository.markAsRead(deliveryId, senderType, participantId);
   }
 }
 
 final chatNotifierProvider =
-    StateNotifierProvider.autoDispose<ChatNotifier, ChatNotifierState>((ref) {
-  final repository = ref.watch(chatRepositoryProvider);
-  return ChatNotifier(repository);
-});
+    NotifierProvider.autoDispose<ChatNotifier, ChatNotifierState>(
+  ChatNotifier.new,
+);

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Service centralisé WhatsApp pour l'application client
-/// Gère l'ouverture de conversations WhatsApp avec support, coursiers, etc.
+/// @deprecated Use [MessagingService] from `core/services/messaging/messaging.dart` instead.
+/// This class is kept for backward compatibility.
+@Deprecated('Use MessagingService from core/services/messaging/')
 class WhatsAppService {
   /// Code pays par défaut (Côte d'Ivoire)
   static const String _defaultCountryCode = '+225';
@@ -25,7 +26,9 @@ class WhatsAppService {
     final cleanPhone = normalizePhone(phoneNumber);
     if (cleanPhone.isEmpty) return false;
 
-    final encodedMessage = message != null ? Uri.encodeComponent(message) : null;
+    final encodedMessage = message != null
+        ? Uri.encodeComponent(message)
+        : null;
     final queryParam = encodedMessage != null ? '?text=$encodedMessage' : '';
 
     // Essayer wa.me d'abord (fonctionne sur tous les appareils)
@@ -53,7 +56,8 @@ class WhatsAppService {
     String? message,
   }) async {
     final number = supportNumber ?? _defaultSupportNumber;
-    final msg = message ?? 'Bonjour, j\'ai besoin d\'aide avec mon compte DR-PHARMA.';
+    final msg =
+        message ?? 'Bonjour, j\'ai besoin d\'aide avec mon compte DR-PHARMA.';
 
     return openChat(phoneNumber: number, message: msg);
   }
@@ -142,18 +146,18 @@ class WhatsAppService {
   }) async {
     if (phoneNumber.isEmpty) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(emptyNumberMessage)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(emptyNumberMessage)));
       }
       return;
     }
 
     final success = await openChat(phoneNumber: phoneNumber, message: message);
     if (!success && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(errorMessage)));
     }
   }
 

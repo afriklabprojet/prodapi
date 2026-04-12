@@ -9,6 +9,10 @@
 -keep class io.flutter.embedding.** { *; }
 -dontwarn io.flutter.embedding.**
 
+# ───────────── Kotlin Metadata (R8 compat) ─────────────
+-dontnote kotlin.**
+-dontnote kotlinx.**
+
 # ───────────── Firebase ─────────────
 -keep class com.google.firebase.** { *; }
 -dontwarn com.google.firebase.**

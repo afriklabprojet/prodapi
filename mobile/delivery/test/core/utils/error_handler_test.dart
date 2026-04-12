@@ -278,5 +278,283 @@ void main() {
       final msg = ErrorHandler.getChatErrorMessage(Exception('Erreur'));
       expect(msg, isNotEmpty);
     });
+
+    test('getDeliveryErrorMessage for 403 with COURIER_PROFILE_NOT_FOUND', () {
+      final dio = DioException(
+        type: DioExceptionType.badResponse,
+        response: Response(
+          statusCode: 403,
+          data: {
+            'message': 'Non trouvé',
+            'error_code': 'COURIER_PROFILE_NOT_FOUND',
+          },
+          requestOptions: RequestOptions(path: '/test'),
+        ),
+        requestOptions: RequestOptions(path: '/test'),
+      );
+      final msg = ErrorHandler.getDeliveryErrorMessage(dio);
+      expect(msg, contains('profil coursier'));
+    });
+
+    test('getDeliveryErrorMessage for 403 without special code', () {
+      final dio = DioException(
+        type: DioExceptionType.badResponse,
+        response: Response(
+          statusCode: 403,
+          data: {'message': 'Custom forbidden'},
+          requestOptions: RequestOptions(path: '/test'),
+        ),
+        requestOptions: RequestOptions(path: '/test'),
+      );
+      final msg = ErrorHandler.getDeliveryErrorMessage(dio);
+      expect(msg, 'Custom forbidden');
+    });
+
+    test('getDeliveryErrorMessage for non-DioException', () {
+      final msg = ErrorHandler.getDeliveryErrorMessage(Exception('random'));
+      expect(msg, isNotEmpty);
+    });
+
+    test('getChatErrorMessage returns fallback', () {
+      final msg = ErrorHandler.getChatErrorMessage(Exception('chat error'));
+      expect(msg, isNotEmpty);
+    });
+
+    test('getProfileErrorMessage for generic error', () {
+      final msg = ErrorHandler.getProfileErrorMessage(Exception('generic'));
+      expect(msg, contains('profil'));
+    });
+
+    test('getDeliveryErrorMessage for 409 without server message', () {
+      final dio = DioException(
+        type: DioExceptionType.badResponse,
+        response: Response(
+          statusCode: 409,
+          requestOptions: RequestOptions(path: '/test'),
+        ),
+        requestOptions: RequestOptions(path: '/test'),
+      );
+      final msg = ErrorHandler.getDeliveryErrorMessage(dio);
+      expect(msg, contains('disponible'));
+    });
+  });
+
+  group('ErrorHandler additional DioException types', () {
+    test('receiveTimeout → NetworkException', () {
+      final dio = DioException(
+        type: DioExceptionType.receiveTimeout,
+        requestOptions: RequestOptions(path: '/test'),
+      );
+      final result = ErrorHandler.toAppException(dio);
+      expect(result, isA<NetworkException>());
+    });
+
+    test('badCertificate → ApiException about security', () {
+      final dio = DioException(
+        type: DioExceptionType.badCertificate,
+        requestOptions: RequestOptions(path: '/test'),
+      );
+      final result = ErrorHandler.toAppException(dio);
+      expect(result, isA<ApiException>());
+      expect(result.userMessage, contains('sécurité'));
+    });
+
+    test('unknown DioException with XMLHttpRequest → NetworkException', () {
+      final dio = DioException(
+        type: DioExceptionType.unknown,
+        error: 'XMLHttpRequest error',
+        requestOptions: RequestOptions(path: '/test'),
+      );
+      final result = ErrorHandler.toAppException(dio);
+      expect(result, isA<NetworkException>());
+    });
+
+    test('unknown DioException generic → ApiException', () {
+      final dio = DioException(
+        type: DioExceptionType.unknown,
+        error: 'Some random error',
+        requestOptions: RequestOptions(path: '/test'),
+      );
+      final result = ErrorHandler.toAppException(dio);
+      expect(result, isA<ApiException>());
+    });
+
+    test('502 → ServerException', () {
+      final dio = DioException(
+        type: DioExceptionType.badResponse,
+        response: Response(
+          statusCode: 502,
+          requestOptions: RequestOptions(path: '/test'),
+        ),
+        requestOptions: RequestOptions(path: '/test'),
+      );
+      final result = ErrorHandler.toAppException(dio);
+      expect(result, isA<ServerException>());
+    });
+
+    test('503 → ServerException', () {
+      final dio = DioException(
+        type: DioExceptionType.badResponse,
+        response: Response(
+          statusCode: 503,
+          requestOptions: RequestOptions(path: '/test'),
+        ),
+        requestOptions: RequestOptions(path: '/test'),
+      );
+      final result = ErrorHandler.toAppException(dio);
+      expect(result, isA<ServerException>());
+    });
+
+    test('unknown status code → ApiException', () {
+      final dio = DioException(
+        type: DioExceptionType.badResponse,
+        response: Response(
+          statusCode: 418,
+          requestOptions: RequestOptions(path: '/test'),
+        ),
+        requestOptions: RequestOptions(path: '/test'),
+      );
+      final result = ErrorHandler.toAppException(dio);
+      expect(result, isA<ApiException>());
+    });
+
+    test('unknown status code with fallback message', () {
+      final dio = DioException(
+        type: DioExceptionType.badResponse,
+        response: Response(
+          statusCode: 418,
+          requestOptions: RequestOptions(path: '/test'),
+        ),
+        requestOptions: RequestOptions(path: '/test'),
+      );
+      final result = ErrorHandler.toAppException(
+        dio,
+        fallbackMessage: 'Custom',
+      );
+      expect(result.userMessage, 'Custom');
+    });
+
+    test('unknown DioException with fallback', () {
+      final dio = DioException(
+        type: DioExceptionType.unknown,
+        error: 'Random',
+        requestOptions: RequestOptions(path: '/test'),
+      );
+      final result = ErrorHandler.toAppException(
+        dio,
+        fallbackMessage: 'Fallback',
+      );
+      expect(result.userMessage, 'Fallback');
+    });
+  });
+
+  group('ErrorHandler edge cases', () {
+    test('cleanMessage with plain number', () {
+      final msg = ErrorHandler.cleanMessage(42);
+      expect(msg, '42');
+    });
+
+    test('cleanMessage with empty string after prefix stripping', () {
+      final msg = ErrorHandler.cleanMessage('Exception: Exception: ');
+      expect(msg, contains('réessayer'));
+    });
+
+    test('toAppException detects "connection refused"', () {
+      final result = ErrorHandler.toAppException(
+        Exception('connection refused by server'),
+      );
+      expect(result, isA<NetworkException>());
+    });
+
+    test('toAppException detects "network is unreachable"', () {
+      final result = ErrorHandler.toAppException(
+        Exception('network is unreachable'),
+      );
+      expect(result, isA<NetworkException>());
+    });
+
+    test('toAppException detects "xmlhttprequest"', () {
+      final result = ErrorHandler.toAppException(
+        Exception('XMLHttpRequest failed'),
+      );
+      expect(result, isA<NetworkException>());
+    });
+
+    test('422 without field errors returns empty fieldErrors', () {
+      final dio = DioException(
+        type: DioExceptionType.badResponse,
+        response: Response(
+          statusCode: 422,
+          data: {'message': 'Invalid'},
+          requestOptions: RequestOptions(path: '/test'),
+        ),
+        requestOptions: RequestOptions(path: '/test'),
+      );
+      final result = ErrorHandler.toAppException(dio);
+      expect(result, isA<ValidationException>());
+      expect((result as ValidationException).fieldErrors, isEmpty);
+    });
+
+    test('422 with non-list field error values', () {
+      final dio = DioException(
+        type: DioExceptionType.badResponse,
+        response: Response(
+          statusCode: 422,
+          data: {
+            'message': 'Invalid',
+            'errors': {'email': 'single error string'},
+          },
+          requestOptions: RequestOptions(path: '/test'),
+        ),
+        requestOptions: RequestOptions(path: '/test'),
+      );
+      final result = ErrorHandler.toAppException(dio);
+      expect(result, isA<ValidationException>());
+      final ve = result as ValidationException;
+      expect(ve.fieldErrors['email'], ['single error string']);
+    });
+
+    test('403 extracts error_code', () {
+      final dio = DioException(
+        type: DioExceptionType.badResponse,
+        response: Response(
+          statusCode: 403,
+          data: {'message': 'Forbidden', 'error_code': 'CUSTOM_CODE'},
+          requestOptions: RequestOptions(path: '/test'),
+        ),
+        requestOptions: RequestOptions(path: '/test'),
+      );
+      final result = ErrorHandler.toAppException(dio);
+      expect(result, isA<ForbiddenException>());
+      expect((result as ForbiddenException).code, 'CUSTOM_CODE');
+    });
+
+    test('404 with server message', () {
+      final dio = DioException(
+        type: DioExceptionType.badResponse,
+        response: Response(
+          statusCode: 404,
+          data: {'message': 'Order not found'},
+          requestOptions: RequestOptions(path: '/test'),
+        ),
+        requestOptions: RequestOptions(path: '/test'),
+      );
+      final result = ErrorHandler.toAppException(dio);
+      expect(result, isA<NotFoundException>());
+      expect(result.userMessage, 'Order not found');
+    });
+
+    test('getReadableMessage returns userMessage', () {
+      final msg = ErrorHandler.getReadableMessage(const NetworkException());
+      expect(msg, isNotEmpty);
+    });
+
+    test('getReadableMessage with defaultMessage', () {
+      final msg = ErrorHandler.getReadableMessage(
+        Exception('x'),
+        defaultMessage: 'Custom default',
+      );
+      expect(msg, 'Custom default');
+    });
   });
 }

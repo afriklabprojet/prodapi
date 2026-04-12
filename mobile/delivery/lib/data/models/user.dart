@@ -26,10 +26,13 @@ abstract class CourierInfo with _$CourierInfo {
     @JsonKey(name: 'vehicle_type') String? vehicleType,
     @JsonKey(name: 'vehicle_number') String? vehicleNumber,
     @JsonKey(fromJson: _stringToDouble) double? rating,
-    @JsonKey(name: 'completed_deliveries', fromJson: _stringToInt) int? completedDeliveries,
+    @JsonKey(name: 'completed_deliveries', fromJson: _stringToInt)
+    int? completedDeliveries,
+    @JsonKey(name: 'kyc_status', defaultValue: 'unknown') String? kycStatus,
   }) = _CourierInfo;
 
-  factory CourierInfo.fromJson(Map<String, dynamic> json) => _$CourierInfoFromJson(json);
+  factory CourierInfo.fromJson(Map<String, dynamic> json) =>
+      _$CourierInfoFromJson(json);
 }
 
 double? _stringToDouble(dynamic value) {
@@ -47,8 +50,11 @@ int? _stringToInt(dynamic value) {
 }
 
 int _forceInt(dynamic value) {
-  if (value == null) return 0; // Should not happen for ID but safe fallback
+  if (value == null || value == 0) return 0;
   if (value is num) return value.toInt();
-  if (value is String) return int.tryParse(value) ?? 0;
-  return 0;
+  if (value is String) {
+    final parsed = int.tryParse(value);
+    if (parsed != null) return parsed;
+  }
+  throw FormatException('Cannot parse ID from: $value (${value.runtimeType})');
 }

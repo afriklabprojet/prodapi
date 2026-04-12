@@ -47,6 +47,7 @@ abstract class AuthRepository {
   Future<Either<Failure, AuthResponseEntity>> verifyFirebaseOtp({
     required String phone,
     required String firebaseUid,
+    required String firebaseIdToken,
   });
 
   /// Resend OTP code
@@ -55,22 +56,28 @@ abstract class AuthRepository {
     required String identifier,
   });
 
-  /// Request password reset email
-  Future<Either<Failure, void>> forgotPassword({
-    required String email,
-  });
+  /// Request password reset (email or phone)
+  /// Either email or phone must be provided
+  Future<Either<Failure, void>> forgotPassword({String? email, String? phone});
 
   /// Verify reset OTP code
+  /// Use the same identifier (email or phone) as forgotPassword
   Future<Either<Failure, void>> verifyResetOtp({
-    required String email,
+    String? email,
+    String? phone,
     required String otp,
   });
 
   /// Reset password with OTP
+  /// Use the same identifier (email or phone) as forgotPassword
   Future<Either<Failure, void>> resetPassword({
-    required String email,
+    String? email,
+    String? phone,
     required String otp,
     required String password,
     required String passwordConfirmation,
   });
+
+  /// Login or create account via Google Sign-In
+  Future<Either<Failure, AuthResponseEntity>> loginWithGoogle();
 }

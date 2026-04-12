@@ -4,25 +4,118 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.role == 'admin';
+    }
+    
+    function isCourier() {
+      return isAuthenticated() && request.auth.token.role == 'courier';
+    }
+    
+    function isClient() {
+      return isAuthenticated() && request.auth.token.role == 'client';
+    }
+    
+    function isPharmacy() {
+      return isAuthenticated() && request.auth.token.role == 'pharmacy';
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ============================================
     // COURIERS - Position en temps réel des livreurs
     // ============================================
     match /couriers/{courierId} {
-      // Tout utilisateur authentifié peut lire (clients suivent les livreurs)
-      allow read: if request.auth != null;
-      // Seuls les livreurs peuvent écrire
-      allow write: if request.auth != null 
-        && request.auth.token.role == 'courier';
+      // Seul le coursier propriétaire ou les utilisateurs autorisés peuvent lire
+      allow read: if isAuthenticated();
+      // Seul le coursier propriétaire peut écrire sa position
+      // Note: isOwner suffit car l'ID Firebase Auth correspond à l'ID coursier
+      allow write: if isOwner(courierId);
     }
 
     // ============================================
     // DELIVERIES - Tracking d'une livraison spécifique
     // ============================================
     match /deliveries/{deliveryId} {
-      // Tout utilisateur authentifié peut lire (client suit sa commande)
-      allow read: if request.auth != null;
-      // Les livreurs et le backend (admin SDK) peuvent écrire
-      allow write: if request.auth != null
-        && request.auth.token.role == 'courier';
+      // Seuls les participants (coursier assigné, client, pharmacie) peuvent lire
+      allow read: if isAuthenticated()
+        && (resource == null
+            || resource.data.courierId == request.auth.uid
+            || resource.data.clientId == request.auth.uid
+            || resource.data.pharmacyId == request.auth.uid
+            || isAdmin());
+      // Les livreurs assignés et admins peuvent écrire
+      allow write: if (isCourier() && resource.data.courierId == request.auth.uid)
+        || isAdmin();
+    }
+
+    // ============================================
+    // LIVE TRACKING - Sessions de tracking partagées
+    // ============================================
+    match /live_tracking/{trackingId} {
+      // Seuls les participants de la livraison peuvent lire/écrire
+      allow read: if isAuthenticated()
+        && (resource == null
+            || resource.data.courierId == request.auth.uid
+            || resource.data.clientId == request.auth.uid
+            || resource.data.pharmacyId == request.auth.uid
+            || isAdmin());
+      allow write: if (isCourier() && resource.data.courierId == request.auth.uid)
+        || isAdmin();
+      // Création autorisée pour les livreurs
+      allow create: if isCourier();
+    }
+
+    // ============================================
+    // CHAT - Messages de commande
+    // ============================================
+    match /orders/{orderId}/messages/{messageId} {
+      // Seuls les participants à la commande (stockés dans le parent) peuvent lire
+      // Note: En prod, vérifier via le document parent orders/{orderId}
+      allow read: if isAuthenticated()
+        && (get(/databases/$(database)/documents/orders/$(orderId)).data.participants.hasAny([request.auth.uid])
+            || isAdmin());
+      // Les participants authentifiés peuvent créer des messages
+      allow create: if isAuthenticated()
+        && request.resource.data.keys().hasAll(['content', 'sender_role', 'sender_id', 'target', 'created_at'])
+        && request.resource.data.sender_id == request.auth.uid;
+      // Seul l'auteur peut modifier/supprimer son message
+      allow update, delete: if isOwner(resource.data.sender_id);
+    }
+
+    // ============================================
+    // TYPING STATUS - Indicateurs de saisie (par commande)
+    // SÉCURITÉ: Restreint aux participants de la commande uniquement
+    // ============================================
+    match /typing_status/{statusId} {
+      // Lecture: seuls les participants de la commande peuvent voir le statut de saisie
+      // Le statusId est au format orderId_userId, on extrait l'orderId pour vérifier
+      allow read: if isAuthenticated()
+        && exists(/databases/$(database)/documents/orders/$(statusId.split('_')[0]))
+        && get(/databases/$(database)/documents/orders/$(statusId.split('_')[0])).data.participants.hasAny([request.auth.uid]);
+      // Écriture: seul l'utilisateur peut modifier son propre statut
+      allow write: if isAuthenticated()
+        && statusId.matches('.*_' + request.auth.uid + '$');
+    }
+
+    // ============================================
+    // COURIER CONVERSATIONS - Conversations du livreur
+    // ============================================
+    match /courier_conversations/{courierId} {
+      // Seul le propriétaire peut accéder à ses conversations
+      allow read, write: if isOwner(courierId);
+      
+      match /conversations/{conversationId} {
+        allow read, write: if isOwner(courierId);
+      }
     }
 
     // Bloquer tout le reste par défaut

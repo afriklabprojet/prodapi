@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart';
+import '../../../../core/constants/api_constants.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/network/api_client.dart';
@@ -15,7 +16,7 @@ class UpdatePasswordUseCase {
   }) async {
     try {
       await _apiClient.post(
-        '/customer/profile/password',
+        ApiConstants.updatePassword,
         data: {
           'current_password': currentPassword,
           'new_password': newPassword,

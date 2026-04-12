@@ -1,10 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/presentation/widgets/action_button.dart';
+import '../../../../core/presentation/widgets/error_display.dart';
+import '../../../../core/presentation/widgets/success_animation.dart';
+import '../../../../core/services/celebration_service.dart';
+import '../../../../core/services/haptic_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/order_entity.dart';
+import '../../domain/enums/order_status.dart';
 import '../providers/order_list_provider.dart';
-import '../../../chat/presentation/pages/chat_page.dart';
+import '../widgets/order_section_card.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/utils/phone_masker.dart';
+import '../../../../l10n/app_localizations.dart';
 
 class OrderDetailsPage extends ConsumerStatefulWidget {
   final OrderEntity order;
@@ -25,64 +34,264 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
     _order = widget.order;
   }
 
-  // ignore: unused_element
-  Future<void> _confirmOrder() async {
+  Future<void> _markAsReady() async {
     setState(() => _isLoading = true);
+    HapticService.onAction(); // Feedback immédiat
     try {
-      await ref.read(orderListProvider.notifier).confirmOrder(_order.id);
+      await ref.read(orderListProvider.notifier).markOrderReady(_order.id);
       setState(() {
-        _order = _order.copyWith(status: 'confirmed');
+        _order = _order.copyWith(status: OrderStatus.ready);
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Commande confirmée avec succès'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        HapticService.onSuccess(); // Feedback succès
+        // Animation de succès pour commande prête
+        await showSuccessAnimation(context, message: 'Commande prête !');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        HapticService.onError(); // Feedback erreur
+        ErrorSnackBar.showError(context, 'Erreur: $e');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // ignore: unused_element
-  Future<void> _markAsReady() async {
+  Future<void> _rejectOrder(String reason) async {
     setState(() => _isLoading = true);
+    HapticService.onDelete(); // Feedback immédiat pour rejet
     try {
-      await ref.read(orderListProvider.notifier).markOrderReady(_order.id);
+      await ref
+          .read(orderListProvider.notifier)
+          .rejectOrder(_order.id, reason: reason);
       setState(() {
-        _order = _order.copyWith(status: 'ready');
+        _order = _order.copyWith(status: OrderStatus.cancelled);
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Commande prête pour le ramassage'),
-            backgroundColor: Colors.blue,
-          ),
-        );
+        ErrorSnackBar.showWarning(context, 'Commande refusée');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        HapticService.onError();
+        ErrorSnackBar.showError(context, 'Erreur: $e');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _showRejectDialog(BuildContext context) {
+    final reasons = [
+      'Produit en rupture de stock',
+      'Ordonnance invalide',
+      'Pharmacie fermée',
+      'Délai de préparation impossible',
+      'Autre',
+    ];
+    String? selectedReason;
+    final otherController = TextEditingController();
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (sheetCtx, setSheetState) {
+          final isDarkLocal = AppColors.isDark(context);
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(sheetCtx).viewInsets.bottom,
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.cardColor(context),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
+              ),
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 36),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Handle
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 20),
+                      decoration: BoxDecoration(
+                        color: isDarkLocal
+                            ? Colors.grey.shade700
+                            : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  // Header
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.cancel_outlined,
+                          color: Colors.red,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Refuser la commande',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: isDarkLocal ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Sélectionnez un motif de refus :',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: isDarkLocal
+                          ? Colors.grey.shade300
+                          : Colors.grey.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ...reasons.map(
+                    (r) => InkWell(
+                      onTap: () => setSheetState(() => selectedReason = r),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: selectedReason == r
+                              ? Colors.red.withValues(
+                                  alpha: isDarkLocal ? 0.2 : 0.08,
+                                )
+                              : (isDarkLocal
+                                    ? Colors.grey.shade800
+                                    : Colors.grey.shade50),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: selectedReason == r
+                                ? Colors.red
+                                : (isDarkLocal
+                                      ? Colors.grey.shade700
+                                      : Colors.grey.shade200),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              selectedReason == r
+                                  ? Icons.radio_button_checked
+                                  : Icons.radio_button_off,
+                              color: selectedReason == r
+                                  ? Colors.red
+                                  : (isDarkLocal
+                                        ? Colors.grey.shade500
+                                        : Colors.grey.shade400),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                r,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: selectedReason == r
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
+                                  color: selectedReason == r
+                                      ? Colors.red
+                                      : (isDarkLocal
+                                            ? Colors.white
+                                            : Colors.black87),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (selectedReason == 'Autre') ...[
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: otherController,
+                      style: TextStyle(
+                        color: isDarkLocal ? Colors.white : Colors.black87,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Précisez le motif...',
+                        hintStyle: TextStyle(
+                          color: isDarkLocal
+                              ? Colors.grey.shade500
+                              : Colors.grey.shade400,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.cancel),
+                      label: const Text('Refuser la commande'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        elevation: 0,
+                        disabledBackgroundColor: Colors.red.withValues(
+                          alpha: 0.4,
+                        ),
+                      ),
+                      onPressed: selectedReason == null
+                          ? null
+                          : () {
+                              Navigator.pop(sheetCtx);
+                              final reason = selectedReason == 'Autre'
+                                  ? otherController.text.trim().isEmpty
+                                        ? 'Autre'
+                                        : otherController.text.trim()
+                                  : selectedReason!;
+                              _rejectOrder(reason);
+                            },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    ).whenComplete(() => otherController.dispose());
   }
 
   @override
@@ -96,29 +305,52 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
 
     return Scaffold(
       backgroundColor: AppColors.backgroundColor(context),
-      appBar: AppBar(
-        title: Text('Commande #${_order.reference}'),
-      ),
+      appBar: AppBar(title: Text('Commande #${_order.reference}')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  _buildOrderContent(currencyFormat, isDark),
-                  const SizedBox(height: 32),
-                ],
-              ),
+          : Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: _buildOrderContent(currencyFormat, isDark),
+                  ),
+                ),
+                _buildActionButtons(context, ref),
+              ],
             ),
     );
   }
 
   Widget _buildOrderContent(NumberFormat currencyFormat, bool isDark) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final primaryLight = primaryColor.withValues(alpha: 0.1);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Hero header avec icône animée
+        Center(
+          child: Hero(
+            tag: 'order_icon_${_order.id}',
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: primaryLight,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(
+                Icons.receipt_long_outlined,
+                color: primaryColor,
+                size: 40,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
         // Payment warning banner for unpaid orders
-        if (_order.isPendingUnpaid) ...[  
+        if (_order.isPendingUnpaid) ...[
           _buildPaymentWarningBanner(isDark),
           const SizedBox(height: 16),
         ],
@@ -144,7 +376,11 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
           isDark: isDark,
           children: [
             _buildInfoRow('Nom', _order.customerName, isDark: isDark),
-            _buildInfoRow('Téléphone', _order.customerPhone, isDark: isDark),
+            _buildInfoRow(
+              'Téléphone',
+              PhoneMasker.maskForDisplay(_order.customerPhone),
+              isDark: isDark,
+            ),
             if (_order.deliveryAddress != null)
               _buildInfoRow('Adresse', _order.deliveryAddress!, isDark: isDark),
           ],
@@ -158,40 +394,46 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
             icon: Icons.shopping_bag,
             isDark: isDark,
             children: [
-              ..._order.items!.map((item) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item.name,
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                    color: isDark ? Colors.white : Colors.black87),
+              ..._order.items!.map(
+                (item) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.name,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                color: isDark ? Colors.white : Colors.black87,
                               ),
-                              Text(
-                                '${item.quantity} x ${currencyFormat.format(item.unitPrice)}',
-                                style: TextStyle(
-                                  color: isDark ? Colors.grey[400] : Colors.grey[600],
-                                  fontSize: 13,
-                                ),
+                            ),
+                            Text(
+                              '${item.quantity} x ${currencyFormat.format(item.unitPrice)}',
+                              style: TextStyle(
+                                color: isDark
+                                    ? Colors.grey[400]
+                                    : Colors.grey[600],
+                                fontSize: 13,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                        Text(
-                          currencyFormat.format(item.totalPrice),
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : Colors.black87),
+                      ),
+                      Text(
+                        currencyFormat.format(item.totalPrice),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black87,
                         ),
-                      ],
-                    ),
-                  )),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -222,35 +464,45 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
               isBold: true,
               isDark: isDark,
             ),
-            _buildInfoRow('Mode de paiement', _getPaymentModeLabel(), isDark: isDark),
-            _buildInfoRow('Statut paiement', _getPaymentStatusLabel(), isDark: isDark),
+            _buildInfoRow(
+              'Mode de paiement',
+              _getPaymentModeLabel(),
+              isDark: isDark,
+            ),
+            _buildInfoRow(
+              'Statut paiement',
+              _getPaymentStatusLabel(),
+              isDark: isDark,
+            ),
           ],
         ),
         const SizedBox(height: 16),
 
         // Notes
-        if (_order.customerNotes != null &&
-            _order.customerNotes!.isNotEmpty)
+        if (_order.customerNotes != null && _order.customerNotes!.isNotEmpty)
           _buildSectionCard(
             title: 'Notes du client',
             icon: Icons.note,
             isDark: isDark,
             children: [
-              Text(_order.customerNotes!, style: TextStyle(color: isDark ? Colors.grey[300] : Colors.black87)),
+              Text(
+                _order.customerNotes!,
+                style: TextStyle(
+                  color: isDark ? Colors.grey[300] : Colors.black87,
+                ),
+              ),
             ],
           ),
         const SizedBox(height: 24),
-
-        // Action Buttons
-        _buildActionButtons(context, ref),
-        const SizedBox(height: 32),
       ],
     );
   }
 
   Widget _buildStatusCard(bool isDark) {
     return Card(
-      color: isDark ? _getStatusColor().withValues(alpha: 0.2) : _getStatusColor().withValues(alpha: 0.1),
+      color: isDark
+          ? _getStatusColor().withValues(alpha: 0.2)
+          : _getStatusColor().withValues(alpha: 0.1),
       elevation: isDark ? 0 : 1,
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -272,7 +524,9 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                   ),
                   Text(
                     'Créée le ${DateFormat('dd/MM/yyyy à HH:mm').format(_order.createdAt)}',
-                    style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                    style: TextStyle(
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    ),
                   ),
                 ],
               ),
@@ -285,7 +539,9 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
 
   Widget _buildCourierCard(bool isDark) {
     return Card(
-      color: isDark ? Colors.orange.shade900.withValues(alpha: 0.3) : Colors.orange.shade50,
+      color: isDark
+          ? Colors.orange.shade900.withValues(alpha: 0.3)
+          : Colors.orange.shade50,
       elevation: isDark ? 0 : 1,
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -306,7 +562,10 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                     children: [
                       Text(
                         'Livreur assigné',
-                        style: TextStyle(fontSize: 12, color: isDark ? Colors.orange[300] : Colors.orange),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.orange[300] : Colors.orange,
+                        ),
                       ),
                       Text(
                         _order.courierName ?? 'Coursier',
@@ -319,7 +578,10 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                       if (_order.courierPhone != null)
                         Text(
                           _order.courierPhone!,
-                          style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 13),
+                          style: TextStyle(
+                            color: isDark ? Colors.grey[400] : Colors.grey[600],
+                            fontSize: 13,
+                          ),
                         ),
                     ],
                   ),
@@ -340,16 +602,14 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                     padding: const EdgeInsets.symmetric(vertical: 10),
                   ),
                   onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ChatPage(
-                          deliveryId: _order.deliveryId!,
-                          participantType: 'courier',
-                          participantId: _order.courierId!,
-                          participantName: _order.courierName ?? 'Livreur',
-                        ),
-                      ),
+                    context.push(
+                      '/chat',
+                      extra: {
+                        'deliveryId': _order.deliveryId!,
+                        'participantType': 'courier',
+                        'participantId': _order.courierId!,
+                        'participantName': _order.courierName ?? 'Livreur',
+                      },
                     );
                   },
                 ),
@@ -366,52 +626,25 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
     required List<Widget> children,
     bool isDark = false,
   }) {
-    return Card(
-      color: isDark ? AppColors.darkCard : Colors.white,
-      elevation: isDark ? 0 : 1,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: isDark ? Colors.blue[300] : Colors.blue),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
-                ),
-              ],
-            ),
-            Divider(color: isDark ? Colors.grey[700] : Colors.grey[300]),
-            ...children,
-          ],
-        ),
-      ),
+    return OrderSectionCard(
+      title: title,
+      icon: icon,
+      isDark: isDark,
+      children: children,
     );
   }
 
-  Widget _buildInfoRow(String label, String value, {bool isBold = false, bool isDark = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600])),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              color: isDark ? Colors.white : Colors.black87,
-            ),
-          ),
-        ],
-      ),
+  Widget _buildInfoRow(
+    String label,
+    String value, {
+    bool isBold = false,
+    bool isDark = false,
+  }) {
+    return OrderInfoRow(
+      label: label,
+      value: value,
+      isBold: isBold,
+      isDark: isDark,
     );
   }
 
@@ -435,14 +668,93 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
               Expanded(
                 child: Text(
                   'Vous pourrez traiter cette commande une fois le paiement du client valid\u00e9.',
-                  style: TextStyle(
-                    color: Colors.orange.shade800,
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: Colors.orange.shade800, fontSize: 13),
                 ),
               ),
             ],
           ),
+        ),
+      );
+    }
+
+    // Pending confirmed orders (payment received or COD) → Confirm + Reject
+    if (_order.status == OrderStatus.pending && !_order.isPendingUnpaid) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            ActionButtonExpanded(
+              onPressed: () async {
+                try {
+                  await ref
+                      .read(orderListProvider.notifier)
+                      .confirmOrder(_order.id);
+                  if (mounted) {
+                    setState(() {
+                      _order = _order.copyWith(status: OrderStatus.confirmed);
+                    });
+                  }
+                  return true;
+                } catch (e) {
+                  if (mounted) ErrorSnackBar.showError(context, 'Erreur: $e');
+                  return false;
+                }
+              },
+              label: AppLocalizations.of(context).confirmOrder,
+              icon: Icons.check_circle,
+              backgroundColor: Colors.green,
+              onSuccess: () {
+                if (mounted) {
+                  CelebrationService.celebrate(
+                    context: context,
+                    type: CelebrationType.orderConfirmed,
+                  );
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.cancel_outlined),
+                label: const Text('Refuser'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: () => _showRejectDialog(context),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Confirmed → Mark as ready
+    if (_order.status == OrderStatus.confirmed) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: ActionButtonExpanded(
+          onPressed: () async {
+            try {
+              await _markAsReady();
+              return true;
+            } catch (e) {
+              return false;
+            }
+          },
+          label: 'Marquer comme prête',
+          icon: Icons.inventory_2,
+          backgroundColor: Colors.blue,
+          onSuccess: () {
+            if (context.mounted) {
+              CelebrationService.celebrate(
+                context: context,
+                type: CelebrationType.orderReady,
+              );
+            }
+          },
         ),
       );
     }
@@ -452,121 +764,103 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.check_circle),
-                label: const Text('Commande Prête (Retrait)'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                onPressed: () {
-                   ref.read(orderListProvider.notifier).updateOrderStatus(_order.id, 'ready');
-                },
-              ),
+            ActionButtonExpanded(
+              onPressed: () async {
+                try {
+                  await ref
+                      .read(orderListProvider.notifier)
+                      .updateOrderStatus(_order.id, OrderStatus.ready);
+                  if (mounted) {
+                    setState(() {
+                      _order = _order.copyWith(status: OrderStatus.ready);
+                    });
+                  }
+                  return true;
+                } catch (e) {
+                  return false;
+                }
+              },
+              label: 'Commande Prête (Retrait)',
+              icon: Icons.check_circle,
+              backgroundColor: Colors.green,
+              onSuccess: () {
+                if (context.mounted) {
+                  CelebrationService.celebrate(
+                    context: context,
+                    type: CelebrationType.orderReady,
+                  );
+                }
+              },
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: _isLoading 
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                      )
-                    : const Icon(Icons.motorcycle),
-                label: Text(_isLoading ? 'Recherche en cours...' : 'Demander un Coursier'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                onPressed: _isLoading ? null : () async {
-                    setState(() => _isLoading = true);
-                    try {
-                      // Marquer comme prête pour la livraison (déclenche recherche coursier côté backend)
-                      await ref.read(orderListProvider.notifier).markOrderReady(_order.id);
-                      if (!mounted) return;
-                      setState(() {
-                        _order = _order.copyWith(status: 'ready');
-                      });
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Recherche de coursier lancée. Vous serez notifié dès qu'un coursier accepte."),
-                          backgroundColor: Colors.green,
-                          duration: Duration(seconds: 3),
-                        ),
-                      );
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
-                        );
-                      }
-                    } finally {
-                      if (mounted) setState(() => _isLoading = false);
-                    }
-                },
-              ),
+            ActionButtonExpanded(
+              onPressed: () async {
+                try {
+                  await ref
+                      .read(orderListProvider.notifier)
+                      .markOrderReady(_order.id);
+                  if (mounted) {
+                    setState(() {
+                      _order = _order.copyWith(status: OrderStatus.ready);
+                    });
+                  }
+                  return true;
+                } catch (e) {
+                  if (context.mounted)
+                    ErrorSnackBar.showError(context, 'Erreur: $e');
+                  return false;
+                }
+              },
+              label: 'Demander un Coursier',
+              icon: Icons.motorcycle,
+              backgroundColor: Colors.orange,
+              onSuccess: () {
+                if (context.mounted) {
+                  CelebrationService.quickCelebrate(
+                    context: context,
+                    message: "Recherche de coursier lancée ! 🏍️",
+                    color: Colors.orange,
+                  );
+                }
+              },
             ),
           ],
         ),
       );
     }
-    
-    if (_order.status == 'ready' || _order.status == 'ready_for_pickup') {
-       return Padding(
+
+    if (_order.status == OrderStatus.ready) {
+      return Padding(
         padding: const EdgeInsets.all(16),
-        child: SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            icon: _isLoading 
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                  )
-                : const Icon(Icons.handshake),
-            label: Text(_isLoading ? 'Traitement...' : 'Confirmer le Retrait Client'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-            onPressed: _isLoading ? null : () async {
-              setState(() => _isLoading = true);
-              try {
-                await ref.read(orderListProvider.notifier).markOrderDelivered(_order.id);
-                if (!mounted) return;
+        child: ActionButtonExpanded(
+          onPressed: () async {
+            try {
+              await ref
+                  .read(orderListProvider.notifier)
+                  .markOrderDelivered(_order.id);
+              if (mounted) {
                 setState(() {
-                  _order = _order.copyWith(status: 'delivered');
+                  _order = _order.copyWith(status: OrderStatus.delivered);
                 });
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Commande livrée avec succès !'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Erreur: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              } finally {
-                if (mounted) setState(() => _isLoading = false);
               }
-            },
-          ),
+              return true;
+            } catch (e) {
+              if (context.mounted)
+                ErrorSnackBar.showError(context, 'Erreur: $e');
+              return false;
+            }
+          },
+          label: 'Confirmer le Retrait Client',
+          icon: Icons.handshake,
+          backgroundColor: Colors.blue,
+          onSuccess: () {
+            if (context.mounted) {
+              CelebrationService.celebrate(
+                context: context,
+                type: CelebrationType.orderDelivered,
+              );
+            }
+          },
         ),
       );
     }
@@ -575,68 +869,24 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
   }
 
   String _getStatusLabel() {
-    switch (_order.status) {
-      case 'pending':
-        return 'En attente de confirmation';
-      case 'confirmed':
-        return 'Confirmée';
-      case 'preparing':
-        return 'En préparation';
-      case 'ready':
-      case 'ready_for_pickup':
-        return 'Prête pour ramassage';
-      case 'on_the_way':
-        return 'En cours de livraison';
-      case 'delivered':
-        return 'Livrée';
-      case 'cancelled':
-        return 'Annulée';
-      default:
-        return _order.status;
-    }
+    final l10n = AppLocalizations.of(context);
+    return switch (_order.status) {
+      OrderStatus.pending => l10n.statusPendingConfirmation,
+      OrderStatus.confirmed => l10n.statusConfirmed,
+      OrderStatus.ready => l10n.statusReadyForPickup,
+      OrderStatus.inDelivery => l10n.statusInProgress,
+      OrderStatus.delivered => l10n.statusDelivered,
+      OrderStatus.cancelled => l10n.statusCancelled,
+      OrderStatus.rejected => l10n.statusRejected,
+    };
   }
 
   Color _getStatusColor() {
-    switch (_order.status) {
-      case 'pending':
-        return Colors.orange;
-      case 'confirmed':
-      case 'preparing':
-        return Colors.blue;
-      case 'ready':
-      case 'ready_for_pickup':
-        return Colors.purple;
-      case 'on_the_way':
-        return Colors.indigo;
-      case 'delivered':
-        return Colors.green;
-      case 'cancelled':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
+    return _order.status.color;
   }
 
   IconData _getStatusIcon() {
-    switch (_order.status) {
-      case 'pending':
-        return Icons.hourglass_empty;
-      case 'confirmed':
-        return Icons.check;
-      case 'preparing':
-        return Icons.inventory;
-      case 'ready':
-      case 'ready_for_pickup':
-        return Icons.local_shipping;
-      case 'on_the_way':
-        return Icons.delivery_dining;
-      case 'delivered':
-        return Icons.check_circle;
-      case 'cancelled':
-        return Icons.cancel;
-      default:
-        return Icons.help;
-    }
+    return _order.status.icon;
   }
 
   String _getPaymentModeLabel() {
@@ -652,6 +902,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
         return _order.paymentMode;
     }
   }
+
   String _getPaymentStatusLabel() {
     if (_order.isPaid) return '\u2705 Pay\u00e9e';
     if (_order.paymentMode == 'cash') return '\ud83d\udcb5 \u00c0 la livraison';
@@ -663,7 +914,9 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.red.shade900.withValues(alpha: 0.4) : Colors.red.shade50,
+        color: isDark
+            ? Colors.red.shade900.withValues(alpha: 0.4)
+            : Colors.red.shade50,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isDark ? Colors.red.shade700 : Colors.red.shade200,
@@ -696,7 +949,9 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
-                        color: isDark ? Colors.red.shade200 : Colors.red.shade800,
+                        color: isDark
+                            ? Colors.red.shade200
+                            : Colors.red.shade800,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -704,7 +959,9 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                       'Le client n\'a pas encore finalis\u00e9 le paiement. Ne pr\u00e9parez pas cette commande.',
                       style: TextStyle(
                         fontSize: 13,
-                        color: isDark ? Colors.red.shade300 : Colors.red.shade700,
+                        color: isDark
+                            ? Colors.red.shade300
+                            : Colors.red.shade700,
                       ),
                     ),
                   ],
@@ -720,7 +977,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
   Widget _buildPaymentStatusCard(bool isDark) {
     final isPaid = _order.isPaid;
     final isCash = _order.paymentMode == 'cash';
-    
+
     Color cardColor;
     Color iconColor;
     IconData icon;
@@ -728,23 +985,32 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
     String subtitle;
 
     if (isPaid) {
-      cardColor = isDark ? Colors.green.shade900.withValues(alpha: 0.3) : Colors.green.shade50;
+      cardColor = isDark
+          ? Colors.green.shade900.withValues(alpha: 0.3)
+          : Colors.green.shade50;
       iconColor = Colors.green;
       icon = Icons.check_circle;
       title = 'Paiement valid\u00e9';
-      subtitle = 'Le paiement a \u00e9t\u00e9 re\u00e7u. Vous pouvez traiter la commande.';
+      subtitle =
+          'Le paiement a \u00e9t\u00e9 re\u00e7u. Vous pouvez traiter la commande.';
     } else if (isCash) {
-      cardColor = isDark ? Colors.blue.shade900.withValues(alpha: 0.3) : Colors.blue.shade50;
+      cardColor = isDark
+          ? Colors.blue.shade900.withValues(alpha: 0.3)
+          : Colors.blue.shade50;
       iconColor = Colors.blue;
       icon = Icons.payments_outlined;
       title = 'Paiement \u00e0 la livraison';
-      subtitle = 'Le client paiera en esp\u00e8ces \u00e0 la r\u00e9ception. Vous pouvez traiter la commande.';
+      subtitle =
+          'Le client paiera en esp\u00e8ces \u00e0 la r\u00e9ception. Vous pouvez traiter la commande.';
     } else {
-      cardColor = isDark ? Colors.red.shade900.withValues(alpha: 0.3) : Colors.red.shade50;
+      cardColor = isDark
+          ? Colors.red.shade900.withValues(alpha: 0.3)
+          : Colors.red.shade50;
       iconColor = Colors.red;
       icon = Icons.hourglass_top_rounded;
       title = 'En attente de paiement';
-      subtitle = 'Le paiement n\'a pas encore \u00e9t\u00e9 finalis\u00e9 par le client.';
+      subtitle =
+          'Le paiement n\'a pas encore \u00e9t\u00e9 finalis\u00e9 par le client.';
     }
 
     return Card(

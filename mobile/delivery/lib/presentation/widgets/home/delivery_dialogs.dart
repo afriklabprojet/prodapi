@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/theme_provider.dart';
+import '../../../core/utils/error_utils.dart';
+import '../../../core/utils/number_formatter.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/utils/snackbar_extension.dart';
 import '../../../data/repositories/delivery_repository.dart';
 import '../../providers/delivery_providers.dart';
 import '../../screens/rating_screen.dart';
@@ -17,6 +20,8 @@ class DeliveryDialogs {
     int deliveryId, {
     String? customerName,
     String? customerAddress,
+    double? deliveryFee,
+    double? commission,
   }) {
     final TextEditingController otpController = TextEditingController();
     showDialog(
@@ -50,17 +55,14 @@ class DeliveryDialogs {
             onPressed: () async {
               final code = otpController.text.trim();
               if (code.length != 4) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Le code doit contenir 4 chiffres')),
-                );
+                context.showWarning('Le code doit contenir 4 chiffres');
                 return;
               }
 
               try {
-                await ref.read(deliveryRepositoryProvider).completeDelivery(
-                      deliveryId,
-                      code,
-                    );
+                await ref
+                    .read(deliveryRepositoryProvider)
+                    .completeDelivery(deliveryId, code);
 
                 if (ctx.mounted) Navigator.pop(ctx);
 
@@ -70,6 +72,8 @@ class DeliveryDialogs {
                 if (context.mounted) {
                   showSuccess(
                     context,
+                    commission: commission?.toInt() ?? 200,
+                    earnings: deliveryFee,
                     deliveryId: deliveryId,
                     customerName: customerName,
                     customerAddress: customerAddress,
@@ -79,7 +83,7 @@ class DeliveryDialogs {
                 if (ctx.mounted) {
                   ScaffoldMessenger.of(ctx).showSnackBar(
                     SnackBar(
-                      content: Text('Erreur: $e'),
+                      content: Text(userFriendlyError(e)),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -94,12 +98,16 @@ class DeliveryDialogs {
   }
 
   /// Affiche le dialog de succès après une livraison
-  static void showSuccess(BuildContext context, {
+  static void showSuccess(
+    BuildContext context, {
     int commission = 200,
+    double? earnings,
     int? deliveryId,
     String? customerName,
     String? customerAddress,
   }) {
+    final netGain = earnings != null ? (earnings - commission) : null;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -116,7 +124,11 @@ class DeliveryDialogs {
                 color: Colors.green.shade50,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check_circle, color: Colors.green, size: 50),
+              child: const Icon(
+                Icons.check_circle,
+                color: Colors.green,
+                size: 50,
+              ),
             ),
             const SizedBox(height: 20),
             const Text(
@@ -124,33 +136,76 @@ class DeliveryDialogs {
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
             ),
             const SizedBox(height: 12),
-            Text(
-              'Excellent travail ! La commission de $commission FCFA a été déduite de votre wallet.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: context.secondaryText, height: 1.4),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.green.shade50,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.monetization_on, color: Colors.green.shade700, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Commission: -$commission FCFA',
-                    style: TextStyle(
-                      color: Colors.green.shade700,
-                      fontWeight: FontWeight.w600,
+
+            // Résumé financier clair
+            if (netGain != null && netGain > 0) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Gain livraison',
+                          style: TextStyle(color: context.secondaryText),
+                        ),
+                        Text(
+                          '+${earnings!.formatCurrency(symbol: 'F')}',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Commission',
+                          style: TextStyle(color: context.secondaryText),
+                        ),
+                        Text(
+                          '-${commission.toDouble().formatCurrency(symbol: 'F')}',
+                          style: TextStyle(
+                            color: Colors.red.shade400,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Net pour vous',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          '+${netGain.formatCurrency(symbol: 'F')}',
+                          style: TextStyle(
+                            color: Colors.green.shade700,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ] else ...[
+              Text(
+                'La commission de $commission FCFA a été déduite de votre wallet.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: context.secondaryText, height: 1.4),
+              ),
+            ],
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
@@ -184,11 +239,14 @@ class DeliveryDialogs {
                 ),
               ),
             ),
-            if (deliveryId != null) ...[  
+            if (deliveryId != null) ...[
               const SizedBox(height: 4),
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: Text('Passer', style: TextStyle(color: context.secondaryText)),
+                child: Text(
+                  'Passer',
+                  style: TextStyle(color: context.secondaryText),
+                ),
               ),
             ],
           ],

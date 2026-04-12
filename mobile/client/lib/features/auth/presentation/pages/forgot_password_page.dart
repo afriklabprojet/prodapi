@@ -11,7 +11,10 @@ import '../../../../config/providers.dart';
 const _forgotPwdLoadingId = 'forgot_pwd_loading';
 const _errorFormId = 'forgot_pwd_error';
 
-enum _ResetStep { email, otp, newPassword, success }
+enum _ResetStep { identifier, otp, newPassword, success }
+
+/// Mode de récupération: email ou téléphone
+enum _ResetMode { email, phone }
 
 /// Page de récupération de mot de passe — Flux complet en 3 étapes
 class ForgotPasswordPage extends ConsumerStatefulWidget {
@@ -25,6 +28,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _otpControllers = List.generate(4, (_) => TextEditingController());
   final _otpFocusNodes = List.generate(4, (_) => FocusNode());
   final _passwordController = TextEditingController();
@@ -34,7 +38,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
-  _ResetStep _currentStep = _ResetStep.email;
+  _ResetStep _currentStep = _ResetStep.identifier;
+  _ResetMode _resetMode = _ResetMode.email;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
@@ -64,6 +69,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
   @override
   void dispose() {
     _emailController.dispose();
+    _phoneController.dispose();
     for (final c in _otpControllers) {
       c.dispose();
     }
@@ -78,6 +84,11 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
 
   String get _otpCode => _otpControllers.map((c) => c.text).join();
 
+  /// Identifiant actuel (email ou téléphone)
+  String get _currentIdentifier => _resetMode == _ResetMode.email
+      ? _emailController.text.trim()
+      : _phoneController.text.trim();
+
   void _goToStep(_ResetStep step) {
     ref.read(formFieldsProvider(_errorFormId).notifier).clearAll();
     _animationController.reset();
@@ -85,8 +96,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
     _animationController.forward();
   }
 
-  // ─── Step 1: Envoyer l'email ───
-  Future<void> _handleSendEmail() async {
+  // ─── Step 1: Envoyer le code ───
+  Future<void> _handleSendCode() async {
     if (!_formKey.currentState!.validate()) return;
 
     ref.read(loadingProvider(_forgotPwdLoadingId).notifier).startLoading();
@@ -95,27 +106,30 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
     try {
       final authRepository = ref.read(authRepositoryProvider);
       final result = await authRepository.forgotPassword(
-        email: _emailController.text.trim(),
+        email: _resetMode == _ResetMode.email
+            ? _emailController.text.trim()
+            : null,
+        phone: _resetMode == _ResetMode.phone
+            ? _phoneController.text.trim()
+            : null,
       );
 
       if (!mounted) return;
       ref.read(loadingProvider(_forgotPwdLoadingId).notifier).stopLoading();
-      result.fold(
-        (failure) {
-          ref.read(formFieldsProvider(_errorFormId).notifier).setError(
-            'general',
-            _getReadableErrorMessage(failure.message),
-          );
-        },
-        (_) => _goToStep(_ResetStep.otp),
-      );
+      result.fold((failure) {
+        ref
+            .read(formFieldsProvider(_errorFormId).notifier)
+            .setError('general', _getReadableErrorMessage(failure.message));
+      }, (_) => _goToStep(_ResetStep.otp));
     } catch (e) {
       if (mounted) {
         ref.read(loadingProvider(_forgotPwdLoadingId).notifier).stopLoading();
-        ref.read(formFieldsProvider(_errorFormId).notifier).setError(
-          'general',
-          'Une erreur est survenue. Veuillez réessayer.',
-        );
+        ref
+            .read(formFieldsProvider(_errorFormId).notifier)
+            .setError(
+              'general',
+              'Une erreur est survenue. Veuillez réessayer.',
+            );
       }
     }
   }
@@ -124,10 +138,9 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
   Future<void> _handleVerifyOtp() async {
     final otp = _otpCode;
     if (otp.length != 4) {
-      ref.read(formFieldsProvider(_errorFormId).notifier).setError(
-        'general',
-        'Veuillez saisir le code à 4 chiffres.',
-      );
+      ref
+          .read(formFieldsProvider(_errorFormId).notifier)
+          .setError('general', 'Veuillez saisir le code à 4 chiffres.');
       return;
     }
 
@@ -137,30 +150,36 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
     try {
       final authRepository = ref.read(authRepositoryProvider);
       final result = await authRepository.verifyResetOtp(
-        email: _emailController.text.trim(),
+        email: _resetMode == _ResetMode.email
+            ? _emailController.text.trim()
+            : null,
+        phone: _resetMode == _ResetMode.phone
+            ? _phoneController.text.trim()
+            : null,
         otp: otp,
       );
 
       if (!mounted) return;
       ref.read(loadingProvider(_forgotPwdLoadingId).notifier).stopLoading();
-      result.fold(
-        (failure) {
-          ref.read(formFieldsProvider(_errorFormId).notifier).setError(
-            'general',
-            failure.message.contains('invalide')
-                ? 'Code invalide. Vérifiez et réessayez.'
-                : _getReadableErrorMessage(failure.message),
-          );
-        },
-        (_) => _goToStep(_ResetStep.newPassword),
-      );
+      result.fold((failure) {
+        ref
+            .read(formFieldsProvider(_errorFormId).notifier)
+            .setError(
+              'general',
+              failure.message.contains('invalide')
+                  ? 'Code invalide. Vérifiez et réessayez.'
+                  : _getReadableErrorMessage(failure.message),
+            );
+      }, (_) => _goToStep(_ResetStep.newPassword));
     } catch (e) {
       if (mounted) {
         ref.read(loadingProvider(_forgotPwdLoadingId).notifier).stopLoading();
-        ref.read(formFieldsProvider(_errorFormId).notifier).setError(
-          'general',
-          'Une erreur est survenue. Veuillez réessayer.',
-        );
+        ref
+            .read(formFieldsProvider(_errorFormId).notifier)
+            .setError(
+              'general',
+              'Une erreur est survenue. Veuillez réessayer.',
+            );
       }
     }
   }
@@ -175,7 +194,12 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
     try {
       final authRepository = ref.read(authRepositoryProvider);
       final result = await authRepository.resetPassword(
-        email: _emailController.text.trim(),
+        email: _resetMode == _ResetMode.email
+            ? _emailController.text.trim()
+            : null,
+        phone: _resetMode == _ResetMode.phone
+            ? _phoneController.text.trim()
+            : null,
         otp: _otpCode,
         password: _passwordController.text,
         passwordConfirmation: _confirmPasswordController.text,
@@ -183,22 +207,20 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
 
       if (!mounted) return;
       ref.read(loadingProvider(_forgotPwdLoadingId).notifier).stopLoading();
-      result.fold(
-        (failure) {
-          ref.read(formFieldsProvider(_errorFormId).notifier).setError(
-            'general',
-            _getReadableErrorMessage(failure.message),
-          );
-        },
-        (_) => _goToStep(_ResetStep.success),
-      );
+      result.fold((failure) {
+        ref
+            .read(formFieldsProvider(_errorFormId).notifier)
+            .setError('general', _getReadableErrorMessage(failure.message));
+      }, (_) => _goToStep(_ResetStep.success));
     } catch (e) {
       if (mounted) {
         ref.read(loadingProvider(_forgotPwdLoadingId).notifier).stopLoading();
-        ref.read(formFieldsProvider(_errorFormId).notifier).setError(
-          'general',
-          'Une erreur est survenue. Veuillez réessayer.',
-        );
+        ref
+            .read(formFieldsProvider(_errorFormId).notifier)
+            .setError(
+              'general',
+              'Une erreur est survenue. Veuillez réessayer.',
+            );
       }
     }
   }
@@ -210,7 +232,14 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
 
     try {
       final authRepository = ref.read(authRepositoryProvider);
-      await authRepository.forgotPassword(email: _emailController.text.trim());
+      await authRepository.forgotPassword(
+        email: _resetMode == _ResetMode.email
+            ? _emailController.text.trim()
+            : null,
+        phone: _resetMode == _ResetMode.phone
+            ? _phoneController.text.trim()
+            : null,
+      );
       if (mounted) {
         ref.read(loadingProvider(_forgotPwdLoadingId).notifier).stopLoading();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -240,7 +269,9 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
     if (errorLower.contains('not found') ||
         errorLower.contains('introuvable') ||
         errorLower.contains('no user')) {
-      return 'Aucun compte n\'existe avec cet email.';
+      return _resetMode == _ResetMode.email
+          ? 'Aucun compte n\'existe avec cet email.'
+          : 'Aucun compte n\'existe avec ce numéro.';
     }
     if (errorLower.contains('network') ||
         errorLower.contains('connexion') ||
@@ -261,18 +292,18 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
+    final size = MediaQuery.sizeOf(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isLoading = ref.watch(loadingProvider(_forgotPwdLoadingId)).isLoading;
     final errorMessage = ref.watch(formFieldsProvider(_errorFormId))['general'];
 
     return PopScope(
-      canPop: _currentStep == _ResetStep.email,
+      canPop: _currentStep == _ResetStep.identifier,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
           // Go back one step
           if (_currentStep == _ResetStep.otp) {
-            _goToStep(_ResetStep.email);
+            _goToStep(_ResetStep.identifier);
           } else if (_currentStep == _ResetStep.newPassword) {
             _goToStep(_ResetStep.otp);
           }
@@ -284,7 +315,9 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
           children: [
             // Background
             Positioned(
-              top: 0, left: 0, right: 0,
+              top: 0,
+              left: 0,
+              right: 0,
               height: size.height * 0.4,
               child: Container(
                 decoration: BoxDecoration(
@@ -301,9 +334,11 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
                 child: Stack(
                   children: [
                     Positioned(
-                      top: -50, right: -50,
+                      top: -50,
+                      right: -50,
                       child: Container(
-                        width: 200, height: 200,
+                        width: 200,
+                        height: 200,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.white.withValues(alpha: 0.1),
@@ -311,9 +346,11 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
                       ),
                     ),
                     Positioned(
-                      bottom: 50, left: -30,
+                      bottom: 50,
+                      left: -30,
                       child: Container(
-                        width: 140, height: 140,
+                        width: 140,
+                        height: 140,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.white.withValues(alpha: 0.1),
@@ -349,23 +386,23 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
                                 _currentStep == _ResetStep.success
                                     ? Icons.check_circle_outline_rounded
                                     : _currentStep == _ResetStep.otp
-                                        ? Icons.pin_outlined
-                                        : _currentStep == _ResetStep.newPassword
-                                            ? Icons.vpn_key_rounded
-                                            : Icons.lock_reset_rounded,
+                                    ? Icons.pin_outlined
+                                    : _currentStep == _ResetStep.newPassword
+                                    ? Icons.vpn_key_rounded
+                                    : Icons.lock_reset_rounded,
                                 size: 48,
                                 color: Colors.white,
                               ),
                             ),
                             const SizedBox(height: 24),
                             Text(
-                              _currentStep == _ResetStep.email
+                              _currentStep == _ResetStep.identifier
                                   ? 'Mot de passe oublié ?'
                                   : _currentStep == _ResetStep.otp
-                                      ? 'Vérification'
-                                      : _currentStep == _ResetStep.newPassword
-                                          ? 'Nouveau mot de passe'
-                                          : 'Succès !',
+                                  ? 'Vérification'
+                                  : _currentStep == _ResetStep.newPassword
+                                  ? 'Nouveau mot de passe'
+                                  : 'Succès !',
                               style: const TextStyle(
                                 fontSize: 28,
                                 fontWeight: FontWeight.bold,
@@ -375,13 +412,15 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              _currentStep == _ResetStep.email
+                              _currentStep == _ResetStep.identifier
                                   ? 'Ne vous inquiétez pas, ça arrive aux meilleurs.'
                                   : _currentStep == _ResetStep.otp
-                                      ? 'Entrez le code reçu par email'
-                                      : _currentStep == _ResetStep.newPassword
-                                          ? 'Choisissez un mot de passe sécurisé'
-                                          : 'Votre mot de passe a été réinitialisé',
+                                  ? (_resetMode == _ResetMode.email
+                                        ? 'Entrez le code reçu par email'
+                                        : 'Entrez le code reçu par SMS')
+                                  : _currentStep == _ResetStep.newPassword
+                                  ? 'Choisissez un mot de passe sécurisé'
+                                  : 'Votre mot de passe a été réinitialisé',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 16,
@@ -402,7 +441,9 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
                         child: Container(
                           padding: const EdgeInsets.all(32),
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF252540) : Colors.white,
+                            color: isDark
+                                ? const Color(0xFF252540)
+                                : Colors.white,
                             borderRadius: BorderRadius.circular(24),
                             boxShadow: [
                               BoxShadow(
@@ -412,7 +453,11 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
                               ),
                             ],
                           ),
-                          child: _buildStepContent(isDark, isLoading, errorMessage),
+                          child: _buildStepContent(
+                            isDark,
+                            isLoading,
+                            errorMessage,
+                          ),
                         ),
                       ),
                     ),
@@ -423,14 +468,15 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
 
             // Back Button
             Positioned(
-              top: MediaQuery.of(context).padding.top + 10,
+              top: MediaQuery.paddingOf(context).top + 10,
               left: 16,
               child: IconButton(
                 onPressed: () {
-                  if (_currentStep == _ResetStep.email || _currentStep == _ResetStep.success) {
+                  if (_currentStep == _ResetStep.identifier ||
+                      _currentStep == _ResetStep.success) {
                     context.go(AppRoutes.login);
                   } else if (_currentStep == _ResetStep.otp) {
-                    _goToStep(_ResetStep.email);
+                    _goToStep(_ResetStep.identifier);
                   } else if (_currentStep == _ResetStep.newPassword) {
                     _goToStep(_ResetStep.otp);
                   }
@@ -446,17 +492,28 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
             // Step indicator
             if (_currentStep != _ResetStep.success)
               Positioned(
-                top: MediaQuery.of(context).padding.top + 16,
+                top: MediaQuery.paddingOf(context).top + 16,
                 right: 16,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    'Étape ${_currentStep == _ResetStep.email ? '1' : _currentStep == _ResetStep.otp ? '2' : '3'}/3',
-                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                    'Étape ${_currentStep == _ResetStep.identifier
+                        ? '1'
+                        : _currentStep == _ResetStep.otp
+                        ? '2'
+                        : '3'}/3',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
@@ -468,8 +525,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
 
   Widget _buildStepContent(bool isDark, bool isLoading, String? errorMessage) {
     switch (_currentStep) {
-      case _ResetStep.email:
-        return _buildEmailStep(isDark, isLoading, errorMessage);
+      case _ResetStep.identifier:
+        return _buildIdentifierStep(isDark, isLoading, errorMessage);
       case _ResetStep.otp:
         return _buildOtpStep(isDark, isLoading, errorMessage);
       case _ResetStep.newPassword:
@@ -479,8 +536,12 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
     }
   }
 
-  // ─── STEP 1: Email ───
-  Widget _buildEmailStep(bool isDark, bool isLoading, String? errorMessage) {
+  // ─── STEP 1: Identifier (Email ou Téléphone) ───
+  Widget _buildIdentifierStep(
+    bool isDark,
+    bool isLoading,
+    String? errorMessage,
+  ) {
     return Form(
       key: _formKey,
       child: Column(
@@ -489,32 +550,55 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
           Text(
             'Réinitialisation',
             style: TextStyle(
-              fontSize: 20, fontWeight: FontWeight.bold,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
               color: isDark ? Colors.white : const Color(0xFF1A2B3C),
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Entrez votre email pour recevoir un code de vérification.',
+            _resetMode == _ResetMode.email
+                ? 'Entrez votre email pour recevoir un code de vérification.'
+                : 'Entrez votre numéro de téléphone pour recevoir un code par SMS.',
             style: TextStyle(
-              fontSize: 14, height: 1.5,
+              fontSize: 14,
+              height: 1.5,
               color: isDark ? Colors.white60 : const Color(0xFF6B7C8E),
             ),
           ),
-          const SizedBox(height: 32),
-          _buildTextField(
-            controller: _emailController,
-            label: 'Email',
-            hint: 'exemple@email.com',
-            icon: Icons.email_outlined,
-            isDark: isDark,
-            keyboardType: TextInputType.emailAddress,
-            validator: (value) {
-              if (value == null || value.isEmpty) return 'Email requis';
-              if (!value.contains('@')) return 'Email invalide';
-              return null;
-            },
-          ),
+          const SizedBox(height: 24),
+          // Toggle Email / Téléphone
+          _buildModeToggle(isDark),
+          const SizedBox(height: 24),
+          // Champ de saisie selon le mode
+          if (_resetMode == _ResetMode.email)
+            _buildTextField(
+              controller: _emailController,
+              label: 'Email',
+              hint: 'exemple@email.com',
+              icon: Icons.email_outlined,
+              isDark: isDark,
+              keyboardType: TextInputType.emailAddress,
+              validator: (value) {
+                if (value == null || value.isEmpty) return 'Email requis';
+                if (!value.contains('@')) return 'Email invalide';
+                return null;
+              },
+            )
+          else
+            _buildTextField(
+              controller: _phoneController,
+              label: 'Téléphone',
+              hint: '+221 77 000 00 00',
+              icon: Icons.phone_outlined,
+              isDark: isDark,
+              keyboardType: TextInputType.phone,
+              validator: (value) {
+                if (value == null || value.isEmpty) return 'Téléphone requis';
+                if (value.length < 9) return 'Numéro invalide';
+                return null;
+              },
+            ),
           if (errorMessage != null) ...[
             const SizedBox(height: 16),
             _buildErrorBanner(errorMessage),
@@ -524,9 +608,100 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
             label: 'Envoyer le code',
             icon: Icons.send_rounded,
             isLoading: isLoading,
-            onTap: _handleSendEmail,
+            onTap: _handleSendCode,
           ),
         ],
+      ),
+    );
+  }
+
+  /// Toggle pour choisir entre email et téléphone
+  Widget _buildModeToggle(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.05)
+            : const Color(0xFFF5F7FA),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildToggleOption(
+              label: 'Email',
+              icon: Icons.email_outlined,
+              isSelected: _resetMode == _ResetMode.email,
+              isDark: isDark,
+              onTap: () => setState(() => _resetMode = _ResetMode.email),
+            ),
+          ),
+          Expanded(
+            child: _buildToggleOption(
+              label: 'Téléphone',
+              icon: Icons.phone_outlined,
+              isSelected: _resetMode == _ResetMode.phone,
+              isDark: isDark,
+              onTap: () => setState(() => _resetMode = _ResetMode.phone),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToggleOption({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark
+                    ? AppColors.primary.withValues(alpha: 0.2)
+                    : Colors.white)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: isSelected
+                  ? AppColors.primary
+                  : (isDark ? Colors.white54 : const Color(0xFF6B7C8E)),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected
+                    ? AppColors.primary
+                    : (isDark ? Colors.white54 : const Color(0xFF6B7C8E)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -539,7 +714,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
         Text(
           'Code de vérification',
           style: TextStyle(
-            fontSize: 20, fontWeight: FontWeight.bold,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
             color: isDark ? Colors.white : const Color(0xFF1A2B3C),
           ),
         ),
@@ -547,13 +723,18 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
         RichText(
           text: TextSpan(
             style: TextStyle(
-              fontSize: 14, height: 1.5,
+              fontSize: 14,
+              height: 1.5,
               color: isDark ? Colors.white60 : const Color(0xFF6B7C8E),
             ),
             children: [
-              const TextSpan(text: 'Entrez le code à 4 chiffres envoyé à\n'),
               TextSpan(
-                text: _emailController.text.trim(),
+                text: _resetMode == _ResetMode.email
+                    ? 'Entrez le code à 4 chiffres envoyé à\n'
+                    : 'Entrez le code à 4 chiffres envoyé par SMS au\n',
+              ),
+              TextSpan(
+                text: _currentIdentifier,
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   color: isDark ? Colors.white : const Color(0xFF1A2B3C),
@@ -650,7 +831,11 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
   }
 
   // ─── STEP 3: New Password ───
-  Widget _buildNewPasswordStep(bool isDark, bool isLoading, String? errorMessage) {
+  Widget _buildNewPasswordStep(
+    bool isDark,
+    bool isLoading,
+    String? errorMessage,
+  ) {
     return Form(
       key: _formKey,
       child: Column(
@@ -659,7 +844,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
           Text(
             'Créer un nouveau mot de passe',
             style: TextStyle(
-              fontSize: 20, fontWeight: FontWeight.bold,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
               color: isDark ? Colors.white : const Color(0xFF1A2B3C),
             ),
           ),
@@ -667,7 +853,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
           Text(
             'Votre mot de passe doit comporter au moins 8 caractères.',
             style: TextStyle(
-              fontSize: 14, height: 1.5,
+              fontSize: 14,
+              height: 1.5,
               color: isDark ? Colors.white60 : const Color(0xFF6B7C8E),
             ),
           ),
@@ -678,7 +865,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
             hint: '••••••••',
             isDark: isDark,
             obscure: _obscurePassword,
-            toggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
+            toggleObscure: () =>
+                setState(() => _obscurePassword = !_obscurePassword),
             validator: (value) {
               if (value == null || value.isEmpty) return 'Mot de passe requis';
               if (value.length < 8) return 'Minimum 8 caractères';
@@ -692,10 +880,13 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
             hint: '••••••••',
             isDark: isDark,
             obscure: _obscureConfirmPassword,
-            toggleObscure: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+            toggleObscure: () => setState(
+              () => _obscureConfirmPassword = !_obscureConfirmPassword,
+            ),
             validator: (value) {
               if (value == null || value.isEmpty) return 'Confirmation requise';
-              if (value != _passwordController.text) return 'Les mots de passe ne correspondent pas';
+              if (value != _passwordController.text)
+                return 'Les mots de passe ne correspondent pas';
               return null;
             },
           ),
@@ -735,7 +926,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
         Text(
           'Mot de passe réinitialisé !',
           style: TextStyle(
-            fontSize: 20, fontWeight: FontWeight.bold,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
             color: isDark ? Colors.white : const Color(0xFF1A2B3C),
           ),
         ),
@@ -744,7 +936,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
           'Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.',
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 15, height: 1.5,
+            fontSize: 15,
+            height: 1.5,
             color: isDark ? Colors.white60 : const Color(0xFF6B7C8E),
           ),
         ),
@@ -773,7 +966,10 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
           const Icon(Icons.error_outline, color: Colors.red, size: 20),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(message, style: const TextStyle(color: Colors.red, fontSize: 13)),
+            child: Text(
+              message,
+              style: const TextStyle(color: Colors.red, fontSize: 13),
+            ),
           ),
         ],
       ),
@@ -812,7 +1008,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
           child: Center(
             child: isLoading
                 ? const SizedBox(
-                    height: 24, width: 24,
+                    height: 24,
+                    width: 24,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.5,
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
@@ -824,8 +1021,10 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
                       Text(
                         label,
                         style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w600,
-                          color: Colors.white, letterSpacing: 0.5,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -853,7 +1052,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
         Text(
           label,
           style: TextStyle(
-            fontSize: 14, fontWeight: FontWeight.w600,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
             color: isDark ? Colors.white70 : const Color(0xFF5A6B7D),
           ),
         ),
@@ -862,7 +1062,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
           controller: controller,
           keyboardType: keyboardType,
           style: TextStyle(
-            fontSize: 16, fontWeight: FontWeight.w500,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
             color: isDark ? Colors.white : const Color(0xFF1A2B3C),
           ),
           decoration: InputDecoration(
@@ -873,8 +1074,11 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
             ),
             prefixIcon: Container(
               padding: const EdgeInsets.all(12),
-              child: Icon(icon, size: 22,
-                color: isDark ? Colors.white54 : const Color(0xFF8A99A8)),
+              child: Icon(
+                icon,
+                size: 22,
+                color: isDark ? Colors.white54 : const Color(0xFF8A99A8),
+              ),
             ),
             filled: true,
             fillColor: isDark
@@ -900,7 +1104,10 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
               borderRadius: BorderRadius.circular(16),
               borderSide: const BorderSide(color: Color(0xFFE53935)),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
           ),
           validator: validator,
         ),
@@ -923,7 +1130,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
         Text(
           label,
           style: TextStyle(
-            fontSize: 14, fontWeight: FontWeight.w600,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
             color: isDark ? Colors.white70 : const Color(0xFF5A6B7D),
           ),
         ),
@@ -932,7 +1140,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
           controller: controller,
           obscureText: obscure,
           style: TextStyle(
-            fontSize: 16, fontWeight: FontWeight.w500,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
             color: isDark ? Colors.white : const Color(0xFF1A2B3C),
           ),
           decoration: InputDecoration(
@@ -943,12 +1152,17 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
             ),
             prefixIcon: Container(
               padding: const EdgeInsets.all(12),
-              child: Icon(Icons.lock_outline, size: 22,
-                color: isDark ? Colors.white54 : const Color(0xFF8A99A8)),
+              child: Icon(
+                Icons.lock_outline,
+                size: 22,
+                color: isDark ? Colors.white54 : const Color(0xFF8A99A8),
+              ),
             ),
             suffixIcon: IconButton(
               icon: Icon(
-                obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                obscure
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
                 color: isDark ? Colors.white54 : const Color(0xFF8A99A8),
               ),
               onPressed: toggleObscure,
@@ -977,7 +1191,10 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
               borderRadius: BorderRadius.circular(16),
               borderSide: const BorderSide(color: Color(0xFFE53935)),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
           ),
           validator: validator,
         ),

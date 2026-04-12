@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
-import '../../l10n/app_localizations.dart';
 
 /// Widget pour afficher un état vide avec illustration
 class EmptyState extends StatelessWidget {
@@ -102,12 +101,11 @@ class EmptyProductsState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     return EmptyState(
       icon: Icons.inventory_2_outlined,
-      title: l10n.emptyNoProducts,
+      title: 'Aucun produit',
       message: 'Nous n\'avons trouvé aucun produit.\nVeuillez réessayer plus tard.',
-      actionLabel: l10n.btnRefresh,
+      actionLabel: 'Actualiser',
       onAction: onRefresh,
       iconColor: AppColors.primary,
     );
@@ -127,12 +125,11 @@ class EmptySearchState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     return EmptyState(
       icon: Icons.search_off,
-      title: l10n.emptyNoResults,
+      title: 'Aucun résultat',
       message: 'Nous n\'avons trouvé aucun produit pour "$searchQuery".\nEssayez avec d\'autres mots-clés.',
-      actionLabel: l10n.btnClearSearch,
+      actionLabel: 'Effacer la recherche',
       onAction: onClear,
       iconColor: AppColors.secondary,
     );
@@ -147,12 +144,11 @@ class EmptyOrdersState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     return EmptyState(
       icon: Icons.receipt_long_outlined,
-      title: l10n.emptyNoOrders,
+      title: 'Aucune commande',
       message: 'Vous n\'avez pas encore passé de commande.\nCommencez à parcourir nos produits !',
-      actionLabel: l10n.btnBrowseProducts,
+      actionLabel: 'Parcourir les produits',
       onAction: onBrowseProducts,
       iconColor: AppColors.accent,
     );
@@ -167,12 +163,11 @@ class EmptyCartState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     return EmptyState(
       icon: Icons.shopping_cart_outlined,
-      title: l10n.emptyCart,
+      title: 'Panier vide',
       message: 'Votre panier est vide.\nAjoutez des produits pour commencer vos achats !',
-      actionLabel: l10n.cartViewProducts,
+      actionLabel: 'Voir les produits',
       onAction: onBrowseProducts,
       iconColor: AppColors.primary,
     );
@@ -185,10 +180,9 @@ class EmptyNotificationsState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     return EmptyState(
       icon: Icons.notifications_none,
-      title: l10n.emptyNoNotifications,
+      title: 'Aucune notification',
       message: 'Vous n\'avez aucune notification pour le moment.\nNous vous tiendrons informé !',
       iconColor: AppColors.accent,
     );

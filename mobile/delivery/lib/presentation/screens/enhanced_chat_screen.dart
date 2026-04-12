@@ -1,13 +1,18 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/router/route_names.dart';
 import '../../core/theme/theme_provider.dart';
+import '../../core/utils/error_utils.dart';
 import '../../core/services/enhanced_chat_service.dart';
 import '../../data/models/enhanced_chat_message.dart';
+import '../providers/delivery_providers.dart';
 import '../widgets/chat/enhanced_chat_widgets.dart';
 import '../widgets/common/common_widgets.dart';
 
@@ -45,7 +50,11 @@ class _EnhancedChatScreenState extends ConsumerState<EnhancedChatScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _markMessagesAsRead();
+    // Defer markAsRead to after the first frame so the profile provider
+    // has time to initialize the chat service
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _markMessagesAsRead();
+    });
   }
 
   @override
@@ -55,9 +64,12 @@ class _EnhancedChatScreenState extends ConsumerState<EnhancedChatScreen>
     // Arrêter l'indicateur de saisie quand on quitte
     // Wrap dans try-catch car le ProviderContainer peut être en cours de destruction
     try {
-      ref.read(enhancedChatServiceProvider).stopTyping(widget.orderId, widget.target);
-    } catch (_) {
+      ref
+          .read(enhancedChatServiceProvider)
+          .stopTyping(widget.orderId, widget.target);
+    } catch (e) {
       // Ignorer les erreurs de ref.read() pendant le dispose
+      if (kDebugMode) debugPrint('⚠️ Stop typing on dispose failed: $e');
     }
     super.dispose();
   }
@@ -71,11 +83,12 @@ class _EnhancedChatScreenState extends ConsumerState<EnhancedChatScreen>
 
   Future<void> _markMessagesAsRead() async {
     try {
-      await ref.read(enhancedChatServiceProvider).markMessagesAsRead(
-            widget.orderId,
-            widget.target,
-          );
-    } catch (_) {}
+      await ref
+          .read(enhancedChatServiceProvider)
+          .markMessagesAsRead(widget.orderId, widget.target);
+    } catch (e) {
+      if (kDebugMode) debugPrint('⚠️ Mark messages as read failed: $e');
+    }
   }
 
   void _scrollToBottom() {
@@ -92,18 +105,25 @@ class _EnhancedChatScreenState extends ConsumerState<EnhancedChatScreen>
   Widget build(BuildContext context) {
     final isDark = ref.watch(isDarkModeProvider);
     final messagesAsync = ref.watch(
-      enhancedMessagesProvider((orderId: widget.orderId, target: widget.target)),
+      enhancedMessagesProvider((
+        orderId: widget.orderId,
+        target: widget.target,
+      )),
     );
     final typingAsync = ref.watch(
       typingStatusProvider((orderId: widget.orderId, target: widget.target)),
     );
 
     // Obtenir l'ID du livreur depuis le profil
-    // Pour simplifier, on utilise une valeur fictive ici
-    _courierId ??= 1;
+    final profileAsync = ref.watch(courierProfileProvider);
+    profileAsync.whenData((profile) {
+      _courierId = profile.id;
+    });
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8F9FD),
+      backgroundColor: isDark
+          ? const Color(0xFF121212)
+          : const Color(0xFFF8F9FD),
       appBar: _buildAppBar(isDark),
       body: Column(
         children: [
@@ -132,8 +152,9 @@ class _EnhancedChatScreenState extends ConsumerState<EnhancedChatScreen>
                         itemCount: messages.length,
                         itemBuilder: (context, index) {
                           final message = messages[index];
-                          final previousMessage =
-                              index < messages.length - 1 ? messages[index + 1] : null;
+                          final previousMessage = index < messages.length - 1
+                              ? messages[index + 1]
+                              : null;
                           final showDateSeparator = _shouldShowDateSeparator(
                             message,
                             previousMessage,
@@ -171,10 +192,12 @@ class _EnhancedChatScreenState extends ConsumerState<EnhancedChatScreen>
               },
               loading: () => const AppLoadingWidget(),
               error: (e, _) => AppErrorWidget(
-                message: 'Erreur: $e',
+                message: userFriendlyError(e),
                 onRetry: () => ref.invalidate(
-                  enhancedMessagesProvider(
-                      (orderId: widget.orderId, target: widget.target)),
+                  enhancedMessagesProvider((
+                    orderId: widget.orderId,
+                    target: widget.target,
+                  )),
                 ),
               ),
             ),
@@ -321,17 +344,12 @@ class _EnhancedChatScreenState extends ConsumerState<EnhancedChatScreen>
           const SizedBox(height: 16),
           const Text(
             'Aucun message',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
             'Envoyez un message pour commencer la conversation',
-            style: TextStyle(
-              color: isDark ? Colors.white60 : Colors.grey,
-            ),
+            style: TextStyle(color: isDark ? Colors.white60 : Colors.grey),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
@@ -383,7 +401,9 @@ class _EnhancedChatScreenState extends ConsumerState<EnhancedChatScreen>
 
   Future<void> _sendTextMessage(String text) async {
     try {
-      await ref.read(enhancedChatServiceProvider).sendTextMessage(
+      await ref
+          .read(enhancedChatServiceProvider)
+          .sendTextMessage(
             orderId: widget.orderId,
             content: text,
             target: widget.target,
@@ -393,7 +413,7 @@ class _EnhancedChatScreenState extends ConsumerState<EnhancedChatScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur: $e'),
+            content: Text(userFriendlyError(e)),
             backgroundColor: Colors.red,
           ),
         );
@@ -406,7 +426,9 @@ class _EnhancedChatScreenState extends ConsumerState<EnhancedChatScreen>
       // Obtenir la position actuelle
       final position = await Geolocator.getCurrentPosition();
 
-      await ref.read(enhancedChatServiceProvider).sendLocationMessage(
+      await ref
+          .read(enhancedChatServiceProvider)
+          .sendLocationMessage(
             orderId: widget.orderId,
             latitude: position.latitude,
             longitude: position.longitude,
@@ -418,7 +440,7 @@ class _EnhancedChatScreenState extends ConsumerState<EnhancedChatScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur localisation: $e'),
+            content: Text(userFriendlyError(e)),
             backgroundColor: Colors.red,
           ),
         );
@@ -461,8 +483,10 @@ class _EnhancedChatScreenState extends ConsumerState<EnhancedChatScreen>
               if (message.isFromCourier(_courierId ?? 1))
                 ListTile(
                   leading: const Icon(Icons.delete_outline, color: Colors.red),
-                  title: const Text('Supprimer',
-                      style: TextStyle(color: Colors.red)),
+                  title: const Text(
+                    'Supprimer',
+                    style: TextStyle(color: Colors.red),
+                  ),
                   onTap: () {
                     Navigator.pop(context);
                     _deleteMessage(message);
@@ -491,11 +515,9 @@ class _EnhancedChatScreenState extends ConsumerState<EnhancedChatScreen>
   /// Supprimer un message
   Future<void> _deleteMessage(EnhancedChatMessage message) async {
     try {
-      await ref.read(enhancedChatServiceProvider).deleteMessage(
-        widget.orderId,
-        widget.target,
-        message.id,
-      );
+      await ref
+          .read(enhancedChatServiceProvider)
+          .deleteMessage(widget.orderId, widget.target, message.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -509,7 +531,7 @@ class _EnhancedChatScreenState extends ConsumerState<EnhancedChatScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur: $e'),
+            content: Text(userFriendlyError(e)),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 2),
             behavior: SnackBarBehavior.floating,
@@ -530,7 +552,7 @@ class _EnhancedChatScreenState extends ConsumerState<EnhancedChatScreen>
       );
       return;
     }
-    
+
     final uri = Uri.parse('tel:$phone');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
@@ -552,7 +574,8 @@ class _EnhancedChatScreenState extends ConsumerState<EnhancedChatScreen>
       builder: (context) => AlertDialog(
         title: const Text('Effacer la conversation ?'),
         content: const Text(
-            'Cette action supprimera tous les messages de cette conversation.'),
+          'Cette action supprimera tous les messages de cette conversation.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -572,10 +595,9 @@ class _EnhancedChatScreenState extends ConsumerState<EnhancedChatScreen>
 
   Future<void> _clearConversation() async {
     try {
-      await ref.read(enhancedChatServiceProvider).clearConversation(
-        widget.orderId,
-        widget.target,
-      );
+      await ref
+          .read(enhancedChatServiceProvider)
+          .clearConversation(widget.orderId, widget.target);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -589,7 +611,7 @@ class _EnhancedChatScreenState extends ConsumerState<EnhancedChatScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur: $e'),
+            content: Text(userFriendlyError(e)),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 2),
             behavior: SnackBarBehavior.floating,
@@ -605,7 +627,8 @@ class _EnhancedChatScreenState extends ConsumerState<EnhancedChatScreen>
       builder: (context) => AlertDialog(
         title: const Text('Signaler cette conversation'),
         content: const Text(
-            'Êtes-vous sûr de vouloir signaler cette conversation pour comportement inapproprié ?'),
+          'Êtes-vous sûr de vouloir signaler cette conversation pour comportement inapproprié ?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -616,7 +639,10 @@ class _EnhancedChatScreenState extends ConsumerState<EnhancedChatScreen>
               Navigator.pop(context);
               _submitReport();
             },
-            child: const Text('Signaler', style: TextStyle(color: Colors.orange)),
+            child: const Text(
+              'Signaler',
+              style: TextStyle(color: Colors.orange),
+            ),
           ),
         ],
       ),
@@ -625,11 +651,9 @@ class _EnhancedChatScreenState extends ConsumerState<EnhancedChatScreen>
 
   Future<void> _submitReport() async {
     try {
-      await ref.read(enhancedChatServiceProvider).reportConversation(
-        widget.orderId,
-        widget.target,
-        widget.targetName,
-      );
+      await ref
+          .read(enhancedChatServiceProvider)
+          .reportConversation(widget.orderId, widget.target, widget.targetName);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -690,10 +714,7 @@ class _DateSeparator extends StatelessWidget {
         ),
         child: Text(
           _label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.grey,
-          ),
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
         ),
       ),
     );
@@ -705,10 +726,7 @@ class _QuickStartChip extends StatelessWidget {
   final String text;
   final VoidCallback onTap;
 
-  const _QuickStartChip({
-    required this.text,
-    required this.onTap,
-  });
+  const _QuickStartChip({required this.text, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -716,9 +734,7 @@ class _QuickStartChip extends StatelessWidget {
       label: Text(text),
       onPressed: onTap,
       backgroundColor: const Color(0xFF54AB70).withValues(alpha: 0.1),
-      side: BorderSide(
-        color: const Color(0xFF54AB70).withValues(alpha: 0.3),
-      ),
+      side: BorderSide(color: const Color(0xFF54AB70).withValues(alpha: 0.3)),
     );
   }
 }
@@ -737,7 +753,9 @@ class ConversationsListScreen extends ConsumerWidget {
     final conversationsAsync = ref.watch(activeConversationsProvider);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8F9FD),
+      backgroundColor: isDark
+          ? const Color(0xFF121212)
+          : const Color(0xFFF8F9FD),
       appBar: AppBar(
         title: const Text('Messages'),
         backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
@@ -770,16 +788,14 @@ class ConversationsListScreen extends ConsumerWidget {
               return _ConversationTile(
                 conversation: conversation,
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => EnhancedChatScreen(
-                        orderId: conversation.orderId,
-                        target: conversation.target,
-                        targetName: conversation.targetName,
-                        targetAvatar: conversation.targetAvatar,
-                      ),
-                    ),
+                  context.push(
+                    AppRoutes.deliveryChat,
+                    extra: {
+                      'orderId': conversation.orderId,
+                      'target': conversation.target,
+                      'targetName': conversation.targetName,
+                      'targetAvatar': conversation.targetAvatar,
+                    },
                   );
                 },
               );
@@ -788,7 +804,7 @@ class ConversationsListScreen extends ConsumerWidget {
         },
         loading: () => const AppLoadingWidget(),
         error: (e, _) => AppErrorWidget(
-          message: 'Erreur: $e',
+          message: userFriendlyError(e),
           onRetry: () => ref.invalidate(activeConversationsProvider),
         ),
       ),
@@ -801,10 +817,7 @@ class _ConversationTile extends StatelessWidget {
   final ChatConversation conversation;
   final VoidCallback onTap;
 
-  const _ConversationTile({
-    required this.conversation,
-    required this.onTap,
-  });
+  const _ConversationTile({required this.conversation, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -817,8 +830,8 @@ class _ConversationTile extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 24,
-            backgroundColor:
-                (isCustomer ? Colors.green : Colors.orange).withValues(alpha: 0.2),
+            backgroundColor: (isCustomer ? Colors.green : Colors.orange)
+                .withValues(alpha: 0.2),
             backgroundImage: conversation.targetAvatar != null
                 ? CachedNetworkImageProvider(conversation.targetAvatar!)
                 : null,

@@ -2,15 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/core_providers.dart';
+import 'pending_actions_sheet.dart';
 
 /// Widget qui affiche un banner quand l'application est hors ligne
 class ConnectivityBanner extends ConsumerWidget {
   final Widget child;
 
-  const ConnectivityBanner({
-    super.key,
-    required this.child,
-  });
+  const ConnectivityBanner({super.key, required this.child});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -42,96 +40,82 @@ class _OfflineBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.orange,
-            Colors.orange.withRed(230),
+    return GestureDetector(
+      onTap: () => PendingActionsSheet.show(context),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.orange, Colors.orange.withRed(230)],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.orange.withValues(alpha: 0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
           ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.orange.withValues(alpha: 0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.wifi_off_rounded,
-                color: Colors.white,
-                size: 18,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Mode hors ligne',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                  if (pendingCount > 0)
-                    Text(
-                      '$pendingCount action(s) en attente de synchronisation',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 12,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            if (pendingCount > 0)
+        child: SafeArea(
+          bottom: false,
+          child: Row(
+            children: [
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Row(
+                child: const Icon(
+                  Icons.wifi_off_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.sync,
-                      color: Colors.white,
-                      size: 14,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$pendingCount',
-                      style: const TextStyle(
+                    const Text(
+                      'Mode hors ligne',
+                      style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      pendingCount > 0
+                          ? '$pendingCount action(s) en attente • Touchez pour voir'
+                          : 'Continuez à travailler, on synchronise quand ça revient',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: 12,
                       ),
                     ),
                   ],
                 ),
               ),
-          ],
+              // Indicateur visuel qu'on peut toucher
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  pendingCount > 0
+                      ? Icons.expand_more_rounded
+                      : Icons.sync_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -208,11 +192,7 @@ class _SyncIndicatorState extends State<SyncIndicator>
             if (widget.isSyncing)
               RotationTransition(
                 turns: _controller,
-                child: const Icon(
-                  Icons.sync,
-                  color: Colors.white,
-                  size: 16,
-                ),
+                child: const Icon(Icons.sync, color: Colors.white, size: 16),
               )
             else
               const Icon(
@@ -248,7 +228,9 @@ class ConnectionSnackbar {
             const Icon(Icons.wifi_off, color: Colors.white),
             const SizedBox(width: 12),
             const Expanded(
-              child: Text('Vous êtes hors ligne. Les modifications seront synchronisées.'),
+              child: Text(
+                'Vous êtes hors ligne. Les modifications seront synchronisées.',
+              ),
             ),
           ],
         ),

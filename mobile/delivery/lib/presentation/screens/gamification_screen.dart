@@ -39,13 +39,45 @@ class _GamificationScreenState extends ConsumerState<GamificationScreen>
     final gamificationAsync = ref.watch(gamificationProvider);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8F9FD),
+      backgroundColor: isDark
+          ? const Color(0xFF121212)
+          : const Color(0xFFF8F9FD),
       body: gamificationAsync.when(
         data: (data) => _buildContent(context, data),
-        loading: () => const AppLoadingWidget(),
-        error: (e, _) => AppErrorWidget(
-          message: e.toString(),
-          onRetry: () => ref.invalidate(gamificationProvider),
+        loading: () => Column(
+          children: [
+            SafeArea(
+              bottom: false,
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ),
+            const Expanded(child: AppLoadingWidget()),
+          ],
+        ),
+        error: (e, _) => Column(
+          children: [
+            SafeArea(
+              bottom: false,
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ),
+            Expanded(
+              child: AppErrorWidget(
+                message: e.toString(),
+                onRetry: () => ref.invalidate(gamificationProvider),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -53,7 +85,7 @@ class _GamificationScreenState extends ConsumerState<GamificationScreen>
 
   Widget _buildContent(BuildContext context, GamificationData data) {
     final isDark = context.isDark;
-    
+
     return NestedScrollView(
       headerSliverBuilder: (context, innerBoxIsScrolled) {
         return [
@@ -78,25 +110,47 @@ class _GamificationScreenState extends ConsumerState<GamificationScreen>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Progression',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: context.r.sp(28),
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(
+                                Icons.arrow_back,
+                                color: Colors.white,
+                              ),
+                              onPressed: () => Navigator.of(context).pop(),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Progression',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: context.r.sp(28),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                         // Streak badge
-                        if (data.stats['current_streak'] != null && data.stats['current_streak']! > 0)
+                        if (data.stats['current_streak'] != null &&
+                            data.stats['current_streak']! > 0)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.local_fire_department, color: Colors.orange, size: 18),
+                                const Icon(
+                                  Icons.local_fire_department,
+                                  color: Colors.orange,
+                                  size: 18,
+                                ),
                                 const SizedBox(width: 6),
                                 Text(
                                   '${data.stats['current_streak']} jours',
@@ -111,7 +165,7 @@ class _GamificationScreenState extends ConsumerState<GamificationScreen>
                       ],
                     ),
                     const SizedBox(height: 20),
-                    
+
                     // Niveau card
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -136,7 +190,7 @@ class _GamificationScreenState extends ConsumerState<GamificationScreen>
                             ),
                           ),
                           const SizedBox(width: 16),
-                          
+
                           // Info niveau
                           Expanded(
                             child: Column(
@@ -158,14 +212,19 @@ class _GamificationScreenState extends ConsumerState<GamificationScreen>
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                
+
                                 // Barre XP
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(4),
                                   child: LinearProgressIndicator(
                                     value: data.level.progress,
-                                    backgroundColor: Colors.white.withValues(alpha: 0.2),
-                                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                                    backgroundColor: Colors.white.withValues(
+                                      alpha: 0.2,
+                                    ),
+                                    valueColor:
+                                        const AlwaysStoppedAnimation<Color>(
+                                          Colors.white,
+                                        ),
                                     minHeight: 8,
                                   ),
                                 ),
@@ -180,7 +239,7 @@ class _GamificationScreenState extends ConsumerState<GamificationScreen>
                               ],
                             ),
                           ),
-                          
+
                           // XP total
                           Column(
                             children: [
@@ -204,9 +263,9 @@ class _GamificationScreenState extends ConsumerState<GamificationScreen>
                         ],
                       ),
                     ),
-                    
+
                     const SizedBox(height: 16),
-                    
+
                     // Stats row
                     Row(
                       children: [
@@ -218,7 +277,8 @@ class _GamificationScreenState extends ConsumerState<GamificationScreen>
                         const SizedBox(width: 12),
                         _StatCard(
                           icon: Icons.verified,
-                          value: '${data.unlockedBadges.length}/${data.badges.length}',
+                          value:
+                              '${data.unlockedBadges.length}/${data.badges.length}',
                           label: 'Badges',
                         ),
                         const SizedBox(width: 12),
@@ -234,7 +294,7 @@ class _GamificationScreenState extends ConsumerState<GamificationScreen>
               ),
             ),
           ),
-          
+
           // Daily Challenges Section
           SliverToBoxAdapter(
             child: DailyChallengesHomeWidget(
@@ -247,7 +307,7 @@ class _GamificationScreenState extends ConsumerState<GamificationScreen>
               },
             ),
           ),
-          
+
           // Tab bar
           SliverPersistentHeader(
             pinned: true,
@@ -274,7 +334,7 @@ class _GamificationScreenState extends ConsumerState<GamificationScreen>
         children: [
           // Onglet Badges
           _BadgesTab(badges: data.badges),
-          
+
           // Onglet Classement
           _LeaderboardTab(
             leaderboard: data.leaderboard,
@@ -285,7 +345,7 @@ class _GamificationScreenState extends ConsumerState<GamificationScreen>
               ref.invalidate(leaderboardProvider(_leaderboardPeriod));
             },
           ),
-          
+
           // Onglet Historique XP
           _XPHistoryTab(stats: data.stats),
         ],
@@ -328,10 +388,7 @@ class _StatCard extends StatelessWidget {
             ),
             Text(
               label,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 11,
-              ),
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
             ),
           ],
         ),
@@ -353,7 +410,11 @@ class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return Container(
       color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       child: tabBar,
@@ -374,8 +435,84 @@ class _BadgesTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // État vide : fonctionnalité pas encore disponible côté serveur
+    if (badges.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: Colors.purple.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Icon(
+                  Icons.emoji_events_outlined,
+                  size: 48,
+                  color: Colors.purple.shade300,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Badges bientôt disponibles',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Continuez vos livraisons ! Les badges seront bientôt activés pour récompenser votre performance.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDark ? Colors.white60 : Colors.grey.shade600,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.rocket_launch,
+                      size: 18,
+                      color: Colors.green.shade600,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'En cours de déploiement',
+                      style: TextStyle(
+                        color: Colors.green.shade700,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final categorized = <String, List<GamificationBadge>>{};
-    
+
     for (final badge in badges) {
       categorized.putIfAbsent(badge.category, () => []).add(badge);
     }
@@ -419,7 +556,9 @@ class _BadgesTab extends StatelessWidget {
                 color: isDark ? Colors.white12 : Colors.grey.shade200,
               ),
               _BadgeCountItem(
-                count: badges.where((b) => !b.isUnlocked && b.progress > 0.5).length,
+                count: badges
+                    .where((b) => !b.isUnlocked && b.progress > 0.5)
+                    .length,
                 total: badges.where((b) => !b.isUnlocked).length,
                 label: 'En cours',
                 color: Colors.orange,
@@ -430,7 +569,9 @@ class _BadgesTab extends StatelessWidget {
                 color: isDark ? Colors.white12 : Colors.grey.shade200,
               ),
               _BadgeCountItem(
-                count: badges.where((b) => !b.isUnlocked && b.progress == 0).length,
+                count: badges
+                    .where((b) => !b.isUnlocked && b.progress == 0)
+                    .length,
                 total: badges.length,
                 label: 'À découvrir',
                 color: Colors.grey,
@@ -438,14 +579,16 @@ class _BadgesTab extends StatelessWidget {
             ],
           ),
         ),
-        
+
         const SizedBox(height: 24),
-        
+
         // Badges par catégorie
         ...categorized.entries.map((entry) {
           final categoryBadges = entry.value;
-          final unlockedCount = categoryBadges.where((b) => b.isUnlocked).length;
-          
+          final unlockedCount = categoryBadges
+              .where((b) => b.isUnlocked)
+              .length;
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -508,7 +651,7 @@ class _BadgeCountItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Column(
       children: [
         Text(
@@ -573,7 +716,7 @@ class _LeaderboardTab extends StatelessWidget {
             ],
           ),
         ),
-        
+
         // Liste du classement
         Expanded(
           child: ListView(
@@ -585,13 +728,17 @@ class _LeaderboardTab extends StatelessWidget {
                   currentUser: currentUser,
                   title: '',
                 ),
-              
+
               if (leaderboard.isEmpty)
                 const Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.leaderboard_outlined, size: 64, color: Colors.grey),
+                      Icon(
+                        Icons.leaderboard_outlined,
+                        size: 64,
+                        color: Colors.grey,
+                      ),
                       SizedBox(height: 16),
                       Text(
                         'Classement non disponible',
@@ -622,22 +769,22 @@ class _PeriodChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected 
-              ? Colors.blue 
+          color: isSelected
+              ? Colors.blue
               : (isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade200),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected 
-                ? Colors.white 
+            color: isSelected
+                ? Colors.white
                 : (isDark ? Colors.white70 : Colors.grey.shade700),
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
@@ -655,29 +802,39 @@ class _XPHistoryTab extends StatelessWidget {
   Color _getLevelColor(String? colorStr) {
     if (colorStr == null) return Colors.grey;
     switch (colorStr.toLowerCase()) {
-      case 'bronze': return const Color(0xFFCD7F32);
-      case 'silver': return const Color(0xFFC0C0C0);
-      case 'gold': return const Color(0xFFFFD700);
-      case 'platinum': return const Color(0xFFE5E4E2);
-      case 'diamond': return const Color(0xFFB9F2FF);
-      default: return Colors.blue;
+      case 'bronze':
+        return const Color(0xFFCD7F32);
+      case 'silver':
+        return const Color(0xFFC0C0C0);
+      case 'gold':
+        return const Color(0xFFFFD700);
+      case 'platinum':
+        return const Color(0xFFE5E4E2);
+      case 'diamond':
+        return const Color(0xFFB9F2FF);
+      default:
+        return Colors.blue;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    // Liste des sources de XP
+
+    // Liste des sources de XP (descriptions, valeurs indicatives)
     final xpSources = [
-      {'icon': Icons.local_shipping, 'name': 'Livraison complétée', 'xp': 10},
-      {'icon': Icons.thumb_up, 'name': 'Note 5 étoiles', 'xp': 5},
-      {'icon': Icons.speed, 'name': 'Livraison rapide (<15 min)', 'xp': 3},
-      {'icon': Icons.verified, 'name': 'Défi complété', 'xp': 50},
-      {'icon': Icons.military_tech, 'name': 'Badge débloqué', 'xp': 25},
-      {'icon': Icons.whatshot, 'name': 'Streak journalier', 'xp': 2},
+      {
+        'icon': Icons.local_shipping,
+        'name': 'Livraison complétée',
+        'xp': '~10',
+      },
+      {'icon': Icons.thumb_up, 'name': 'Note 5 étoiles reçue', 'xp': '~5'},
+      {'icon': Icons.schedule, 'name': 'Livraison ponctuelle', 'xp': '~3'},
+      {'icon': Icons.verified, 'name': 'Défi complété', 'xp': 'variable'},
+      {'icon': Icons.military_tech, 'name': 'Badge débloqué', 'xp': 'variable'},
+      {'icon': Icons.whatshot, 'name': 'Streak journalier', 'xp': '~2'},
     ];
-    
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -703,63 +860,65 @@ class _XPHistoryTab extends StatelessWidget {
                   SizedBox(width: 8),
                   Text(
                     'Comment gagner des XP ?',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
-              ...xpSources.map((source) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        source['icon'] as IconData,
-                        color: Colors.blue,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        source['name'] as String,
-                        style: TextStyle(
-                          color: isDark ? Colors.white : Colors.black87,
+              ...xpSources.map(
+                (source) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          source['icon'] as IconData,
+                          color: Colors.blue,
+                          size: 20,
                         ),
                       ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        '+${source['xp']} XP',
-                        style: const TextStyle(
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          source['name'] as String,
+                          style: TextStyle(
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '+${source['xp']} XP',
+                          style: const TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              )),
+              ),
             ],
           ),
         ),
-        
+
         const SizedBox(height: 24),
-        
+
         // Niveaux à débloquer
         Text(
           'Niveaux',
@@ -770,20 +929,21 @@ class _XPHistoryTab extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        
+
         ...LevelDefinitions.levels.map((levelDef) {
-          final isUnlocked = (stats['total_xp'] ?? 0) >= (levelDef['xp'] as int);
+          final isUnlocked =
+              (stats['total_xp'] ?? 0) >= (levelDef['xp'] as int);
           final levelColor = _getLevelColor(levelDef['color'] as String?);
-          
+
           return Container(
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isUnlocked 
+              color: isUnlocked
                   ? Colors.green.withValues(alpha: 0.1)
                   : (isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100),
               borderRadius: BorderRadius.circular(12),
-              border: isUnlocked 
+              border: isUnlocked
                   ? Border.all(color: Colors.green.withValues(alpha: 0.3))
                   : null,
             ),
@@ -793,9 +953,7 @@ class _XPHistoryTab extends StatelessWidget {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: isUnlocked 
-                        ? levelColor
-                        : Colors.grey,
+                    color: isUnlocked ? levelColor : Colors.grey,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Center(

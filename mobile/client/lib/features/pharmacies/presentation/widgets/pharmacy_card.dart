@@ -80,7 +80,9 @@ class PharmacyCard extends StatelessWidget {
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,
-                                    color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+                                    color: isDark
+                                        ? Colors.white
+                                        : const Color(0xFF1A1A1A),
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -100,14 +102,16 @@ class PharmacyCard extends StatelessWidget {
                                     ),
                                   ),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           const Icon(
-                                            Icons.local_pharmacy, // Changed icon to be more specific
+                                            Icons
+                                                .local_pharmacy, // Changed icon to be more specific
                                             size: 14,
                                             color: Colors.orange,
                                           ),
@@ -188,7 +192,9 @@ class PharmacyCard extends StatelessWidget {
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade100,
+                                    color: isDark
+                                        ? const Color(0xFF2C2C2C)
+                                        : Colors.grey.shade100,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Row(
@@ -196,7 +202,9 @@ class PharmacyCard extends StatelessWidget {
                                       Icon(
                                         Icons.near_me_rounded,
                                         size: 12,
-                                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+                                        color: isDark
+                                            ? Colors.grey.shade400
+                                            : Colors.grey.shade700,
                                       ),
                                       const SizedBox(width: 4),
                                       Text(
@@ -206,7 +214,9 @@ class PharmacyCard extends StatelessWidget {
                                         style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w600,
-                                          color: isDark ? Colors.grey.shade300 : Colors.grey.shade800,
+                                          color: isDark
+                                              ? Colors.grey.shade300
+                                              : Colors.grey.shade800,
                                         ),
                                       ),
                                     ],
@@ -222,7 +232,12 @@ class PharmacyCard extends StatelessWidget {
                 ),
 
                 const SizedBox(height: 16),
-                Divider(height: 1, color: isDark ? const Color(0xFF3C3C3C) : const Color(0xFFEEEEEE)),
+                Divider(
+                  height: 1,
+                  color: isDark
+                      ? const Color(0xFF3C3C3C)
+                      : const Color(0xFFEEEEEE),
+                ),
                 const SizedBox(height: 12),
 
                 // Contact Info
@@ -234,7 +249,9 @@ class PharmacyCard extends StatelessWidget {
                         Icon(
                           Icons.location_on_outlined,
                           size: 18,
-                          color: isDark ? Colors.grey.shade400 : const Color(0xFF757575),
+                          color: isDark
+                              ? Colors.grey.shade400
+                              : const Color(0xFF757575),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -242,7 +259,9 @@ class PharmacyCard extends StatelessWidget {
                             pharmacy.address,
                             style: TextStyle(
                               fontSize: 13,
-                              color: isDark ? Colors.grey.shade300 : const Color(0xFF424242),
+                              color: isDark
+                                  ? Colors.grey.shade300
+                                  : const Color(0xFF424242),
                               height: 1.4,
                             ),
                             maxLines: 2,
@@ -251,21 +270,25 @@ class PharmacyCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    if (pharmacy.phone != null) ...[
+                    ...[
                       const SizedBox(height: 8),
                       Row(
                         children: [
                           Icon(
                             Icons.phone_outlined,
                             size: 18,
-                            color: isDark ? Colors.grey.shade400 : const Color(0xFF757575),
+                            color: isDark
+                                ? Colors.grey.shade400
+                                : const Color(0xFF757575),
                           ),
                           const SizedBox(width: 10),
                           Text(
-                            pharmacy.phone!,
+                            pharmacy.phone,
                             style: TextStyle(
                               fontSize: 13,
-                              color: isDark ? Colors.grey.shade300 : const Color(0xFF424242),
+                              color: isDark
+                                  ? Colors.grey.shade300
+                                  : const Color(0xFF424242),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -309,10 +332,10 @@ class PharmacyCard extends StatelessWidget {
           }
         }
       } else {
-         final timeParts = timeStr.split(':');
-          if (timeParts.length >= 2) {
-            return '${timeParts[0]}:${timeParts[1]}';
-          }
+        final timeParts = timeStr.split(':');
+        if (timeParts.length >= 2) {
+          return '${timeParts[0]}:${timeParts[1]}';
+        }
       }
       return timeStr;
     } catch (e) {

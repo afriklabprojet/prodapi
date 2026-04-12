@@ -68,7 +68,7 @@ class HistoryFiltersNotifier extends Notifier<DeliveryFilters> {
 }
 
 /// Provider pour l'historique filtré des livraisons
-final filteredHistoryProvider = FutureProvider<List<Delivery>>((ref) async {
+final filteredHistoryProvider = FutureProvider.autoDispose<List<Delivery>>((ref) async {
   final filters = ref.watch(historyFiltersProvider);
   final repository = ref.read(deliveryRepositoryProvider);
   
@@ -80,7 +80,7 @@ final filteredHistoryProvider = FutureProvider<List<Delivery>>((ref) async {
 });
 
 /// Provider pour les pharmacies uniques (pour le filtre)
-final uniquePharmaciesProvider = FutureProvider<List<PharmacyOption>>((ref) async {
+final uniquePharmaciesProvider = FutureProvider.autoDispose<List<PharmacyOption>>((ref) async {
   final repository = ref.read(deliveryRepositoryProvider);
   final deliveries = await repository.getDeliveries(status: 'history');
   
@@ -99,7 +99,7 @@ final uniquePharmaciesProvider = FutureProvider<List<PharmacyOption>>((ref) asyn
 });
 
 /// Provider pour les statistiques de l'historique
-final historyStatsProvider = FutureProvider<HistoryStats>((ref) async {
+final historyStatsProvider = FutureProvider.autoDispose<HistoryStats>((ref) async {
   final deliveries = await ref.watch(filteredHistoryProvider.future);
   
   int delivered = 0;

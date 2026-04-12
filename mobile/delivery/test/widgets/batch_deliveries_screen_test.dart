@@ -259,7 +259,8 @@ void main() {
       await tester.tap(find.textContaining('Accepter'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Erreur'), findsOneWidget);
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.textContaining('réessayer'), findsOneWidget);
     });
 
     testWidgets('accept shows loading state', (tester) async {

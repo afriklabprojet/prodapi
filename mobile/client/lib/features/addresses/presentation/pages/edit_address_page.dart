@@ -31,7 +31,9 @@ class _EditAddressPageState extends ConsumerState<EditAddressPage> {
     _addressController = TextEditingController(text: widget.address.address);
     _cityController = TextEditingController(text: widget.address.city ?? '');
     _phoneController = TextEditingController(text: widget.address.phone ?? '');
-    _instructionsController = TextEditingController(text: widget.address.instructions ?? '');
+    _instructionsController = TextEditingController(
+      text: widget.address.instructions ?? '',
+    );
     _isDefault = widget.address.isDefault;
   }
 
@@ -48,9 +50,7 @@ class _EditAddressPageState extends ConsumerState<EditAddressPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Modifier l\'adresse'),
-      ),
+      appBar: AppBar(title: const Text('Modifier l\'adresse')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -59,14 +59,18 @@ class _EditAddressPageState extends ConsumerState<EditAddressPage> {
             children: [
               TextFormField(
                 controller: _labelController,
-                decoration: const InputDecoration(labelText: 'Nom de l\'adresse'),
-                validator: (v) => v == null || v.isEmpty ? 'Champ requis' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Nom de l\'adresse',
+                ),
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'Champ requis' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _addressController,
                 decoration: const InputDecoration(labelText: 'Adresse'),
-                validator: (v) => v == null || v.isEmpty ? 'Champ requis' : null,
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'Champ requis' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -82,7 +86,9 @@ class _EditAddressPageState extends ConsumerState<EditAddressPage> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _instructionsController,
-                decoration: const InputDecoration(labelText: 'Instructions de livraison'),
+                decoration: const InputDecoration(
+                  labelText: 'Instructions de livraison',
+                ),
                 maxLines: 3,
               ),
               const SizedBox(height: 16),
@@ -115,10 +121,44 @@ class _EditAddressPageState extends ConsumerState<EditAddressPage> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
-    // For simplicity, reuse create logic (the API may support PUT)
-    if (context.mounted) {
-      context.pop();
+    try {
+      await ref
+          .read(addressesProvider.notifier)
+          .updateAddress(
+            id: widget.address.id,
+            label: _labelController.text.trim(),
+            address: _addressController.text.trim(),
+            city: _cityController.text.trim().isNotEmpty
+                ? _cityController.text.trim()
+                : null,
+            phone: _phoneController.text.trim().isNotEmpty
+                ? _phoneController.text.trim()
+                : null,
+            instructions: _instructionsController.text.trim().isNotEmpty
+                ? _instructionsController.text.trim()
+                : null,
+            isDefault: _isDefault,
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Adresse mise à jour'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Impossible de mettre à jour l\'adresse'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-    setState(() => _isLoading = false);
   }
 }

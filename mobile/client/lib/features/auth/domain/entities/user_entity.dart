@@ -11,6 +11,9 @@ class UserEntity extends Equatable {
   final DateTime? emailVerifiedAt;
   final DateTime? phoneVerifiedAt;
   final DateTime createdAt;
+  final int _totalOrders;
+  final int _completedOrders;
+  final double _totalSpent;
 
   const UserEntity({
     required this.id,
@@ -22,7 +25,12 @@ class UserEntity extends Equatable {
     this.emailVerifiedAt,
     this.phoneVerifiedAt,
     required this.createdAt,
-  });
+    int totalOrders = 0,
+    int completedOrders = 0,
+    double totalSpent = 0.0,
+  })  : _totalOrders = totalOrders,
+        _completedOrders = completedOrders,
+        _totalSpent = totalSpent;
 
   bool get isPhoneVerified => phoneVerifiedAt != null;
   bool get isEmailVerified => emailVerifiedAt != null;
@@ -37,10 +45,10 @@ class UserEntity extends Equatable {
   /// Default address display text
   String? get defaultAddress => address;
 
-  /// Stats placeholders (populated from API response when available)
-  int get totalOrders => 0;
-  int get completedOrders => 0;
-  double get totalSpent => 0.0;
+  /// Stats populated from API response
+  int get totalOrders => _totalOrders;
+  int get completedOrders => _completedOrders;
+  double get totalSpent => _totalSpent;
 
   String get initials {
     final names = name.split(' ');
@@ -80,5 +88,6 @@ class UserEntity extends Equatable {
   List<Object?> get props => [
         id, name, email, phone, address, profilePicture,
         emailVerifiedAt, phoneVerifiedAt, createdAt,
+        _totalOrders, _completedOrders, _totalSpent,
       ];
 }

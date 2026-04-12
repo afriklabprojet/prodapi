@@ -3,7 +3,12 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../theme/app_colors.dart';
 
-/// Widget réutilisable pour afficher des images en cache
+/// Widget réutilisable pour afficher des images en cache.
+///
+/// Utiliser ce widget au lieu de CachedNetworkImage directement pour:
+/// - Placeholder shimmer standardisé
+/// - Widget d'erreur standardisé
+/// - Timeout intégré pour éviter les images qui bloquent
 class CachedImage extends StatelessWidget {
   final String imageUrl;
   final double? width;
@@ -12,6 +17,7 @@ class CachedImage extends StatelessWidget {
   final BorderRadius? borderRadius;
   final Widget? placeholder;
   final Widget? errorWidget;
+  final Duration? httpTimeout;
 
   const CachedImage({
     super.key,
@@ -22,6 +28,7 @@ class CachedImage extends StatelessWidget {
     this.borderRadius,
     this.placeholder,
     this.errorWidget,
+    this.httpTimeout,
   });
 
   @override
@@ -33,6 +40,12 @@ class CachedImage extends StatelessWidget {
         width: width,
         height: height,
         fit: fit,
+        httpHeaders: const {'Connection': 'keep-alive'},
+        fadeInDuration: const Duration(milliseconds: 300),
+        fadeOutDuration: const Duration(milliseconds: 100),
+        maxHeightDiskCache: 1000,
+        maxWidthDiskCache: 1000,
+        useOldImageOnUrlChange: true,
         placeholder: (context, url) =>
             placeholder ??
             Shimmer.fromColors(
@@ -104,14 +117,12 @@ class CachedAvatar extends StatelessWidget {
         placeholder: (context, url) => Shimmer.fromColors(
           baseColor: Colors.grey.shade300,
           highlightColor: Colors.grey.shade100,
-          child: CircleAvatar(
-            radius: radius,
-            backgroundColor: Colors.white,
-          ),
+          child: CircleAvatar(radius: radius, backgroundColor: Colors.white),
         ),
         errorWidget: (context, url, error) => CircleAvatar(
           radius: radius,
-          backgroundColor: backgroundColor ?? primaryColor.withValues(alpha: 0.1),
+          backgroundColor:
+              backgroundColor ?? primaryColor.withValues(alpha: 0.1),
           child: Text(
             fallbackText ?? '?',
             style: TextStyle(

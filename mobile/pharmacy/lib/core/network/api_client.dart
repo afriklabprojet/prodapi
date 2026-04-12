@@ -1,30 +1,39 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../constants/app_constants.dart';
 import '../errors/exceptions.dart';
 import '../utils/error_mapper.dart';
+import '../services/performance_service.dart';
 import 'auth_interceptor.dart';
+import 'certificate_pinning.dart';
 
-/// Interceptor that retries failed requests on transient network errors.
+/// Interceptor that retries failed requests with exponential backoff + jitter.
+/// This provides better resilience for transient network failures.
 class RetryInterceptor extends Interceptor {
   final Dio dio;
   final int maxRetries;
-  final Duration retryDelay;
+  final Duration baseDelay;
+  static final _random = Random();
 
   RetryInterceptor({
     required this.dio,
     this.maxRetries = 3,
-    this.retryDelay = const Duration(seconds: 1),
+    this.baseDelay = const Duration(milliseconds: 500),
   });
+
+  /// Status codes that should trigger retry
+  static const _retryableStatusCodes = {500, 502, 503, 504};
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     if (_shouldRetry(err)) {
       final retryCount = (err.requestOptions.extra['retryCount'] as int?) ?? 0;
       if (retryCount < maxRetries) {
-        final delay = retryDelay * (retryCount + 1); // linear backoff
+        final delay = _calculateBackoff(retryCount);
+        
         if (kDebugMode) {
           debugPrint('🔄 [Retry] Attempt ${retryCount + 1}/$maxRetries after ${delay.inMilliseconds}ms');
         }
@@ -41,20 +50,27 @@ class RetryInterceptor extends Interceptor {
     return handler.next(err);
   }
 
+  /// Exponential backoff: 500ms, 1s, 2s with ±25% jitter
+  Duration _calculateBackoff(int retryCount) {
+    final exponentialDelay = baseDelay * (1 << retryCount);
+    final jitter = (exponentialDelay.inMilliseconds * 0.25 * (_random.nextDouble() * 2 - 1)).toInt();
+    return Duration(milliseconds: exponentialDelay.inMilliseconds + jitter);
+  }
+
   bool _shouldRetry(DioException err) {
-    // Retry on connection issues & timeouts, not on 4xx client errors
-    if (err.type == DioExceptionType.connectionTimeout ||
-        err.type == DioExceptionType.sendTimeout ||
-        err.type == DioExceptionType.receiveTimeout ||
-        err.type == DioExceptionType.connectionError) {
-      return true;
+    // Retry on connection issues & timeouts
+    switch (err.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+      case DioExceptionType.connectionError:
+        return true;
+      default:
+        break;
     }
     // Retry on 5xx server errors
     final statusCode = err.response?.statusCode;
-    if (statusCode != null && statusCode >= 500) {
-      return true;
-    }
-    return false;
+    return statusCode != null && _retryableStatusCodes.contains(statusCode);
   }
 }
 
@@ -79,17 +95,23 @@ class ApiClient {
       ),
     );
 
+    // 0. Certificate pinning (protection MITM)
+    CertificatePinning.apply(_dio);
+
     // 1. Auth interceptor (token injection + 401 handling) — first in chain
     if (authInterceptor != null) {
       _dio.interceptors.add(authInterceptor);
     }
 
-    // 2. Retry interceptor for transient failures
+    // 2. Retry interceptor for transient failures (exponential backoff)
     _dio.interceptors.add(
       RetryInterceptor(dio: _dio),
     );
 
-    // 3. Logging interceptor (debug only)
+    // 3. Performance monitoring interceptor (Firebase Performance)
+    _dio.interceptors.add(PerformanceInterceptor());
+
+    // 4. Logging interceptor (debug only)
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
@@ -112,12 +134,15 @@ class ApiClient {
     return Options(headers: {'Authorization': 'Bearer $token'});
   }
 
-  /// @deprecated Token is now managed by AuthInterceptor via secure storage.
-  /// Kept for backward compatibility — will be removed.
+  /// Ferme les connexions. Appeler quand le client n'est plus utilisé.
+  void dispose() {
+    _dio.close();
+  }
+
+  @Deprecated('Token is now managed by AuthInterceptor via secure storage')
   void setToken(String token) {}
 
-  /// @deprecated Token is now managed by AuthInterceptor via secure storage.
-  /// Kept for backward compatibility — will be removed.
+  @Deprecated('Token is now managed by AuthInterceptor via secure storage')
   void clearToken() {}
 
   Future<Response> get(
@@ -299,6 +324,8 @@ class ApiClient {
   }
   
   void _logApiError(DioException error) {
+    if (!kDebugMode) return;
+    
     final baseUrl = error.requestOptions.baseUrl;
     final path = error.requestOptions.path;
     final method = error.requestOptions.method;
@@ -306,35 +333,42 @@ class ApiClient {
     final data = error.response?.data;
     
     // Safely extract message from response
-    String? serverMessage;
-    if (data is Map) {
-      serverMessage = data['message']?.toString();
+    final serverMessage = data is Map ? data['message']?.toString() : null;
+    
+    final buffer = StringBuffer()
+      ..writeln('═══════════════════════════════════════════════════════════');
+    
+    switch (statusCode) {
+      case 404:
+        buffer
+          ..writeln('❌ [API ERROR 404] Endpoint non trouvé')
+          ..writeln('   URL complète: $baseUrl$path')
+          ..writeln('   Méthode: $method')
+          ..writeln('   Message serveur: ${serverMessage ?? 'Non disponible'}')
+          ..writeln('   Conseil: Vérifiez que la route existe dans api.php');
+      case 401:
+        buffer
+          ..writeln('🔐 [API ERROR 401] Non authentifié')
+          ..writeln('   URL: $path')
+          ..writeln('   Conseil: Vérifiez le token d\'authentification');
+      case 500:
+        buffer
+          ..writeln('🔥 [API ERROR 500] Erreur serveur interne')
+          ..writeln('   URL: $path')
+          ..writeln('   Message: ${serverMessage ?? 'N/A'}');
+      case null when error.type == DioExceptionType.connectionError:
+        buffer
+          ..writeln('🌐 [API ERROR] Impossible de se connecter')
+          ..writeln('   URL tentée: $baseUrl')
+          ..writeln('   Conseil: Vérifiez que le serveur Laravel est démarré (php artisan serve)');
+      default:
+        buffer
+          ..writeln('⚠️ [API ERROR] Code: $statusCode')
+          ..writeln('   URL: $path');
     }
     
-    if (kDebugMode) debugPrint('═══════════════════════════════════════════════════════════');
-    if (statusCode == 404) {
-      if (kDebugMode) debugPrint('❌ [API ERROR 404] Endpoint non trouvé');
-      if (kDebugMode) debugPrint('   URL complète: $baseUrl$path');
-      if (kDebugMode) debugPrint('   Méthode: $method');
-      if (kDebugMode) debugPrint('   Message serveur: ${serverMessage ?? 'Non disponible'}');
-      if (kDebugMode) debugPrint('   Conseil: Vérifiez que la route existe dans api.php');
-    } else if (statusCode == 401) {
-      if (kDebugMode) debugPrint('🔐 [API ERROR 401] Non authentifié');
-      if (kDebugMode) debugPrint('   URL: $path');
-      if (kDebugMode) debugPrint('   Conseil: Vérifiez le token d\'authentification');
-    } else if (statusCode == 500) {
-      if (kDebugMode) debugPrint('🔥 [API ERROR 500] Erreur serveur interne');
-      if (kDebugMode) debugPrint('   URL: $path');
-      if (kDebugMode) debugPrint('   Message: ${serverMessage ?? 'N/A'}');
-    } else if (error.type == DioExceptionType.connectionError) {
-      if (kDebugMode) debugPrint('🌐 [API ERROR] Impossible de se connecter');
-      if (kDebugMode) debugPrint('   URL tentée: $baseUrl');
-      if (kDebugMode) debugPrint('   Conseil: Vérifiez que le serveur Laravel est démarré (php artisan serve)');
-    } else {
-      if (kDebugMode) debugPrint('⚠️ [API ERROR] Code: $statusCode');
-      if (kDebugMode) debugPrint('   URL: $path');
-    }
-    if (kDebugMode) debugPrint('═══════════════════════════════════════════════════════════');
+    buffer.writeln('═══════════════════════════════════════════════════════════');
+    debugPrint(buffer.toString());
   }
 
   /// Parse response.data de manière sûre (String JSON ou Map)

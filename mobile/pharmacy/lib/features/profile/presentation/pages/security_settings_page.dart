@@ -5,12 +5,14 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/providers/core_providers.dart';
 import '../../../../core/presentation/widgets/widgets.dart';
+import '../../../../l10n/app_localizations.dart';
 
 class SecuritySettingsPage extends ConsumerStatefulWidget {
   const SecuritySettingsPage({super.key});
 
   @override
-  ConsumerState<SecuritySettingsPage> createState() => _SecuritySettingsPageState();
+  ConsumerState<SecuritySettingsPage> createState() =>
+      _SecuritySettingsPageState();
 }
 
 class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
@@ -45,10 +47,7 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text('Sécurité'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Sécurité'), centerTitle: true),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -59,7 +58,7 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
                   // Section Authentification
                   _buildSectionHeader('Authentification', Icons.fingerprint),
                   const SizedBox(height: 16),
-                  
+
                   ModernCard(
                     child: Column(
                       children: [
@@ -84,11 +83,11 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
                     ),
                   ),
                   const SizedBox(height: 32),
-                  
+
                   // Section Session
                   _buildSectionHeader('Session', Icons.timer_outlined),
                   const SizedBox(height: 16),
-                  
+
                   ModernCard(
                     child: Column(
                       children: [
@@ -116,11 +115,11 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
                   const SizedBox(height: 16),
                   _buildSessionsSection(),
                   const SizedBox(height: 32),
-                  
+
                   // Section Données
                   _buildSectionHeader('Données', Icons.storage),
                   const SizedBox(height: 16),
-                  
+
                   ModernCard(
                     child: Column(
                       children: [
@@ -143,10 +142,11 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
                     ),
                   ),
                   const SizedBox(height: 32),
-                  
+
                   // Informations de sécurité
                   AlertCard(
-                    message: 'Vos données sont chiffrées et stockées de manière sécurisée sur votre appareil.',
+                    message:
+                        'Vos données sont chiffrées et stockées de manière sécurisée sur votre appareil.',
                     type: AlertType.info,
                     icon: Icons.shield_outlined,
                   ),
@@ -159,12 +159,20 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
   Widget _buildSectionHeader(String title, IconData icon) {
     return Row(
       children: [
-        Icon(icon, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey.shade600, size: 20),
+        Icon(
+          icon,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.grey.shade400
+              : Colors.grey.shade600,
+          size: 20,
+        ),
         const SizedBox(width: 8),
         Text(
           title,
           style: TextStyle(
-            color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey.shade600,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.grey.shade400
+                : Colors.grey.shade600,
             fontSize: 14,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.5,
@@ -210,7 +218,9 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
                 Text(
                   subtitle,
                   style: TextStyle(
-                    color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey.shade600,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey.shade400
+                        : Colors.grey.shade600,
                     fontSize: 13,
                   ),
                 ),
@@ -267,7 +277,9 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey.shade600,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade600,
                       fontSize: 13,
                     ),
                   ),
@@ -276,7 +288,9 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
             ),
             Icon(
               Icons.chevron_right,
-              color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey.shade600,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.grey.shade400
+                  : Colors.grey.shade600,
             ),
           ],
         ),
@@ -300,7 +314,9 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
           Text(
             'Délai avant verrouillage',
             style: TextStyle(
-              color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey.shade600,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.grey.shade400
+                  : Colors.grey.shade600,
               fontSize: 13,
             ),
           ),
@@ -310,34 +326,52 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
             runSpacing: 8,
             children: options.map((option) {
               final isSelected = _sessionTimeoutMinutes == option['value'];
-              return GestureDetector(
-                onTap: () async {
-                  HapticFeedback.selectionClick();
-                  setState(() => _sessionTimeoutMinutes = option['value'] as int);
-                  final securityService = ref.read(securityServiceProvider);
-                  await securityService.setSessionTimeout(
-                    Duration(minutes: _sessionTimeoutMinutes),
-                  );
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).scaffoldBackgroundColor,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade200,
+              return Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () async {
+                    HapticFeedback.selectionClick();
+                    setState(
+                      () => _sessionTimeoutMinutes = option['value'] as int,
+                    );
+                    final securityService = ref.read(securityServiceProvider);
+                    await securityService.setSessionTimeout(
+                      Duration(minutes: _sessionTimeoutMinutes),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(20),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
                     ),
-                  ),
-                  child: Text(
-                    option['label'] as String,
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                      fontSize: 13,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).scaffoldBackgroundColor,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).brightness == Brightness.dark
+                            ? Colors.grey.shade800
+                            : Colors.grey.shade200,
+                      ),
+                    ),
+                    child: Text(
+                      option['label'] as String,
+                      style: TextStyle(
+                        color: isSelected
+                            ? Colors.white
+                            : Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : Colors.black87,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ),
@@ -355,7 +389,7 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
         // Vérifier si l'appareil supporte la biométrie
         final securityService = ref.read(securityServiceProvider);
         final capability = await securityService.checkBiometricCapability();
-        
+
         if (!capability.isAvailable) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -371,12 +405,12 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
           }
           return;
         }
-        
+
         // Authentifier d'abord
         final result = await securityService.authenticateWithBiometric(
           reason: 'Confirmez votre identité pour activer la biométrie',
         );
-        
+
         if (result.success) {
           await securityService.setBiometricEnabled(true);
           if (!mounted) return;
@@ -462,25 +496,32 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           FilledButton(
             onPressed: () async {
               if (pinController.text.length < 4) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Le PIN doit faire au moins 4 chiffres')),
+                  const SnackBar(
+                    content: Text('Le PIN doit faire au moins 4 chiffres'),
+                  ),
                 );
                 return;
               }
               if (pinController.text != confirmPinController.text) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Les codes PIN ne correspondent pas')),
+                  const SnackBar(
+                    content: Text('Les codes PIN ne correspondent pas'),
+                  ),
                 );
                 return;
               }
-              
+
               final securityService = ref.read(securityServiceProvider);
-              await securityService.setPinEnabled(true, pin: pinController.text);
+              await securityService.setPinEnabled(
+                true,
+                pin: pinController.text,
+              );
               if (!mounted) return;
               setState(() => _pinEnabled = true);
               if (!context.mounted) return;
@@ -492,7 +533,7 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
                 ),
               );
             },
-            child: const Text('Confirmer'),
+            child: Text(AppLocalizations.of(context).confirm),
           ),
         ],
       ),
@@ -507,18 +548,14 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Désactiver le code PIN ?'),
-        content: const Text(
-          'Votre compte sera moins sécurisé sans code PIN.',
-        ),
+        content: const Text('Votre compte sera moins sécurisé sans code PIN.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               final securityService = ref.read(securityServiceProvider);
               await securityService.setPinEnabled(false);
@@ -564,7 +601,7 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Annuler'),
+            child: Text(AppLocalizations.of(ctx).cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
@@ -579,7 +616,10 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
     setState(() => _isRevokingOthers = true);
     try {
       final apiClient = ref.read(apiClientProvider);
-      final response = await apiClient.post('/auth/sessions/revoke-others', data: {});
+      final response = await apiClient.post(
+        '/auth/sessions/revoke-others',
+        data: {},
+      );
       final revoked = response.data['data']?['revoked_count'] ?? 0;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -633,7 +673,11 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
                       color: primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(Icons.smartphone, color: primaryColor, size: 22),
+                    child: Icon(
+                      Icons.smartphone,
+                      color: primaryColor,
+                      size: 22,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -642,13 +686,18 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
                       children: [
                         Text(
                           '${_sessions.length}/2 appareils connectés',
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           'Maximum 2 appareils simultanés',
                           style: TextStyle(
-                            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                            color: isDark
+                                ? Colors.grey.shade400
+                                : Colors.grey.shade600,
                             fontSize: 13,
                           ),
                         ),
@@ -656,9 +705,18 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.refresh, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                    icon: Icon(
+                      Icons.refresh,
+                      color: isDark
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade600,
+                    ),
                     onPressed: _loadSessions,
                     tooltip: 'Actualiser',
+                    constraints: const BoxConstraints(
+                      minWidth: 48,
+                      minHeight: 48,
+                    ),
                   ),
                 ],
               ),
@@ -680,7 +738,10 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
                 children: [
                   const Divider(height: 1),
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 4,
+                    ),
                     child: Row(
                       children: [
                         Container(
@@ -692,7 +753,9 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Icon(
-                            isCurrent ? Icons.phone_android : Icons.phone_android_outlined,
+                            isCurrent
+                                ? Icons.phone_android
+                                : Icons.phone_android_outlined,
                             color: isCurrent ? Colors.green : Colors.grey,
                             size: 22,
                           ),
@@ -707,21 +770,33 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
                                   Flexible(
                                     child: Text(
                                       name,
-                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                   if (isCurrent) ...[
                                     const SizedBox(width: 8),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: Colors.green.withValues(alpha: 0.1),
+                                        color: Colors.green.withValues(
+                                          alpha: 0.1,
+                                        ),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: const Text(
                                         'Cet appareil',
-                                        style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.w600),
+                                        style: TextStyle(
+                                          color: Colors.green,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -732,10 +807,12 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
                                 lastUsed != null
                                     ? 'Dernière activité: ${_formatSessionDate(lastUsed)}'
                                     : created != null
-                                        ? 'Connecté le ${_formatSessionDate(created)}'
-                                        : '',
+                                    ? 'Connecté le ${_formatSessionDate(created)}'
+                                    : '',
                                 style: TextStyle(
-                                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                  color: isDark
+                                      ? Colors.grey.shade400
+                                      : Colors.grey.shade600,
                                   fontSize: 12,
                                 ),
                               ),
@@ -761,11 +838,19 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
                     children: [
                       if (_isRevokingOthers)
                         const SizedBox(
-                          width: 18, height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.red),
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.red,
+                          ),
                         )
                       else
-                        const Icon(Icons.logout_rounded, color: Colors.red, size: 20),
+                        const Icon(
+                          Icons.logout_rounded,
+                          color: Colors.red,
+                          size: 20,
+                        ),
                       const SizedBox(width: 10),
                       Text(
                         'Déconnecter les autres appareils',
@@ -807,12 +892,10 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Effacer'),
           ),
@@ -854,18 +937,20 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
         duration: Duration(seconds: 5),
       ),
     );
-    
+
     // Utiliser le vrai service de synchronisation
     final syncService = ref.read(syncServiceProvider);
     final result = await syncService.syncNow();
-    
+
     if (mounted) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(result.success 
-            ? 'Synchronisation terminée (${result.syncedCount} éléments)'
-            : result.message),
+          content: Text(
+            result.success
+                ? 'Synchronisation terminée (${result.syncedCount} éléments)'
+                : result.message,
+          ),
           backgroundColor: result.success ? Colors.green : Colors.orange,
         ),
       );

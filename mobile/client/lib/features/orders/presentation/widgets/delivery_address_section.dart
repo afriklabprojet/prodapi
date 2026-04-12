@@ -18,6 +18,9 @@ class DeliveryAddressSection extends StatelessWidget {
   final ValueChanged<bool> onSaveAddressChanged;
   final bool isDark;
 
+  /// Callback quand les coordonnées GPS sont détectées
+  final void Function(double latitude, double longitude)? onLocationDetected;
+
   const DeliveryAddressSection({
     super.key,
     required this.useManualAddress,
@@ -32,6 +35,7 @@ class DeliveryAddressSection extends StatelessWidget {
     required this.saveAddress,
     required this.onSaveAddressChanged,
     required this.isDark,
+    this.onLocationDetected,
   });
 
   @override
@@ -41,9 +45,9 @@ class DeliveryAddressSection extends StatelessWidget {
       children: [
         Text(
           'Adresse de livraison',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
 
@@ -82,6 +86,7 @@ class DeliveryAddressSection extends StatelessWidget {
             saveAddress: saveAddress,
             onSaveAddressChanged: onSaveAddressChanged,
             isDark: isDark,
+            onLocationDetected: onLocationDetected,
           )
         else if (selectedAddress != null)
           _buildSelectedAddressCard(context)
@@ -104,7 +109,7 @@ class DeliveryAddressSection extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.primary.withOpacity(0.1)
+              ? AppColors.primary.withValues(alpha: 0.1)
               : Colors.transparent,
           border: Border.all(
             color: isSelected ? AppColors.primary : Colors.grey.shade300,
@@ -130,7 +135,7 @@ class DeliveryAddressSection extends StatelessWidget {
       child: ListTile(
         leading: const Icon(Icons.location_on, color: AppColors.primary),
         title: Text(
-          address.label ?? 'Adresse',
+          address.label,
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         subtitle: Text(address.fullAddress),

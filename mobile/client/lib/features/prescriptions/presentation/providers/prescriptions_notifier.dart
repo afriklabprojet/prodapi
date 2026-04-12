@@ -10,7 +10,7 @@ class PrescriptionsNotifier extends StateNotifier<PrescriptionsState> {
   final PrescriptionsRemoteDataSource remoteDataSource;
 
   PrescriptionsNotifier({required this.remoteDataSource})
-      : super(const PrescriptionsState());
+    : super(const PrescriptionsState());
 
   Future<void> loadPrescriptions() async {
     state = state.copyWith(status: PrescriptionsStatus.loading);
@@ -54,16 +54,27 @@ class PrescriptionsNotifier extends StateNotifier<PrescriptionsState> {
     required List<XFile> images,
     String? notes,
   }) async {
-    state = state.copyWith(status: PrescriptionsStatus.uploading);
+    state = state.copyWith(
+      status: PrescriptionsStatus.uploading,
+      clearDuplicateInfo: true,
+    );
     try {
-      final data = await remoteDataSource.uploadPrescription(
+      final responseData = await remoteDataSource.uploadPrescription(
         images: images,
         notes: notes,
       );
-      final prescription = PrescriptionModel.fromJson(data).toEntity();
+      final prescriptionData =
+          responseData['data'] as Map<String, dynamic>? ?? {};
+      final prescription = PrescriptionModel.fromJson(
+        prescriptionData,
+      ).toEntity();
+      final isDuplicate = responseData['is_duplicate'] == true;
       state = state.copyWith(
         status: PrescriptionsStatus.loaded,
         uploadedPrescription: prescription,
+        lastUploadIsDuplicate: isDuplicate,
+        lastUploadExistingId: responseData['existing_prescription_id'] as int?,
+        lastUploadExistingStatus: responseData['existing_status'] as String?,
       );
       return prescription;
     } catch (e) {

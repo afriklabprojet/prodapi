@@ -11,7 +11,7 @@ import '../../../addresses/presentation/providers/addresses_provider.dart';
 class AddressSelector extends ConsumerStatefulWidget {
   final Function(AddressEntity?) onAddressSelected;
   final AddressEntity? initialAddress;
-  
+
   const AddressSelector({
     super.key,
     required this.onAddressSelected,
@@ -53,7 +53,11 @@ class _AddressSelectorState extends ConsumerState<AddressSelector> {
                 Expanded(
                   child: Row(
                     children: [
-                      Icon(Icons.location_on, color: AppColors.primary, size: 20),
+                      Icon(
+                        Icons.location_on,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
@@ -81,7 +85,7 @@ class _AddressSelectorState extends ConsumerState<AddressSelector> {
               ],
             ),
             const SizedBox(height: 12),
-            
+
             if (state.isLoading)
               const Center(
                 child: Padding(
@@ -200,10 +204,7 @@ class _AddressSelectorState extends ConsumerState<AddressSelector> {
                 ],
               ),
             ),
-            Icon(
-              Icons.chevron_right,
-              color: AppColors.textHint,
-            ),
+            Icon(Icons.chevron_right, color: AppColors.textHint),
           ],
         ),
       ),
@@ -220,11 +221,7 @@ class _AddressSelectorState extends ConsumerState<AddressSelector> {
       ),
       child: Column(
         children: [
-          Icon(
-            Icons.add_location_alt,
-            size: 48,
-            color: AppColors.textHint,
-          ),
+          Icon(Icons.add_location_alt, size: 48, color: AppColors.textHint),
           const SizedBox(height: 8),
           Text(
             'Aucune adresse enregistrée',
@@ -237,10 +234,7 @@ class _AddressSelectorState extends ConsumerState<AddressSelector> {
           Text(
             'Ajoutez une adresse pour faciliter vos commandes',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.textHint,
-            ),
+            style: TextStyle(fontSize: 12, color: AppColors.textHint),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -319,10 +313,10 @@ class _AddressSelectorState extends ConsumerState<AddressSelector> {
 
   Future<void> _addNewAddress() async {
     context.goToAddAddress();
-    
+
     // Rafraîchir les adresses et sélectionner la nouvelle si c'est la première
     await ref.read(addressesProvider.notifier).loadAddresses();
-    
+
     final state = ref.read(addressesProvider);
     if (state.addresses.length == 1) {
       widget.onAddressSelected(state.addresses.first);

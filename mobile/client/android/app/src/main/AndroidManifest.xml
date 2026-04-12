@@ -1,4 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Internet access (required for API calls in release builds) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Notifications (required for Android 13+ / API 33+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- Permissions for Geolocation -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -9,6 +15,10 @@
     <!-- Permissions for Camera (avatar upload) -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    
+    <!-- Permissions for Biometric authentication (fingerprint / face) -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <uses-permission android:name="android.permission.USE_FINGERPRINT" />
     
     <application
         android:label="DR-PHARMA"
@@ -39,6 +49,23 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- Deep link: drpharma:///payment/success et drpharma:///payment/error -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="drpharma" />
+            </intent-filter>
+            <!-- Android App Links: https://drlpharma.pro/api/payments/callback/* s'ouvre dans l'app (pas Chrome) -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="drlpharma.pro"
+                    android:pathPrefix="/api/payments/callback" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

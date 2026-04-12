@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -13,6 +14,7 @@ class CacheService {
   static final CacheService instance = CacheService._();
 
   Box<String>? _box;
+  Completer<void>? _initCompleter;
 
   /// In-memory fallback for unit tests (avoids platform channel calls).
   @visibleForTesting
@@ -22,6 +24,7 @@ class CacheService {
   @visibleForTesting
   void resetForTesting() {
     _box = null;
+    _initCompleter = null;
     testStore = {};
   }
 
@@ -35,8 +38,8 @@ class CacheService {
   /// Profil utilisateur : 30 minutes
   static const Duration profileTtl = Duration(minutes: 30);
 
-  /// Wallet : 5 minutes (données sensibles)
-  static const Duration walletTtl = Duration(minutes: 5);
+  /// Wallet : 15 minutes (invalidé manuellement après topup/withdraw/complete)
+  static const Duration walletTtl = Duration(minutes: 15);
 
   /// Statistiques : 15 minutes
   static const Duration statsTtl = Duration(minutes: 15);
@@ -46,8 +49,34 @@ class CacheService {
   Future<void> init() async {
     if (testStore != null) return; // test mode
     if (_box != null && _box!.isOpen) return;
-    _box = await EncryptedStorageService.instance.openEncryptedBox('app_cache');
-    if (kDebugMode) debugPrint('💾 [CACHE] Initialized (encrypted Hive box)');
+    
+    // Guard contre les appels concurrents.
+    // Si un init précédent est en cours, attendre avec timeout.
+    // Le timeout évite un blocage infini si le Completer reste "mort"
+    // (ex. un appelant externe a fait .timeout() et abandonné l'attente,
+    // mais le Completer n'a jamais été résolu car le Keystore est bloqué).
+    if (_initCompleter != null) {
+      try {
+        await _initCompleter!.future.timeout(const Duration(seconds: 8));
+      } on TimeoutException {
+        // L'init précédent est bloqué → on le considère mort.
+        // Reset pour permettre un nouveau essai.
+        if (kDebugMode) debugPrint('[CACHE] Init précédent bloqué — reset');
+        _initCompleter = null;
+      }
+      if (_box != null && _box!.isOpen) return;
+    }
+    
+    _initCompleter = Completer<void>();
+    try {
+      _box = await EncryptedStorageService.instance.openEncryptedBox('app_cache');
+      if (kDebugMode) debugPrint('[CACHE] Initialized (encrypted Hive box)');
+      _initCompleter!.complete();
+    } catch (e) {
+      _initCompleter!.completeError(e);
+      _initCompleter = null;
+      rethrow;
+    }
   }
 
   // ── Internal storage accessors ─────────────────────
@@ -99,8 +128,24 @@ class CacheService {
     if (raw == null) return null;
 
     try {
-      final entry = jsonDecode(raw) as Map<String, dynamic>;
-      final cachedAt = DateTime.parse(entry['cached_at'] as String);
+      final entry = jsonDecode(raw);
+      
+      // Valider la structure de l'entrée
+      if (entry is! Map<String, dynamic> || 
+          !entry.containsKey('data') || 
+          !entry.containsKey('cached_at')) {
+        if (kDebugMode) debugPrint('⚠️ [CACHE] Invalid structure, removed: $key');
+        await _delete(key);
+        return null;
+      }
+      
+      final cachedAtStr = entry['cached_at'];
+      final cachedAt = cachedAtStr is String ? DateTime.tryParse(cachedAtStr) : null;
+      if (cachedAt == null) {
+        if (kDebugMode) debugPrint('⚠️ [CACHE] Invalid timestamp, removed: $key');
+        await _delete(key);
+        return null;
+      }
 
       if (DateTime.now().difference(cachedAt) > ttl) {
         if (kDebugMode) debugPrint('⏰ [CACHE] Expired: $key');
@@ -111,7 +156,7 @@ class CacheService {
       if (kDebugMode) debugPrint('✅ [CACHE] Hit: $key (age: ${DateTime.now().difference(cachedAt).inSeconds}s)');
       return entry['data'] as Map<String, dynamic>;
     } catch (e) {
-      if (kDebugMode) debugPrint('⚠️ [CACHE] Corrupt entry removed: $key');
+      if (kDebugMode) debugPrint('⚠️ [CACHE] Corrupt entry removed: $key ($e)');
       await _delete(key);
       return null;
     }

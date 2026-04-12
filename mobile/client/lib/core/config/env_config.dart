@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../services/app_logger.dart';
+
 /// Service de configuration d'environnement
 ///
 /// Utilise `--dart-define` pour injecter les variables au build-time.
@@ -7,7 +9,7 @@ import 'package:flutter/foundation.dart';
 ///
 /// Usage au build :
 ///   flutter build apk \
-///     --dart-define=API_BASE_URL=https://drlpharma.com \
+///     --dart-define=API_BASE_URL=https://drlpharma.pro \
 ///     --dart-define=APP_ENV=production \
 ///     --dart-define=GOOGLE_MAPS_API_KEY=AIza...
 ///
@@ -22,7 +24,7 @@ class EnvConfig {
 
   static const String _apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://drlpharma.com',
+    defaultValue: 'https://drlpharma.pro',
   );
 
   static const String _storageBaseUrl = String.fromEnvironment(
@@ -99,15 +101,17 @@ class EnvConfig {
   /// URL de base de l'API avec /api
   /// Protège contre le double /api si API_BASE_URL inclut déjà /api
   static String get apiUrl {
-    final base = apiBaseUrl.endsWith('/') 
-        ? apiBaseUrl.substring(0, apiBaseUrl.length - 1) 
+    final base = apiBaseUrl.endsWith('/')
+        ? apiBaseUrl.substring(0, apiBaseUrl.length - 1)
         : apiBaseUrl;
     return base.endsWith('/api') ? base : '$base/api';
   }
 
   /// URL de stockage des fichiers
   static String get storageBaseUrl {
-    final url = _storageBaseUrl.isEmpty ? '$apiBaseUrl/storage' : _storageBaseUrl;
+    final url = _storageBaseUrl.isEmpty
+        ? '$apiBaseUrl/storage'
+        : _storageBaseUrl;
     return _ensureHttps(url);
   }
 
@@ -202,18 +206,19 @@ class EnvConfig {
   static void printConfig() {
     if (!debugMode) return;
 
-    // ignore: avoid_print - intentionnel pour debug au démarrage
-    print('═══════════════════════════════════════\n'
-        '🔧 DR-PHARMA Environment Configuration\n'
-        '═══════════════════════════════════════\n'
-        '   Environment: $environment\n'
-        '   API URL: $apiUrl\n'
-        '   Storage URL: $storageBaseUrl\n'
-        '   Debug Mode: $debugMode\n'
-        '   Force HTTPS: $forceHttps\n'
-        '   Connection Timeout: ${connectionTimeout.inSeconds}s\n'
-        '   Support Phone: $supportPhone\n'
-        '   Support WhatsApp: $supportWhatsApp\n'
-        '═══════════════════════════════════════');
+    AppLogger.info(
+      '═══════════════════════════════════════\n'
+      '🔧 DR-PHARMA Environment Configuration\n'
+      '═══════════════════════════════════════\n'
+      '   Environment: $environment\n'
+      '   API URL: $apiUrl\n'
+      '   Storage URL: $storageBaseUrl\n'
+      '   Debug Mode: $debugMode\n'
+      '   Force HTTPS: $forceHttps\n'
+      '   Connection Timeout: ${connectionTimeout.inSeconds}s\n'
+      '   Support Phone: $supportPhone\n'
+      '   Support WhatsApp: $supportWhatsApp\n'
+      '═══════════════════════════════════════',
+    );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/theme_provider.dart';
+import '../../core/utils/error_utils.dart';
 import '../../data/models/delivery.dart';
 import '../../data/repositories/delivery_repository.dart';
 import '../providers/delivery_providers.dart';
@@ -11,7 +12,8 @@ class BatchDeliveriesScreen extends ConsumerStatefulWidget {
   const BatchDeliveriesScreen({super.key});
 
   @override
-  ConsumerState<BatchDeliveriesScreen> createState() => _BatchDeliveriesScreenState();
+  ConsumerState<BatchDeliveriesScreen> createState() =>
+      _BatchDeliveriesScreenState();
 }
 
 class _BatchDeliveriesScreenState extends ConsumerState<BatchDeliveriesScreen> {
@@ -76,7 +78,10 @@ class _BatchDeliveriesScreenState extends ConsumerState<BatchDeliveriesScreen> {
                         ),
                         Text(
                           'Maximum 5 courses à la fois',
-                          style: TextStyle(fontSize: 12, color: context.secondaryText),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: context.secondaryText,
+                          ),
                         ),
                       ],
                     ),
@@ -141,7 +146,11 @@ class _BatchDeliveriesScreenState extends ConsumerState<BatchDeliveriesScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.local_shipping_outlined, size: 64, color: context.dividerColor),
+          Icon(
+            Icons.local_shipping_outlined,
+            size: 64,
+            color: context.dividerColor,
+          ),
           const SizedBox(height: 16),
           Text(
             'Aucune course disponible',
@@ -161,13 +170,17 @@ class _BatchDeliveriesScreenState extends ConsumerState<BatchDeliveriesScreen> {
     );
   }
 
-  Widget _buildBottomBar(NumberFormat currencyFormat, AsyncValue<List<Delivery>> deliveriesAsync) {
+  Widget _buildBottomBar(
+    NumberFormat currencyFormat,
+    AsyncValue<List<Delivery>> deliveriesAsync,
+  ) {
     // Calculate total estimated earnings
     double totalEarnings = 0;
     if (deliveriesAsync.hasValue) {
       for (final delivery in deliveriesAsync.value!) {
         if (_selectedIds.contains(delivery.id)) {
-          totalEarnings += delivery.estimatedEarnings ?? 
+          totalEarnings +=
+              delivery.estimatedEarnings ??
               ((delivery.deliveryFee ?? 500) - (delivery.commission ?? 200));
         }
       }
@@ -202,7 +215,11 @@ class _BatchDeliveriesScreenState extends ConsumerState<BatchDeliveriesScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.monetization_on, color: Colors.green.shade700, size: 24),
+                      Icon(
+                        Icons.monetization_on,
+                        color: Colors.green.shade700,
+                        size: 24,
+                      ),
                       const SizedBox(width: 8),
                       const Text(
                         'Gains estimés',
@@ -232,14 +249,20 @@ class _BatchDeliveriesScreenState extends ConsumerState<BatchDeliveriesScreen> {
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Icon(Icons.check_circle_outline),
                 label: Text(
                   _isLoading
                       ? 'Acceptation...'
                       : 'Accepter ${_selectedIds.length} course${_selectedIds.length > 1 ? 's' : ''}',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
@@ -271,7 +294,9 @@ class _BatchDeliveriesScreenState extends ConsumerState<BatchDeliveriesScreen> {
           context: context,
           barrierDismissible: false,
           builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -282,17 +307,27 @@ class _BatchDeliveriesScreenState extends ConsumerState<BatchDeliveriesScreen> {
                     color: Colors.green.shade50,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.check_circle, color: Colors.green, size: 50),
+                  child: const Icon(
+                    Icons.check_circle,
+                    color: Colors.green,
+                    size: 50,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 Text(
                   '${result['accepted_count']} Course${(result['accepted_count'] ?? 1) > 1 ? 's' : ''} Acceptée${(result['accepted_count'] ?? 1) > 1 ? 's' : ''} !',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.green.shade50,
                     borderRadius: BorderRadius.circular(12),
@@ -300,7 +335,11 @@ class _BatchDeliveriesScreenState extends ConsumerState<BatchDeliveriesScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.monetization_on, color: Colors.green.shade700, size: 20),
+                      Icon(
+                        Icons.monetization_on,
+                        color: Colors.green.shade700,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         'Gains: ~${NumberFormat("#,##0", "fr_FR").format(result['total_estimated_earnings'] ?? 0)} FCFA',
@@ -341,7 +380,7 @@ class _BatchDeliveriesScreenState extends ConsumerState<BatchDeliveriesScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur: $e'),
+            content: Text(userFriendlyError(e)),
             backgroundColor: Colors.red,
           ),
         );
@@ -369,7 +408,8 @@ class _DeliverySelectCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final estimatedEarnings = delivery.estimatedEarnings ?? 
+    final estimatedEarnings =
+        delivery.estimatedEarnings ??
         ((delivery.deliveryFee ?? 500) - (delivery.commission ?? 200));
 
     return Container(
@@ -406,11 +446,15 @@ class _DeliverySelectCard extends StatelessWidget {
                       width: 28,
                       height: 28,
                       decoration: BoxDecoration(
-                      color: isSelected ? Colors.blue : context.dividerColor,
+                        color: isSelected ? Colors.blue : context.dividerColor,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: isSelected
-                          ? const Icon(Icons.check, color: Colors.white, size: 18)
+                          ? const Icon(
+                              Icons.check,
+                              color: Colors.white,
+                              size: 18,
+                            )
                           : null,
                     ),
                     const SizedBox(width: 12),
@@ -429,7 +473,11 @@ class _DeliverySelectCard extends StatelessWidget {
                           const SizedBox(height: 4),
                           Row(
                             children: [
-                              Icon(Icons.location_on, size: 14, color: context.iconColor),
+                              Icon(
+                                Icons.location_on,
+                                size: 14,
+                                color: context.iconColor,
+                              ),
                               const SizedBox(width: 4),
                               Expanded(
                                 child: Text(
@@ -452,7 +500,10 @@ class _DeliverySelectCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.green.shade50,
                             borderRadius: BorderRadius.circular(8),
@@ -497,7 +548,8 @@ class _DeliverySelectCard extends StatelessWidget {
                       const SizedBox(width: 12),
                       _InfoChip(
                         icon: Icons.shopping_bag_outlined,
-                        label: '${currencyFormat.format(delivery.totalAmount)} F',
+                        label:
+                            '${currencyFormat.format(delivery.totalAmount)} F',
                       ),
                     ],
                   ),
@@ -524,10 +576,7 @@ class _InfoChip extends StatelessWidget {
       children: [
         Icon(icon, size: 14, color: context.secondaryText),
         const SizedBox(width: 4),
-        Text(
-          label,
-          style: TextStyle(fontSize: 12, color: context.primaryText),
-        ),
+        Text(label, style: TextStyle(fontSize: 12, color: context.primaryText)),
       ],
     );
   }

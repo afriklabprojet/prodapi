@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models/gamification.dart';
 import '../../../data/repositories/gamification_repository.dart';
 import '../../../core/theme/theme_provider.dart';
+import '../../../core/utils/error_utils.dart';
+import '../../../core/utils/snackbar_extension.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // CARTE DE DÉFI QUOTIDIEN ANIMÉE
@@ -39,23 +41,17 @@ class _DailyChallengeCardState extends State<DailyChallengeCard>
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
-    
+
     _progressAnimation = Tween<double>(
       begin: 0,
       end: widget.challenge.progress,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutCubic,
-    ));
-    
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+
     _scaleAnimation = Tween<double>(
       begin: 0.95,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.elasticOut,
-    ));
-    
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
+
     _controller.forward();
   }
 
@@ -63,13 +59,13 @@ class _DailyChallengeCardState extends State<DailyChallengeCard>
   void didUpdateWidget(DailyChallengeCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.challenge.currentValue != widget.challenge.currentValue) {
-      _progressAnimation = Tween<double>(
-        begin: _progressAnimation.value,
-        end: widget.challenge.progress,
-      ).animate(CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOutCubic,
-      ));
+      _progressAnimation =
+          Tween<double>(
+            begin: _progressAnimation.value,
+            end: widget.challenge.progress,
+          ).animate(
+            CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+          );
       _controller.forward(from: 0);
     }
   }
@@ -129,7 +125,7 @@ class _DailyChallengeCardState extends State<DailyChallengeCard>
                           isCompleted: challenge.isCompleted,
                         ),
                         const SizedBox(width: 12),
-                        
+
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -167,7 +163,7 @@ class _DailyChallengeCardState extends State<DailyChallengeCard>
                             ],
                           ),
                         ),
-                        
+
                         // Récompenses
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
@@ -203,9 +199,9 @@ class _DailyChallengeCardState extends State<DailyChallengeCard>
                         ),
                       ],
                     ),
-                    
+
                     const SizedBox(height: 12),
-                    
+
                     // Description
                     Text(
                       challenge.description,
@@ -214,14 +210,14 @@ class _DailyChallengeCardState extends State<DailyChallengeCard>
                         fontSize: 13,
                       ),
                     ),
-                    
+
                     const SizedBox(height: 12),
-                    
+
                     // Barre de progression animée
                     _buildProgressBar(isDark, challenge, color),
-                    
+
                     const SizedBox(height: 8),
-                    
+
                     // Footer
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -231,10 +227,12 @@ class _DailyChallengeCardState extends State<DailyChallengeCard>
                           '${challenge.currentValue} / ${challenge.targetValue}',
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: isDark ? Colors.white70 : Colors.grey.shade700,
+                            color: isDark
+                                ? Colors.white70
+                                : Colors.grey.shade700,
                           ),
                         ),
-                        
+
                         // Timer ou bouton claim
                         if (challenge.isCompleted && !challenge.isClaimed)
                           _ClaimButton(onClaim: widget.onClaim)
@@ -251,8 +249,11 @@ class _DailyChallengeCardState extends State<DailyChallengeCard>
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: const [
-                                Icon(Icons.check_circle, 
-                                    color: Colors.green, size: 16),
+                                Icon(
+                                  Icons.check_circle,
+                                  color: Colors.green,
+                                  size: 16,
+                                ),
                                 SizedBox(width: 4),
                                 Text(
                                   'Terminé',
@@ -326,14 +327,19 @@ class _DailyChallengeCardState extends State<DailyChallengeCard>
               children: [
                 Text(
                   challenge.title,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 LinearProgressIndicator(
                   value: challenge.progress,
-                  backgroundColor: isDark ? Colors.white12 : Colors.grey.shade200,
+                  backgroundColor: isDark
+                      ? Colors.white12
+                      : Colors.grey.shade200,
                   valueColor: AlwaysStoppedAnimation<Color>(color),
                   minHeight: 4,
                   borderRadius: BorderRadius.circular(2),
@@ -380,10 +386,7 @@ class _DailyChallengeCardState extends State<DailyChallengeCard>
                       height: 10,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [
-                            color,
-                            color.withValues(alpha: 0.7),
-                          ],
+                          colors: [color, color.withValues(alpha: 0.7)],
                         ),
                         borderRadius: BorderRadius.circular(6),
                         boxShadow: [
@@ -433,7 +436,7 @@ class _AnimatedChallengeIconState extends State<_AnimatedChallengeIcon>
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
-    
+
     if (widget.isCompleted) {
       _controller.repeat();
     }
@@ -628,7 +631,9 @@ class DailyChallengesHomeWidget extends ConsumerWidget {
                         Text(
                           '${data.completedToday}/${data.challenges.length} terminés',
                           style: TextStyle(
-                            color: isDark ? Colors.white60 : Colors.grey.shade600,
+                            color: isDark
+                                ? Colors.white60
+                                : Colors.grey.shade600,
                             fontSize: 12,
                           ),
                         ),
@@ -639,11 +644,16 @@ class DailyChallengesHomeWidget extends ConsumerWidget {
                 // Streak badge
                 if (data.currentStreak > 0)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.orange.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                      border: Border.all(
+                        color: Colors.orange.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -666,23 +676,26 @@ class DailyChallengesHomeWidget extends ConsumerWidget {
                   ),
               ],
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Liste des défis
-            ...activeChallenges.map((challenge) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: DailyChallengeCard(
-                challenge: challenge,
-                isCompact: true,
-                onClaim: () {
-                  ref.read(gamificationRepositoryProvider)
-                      .claimChallengeReward(challenge.id);
-                  ref.invalidate(dailyChallengesProvider);
-                },
+            ...activeChallenges.map(
+              (challenge) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: DailyChallengeCard(
+                  challenge: challenge,
+                  isCompact: true,
+                  onClaim: () {
+                    ref
+                        .read(gamificationRepositoryProvider)
+                        .claimChallengeReward(challenge.id);
+                    ref.invalidate(dailyChallengesProvider);
+                  },
+                ),
               ),
-            )),
-            
+            ),
+
             // Bouton voir tout
             if (data.challenges.length > 3)
               Center(
@@ -721,14 +734,19 @@ class DailyChallengesHomeWidget extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-            ...List.generate(3, (i) => Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              height: 60,
-              decoration: BoxDecoration(
-                color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
+            ...List.generate(
+              3,
+              (i) => Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                height: 60,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-            )),
+            ),
           ],
         ),
       ),
@@ -758,7 +776,10 @@ class _ChallengeRefreshTimerState extends State<ChallengeRefreshTimer> {
   void initState() {
     super.initState();
     _updateRemaining();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _updateRemaining());
+    _timer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _updateRemaining(),
+    );
   }
 
   void _updateRemaining() {
@@ -822,7 +843,9 @@ class DailyChallengesScreen extends ConsumerWidget {
     final challengesAsync = ref.watch(dailyChallengesProvider);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8F9FD),
+      backgroundColor: isDark
+          ? const Color(0xFF121212)
+          : const Color(0xFFF8F9FD),
       appBar: AppBar(
         title: const Text('Défis quotidiens'),
         backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
@@ -838,7 +861,7 @@ class DailyChallengesScreen extends ConsumerWidget {
             children: [
               const Icon(Icons.error_outline, size: 48, color: Colors.grey),
               const SizedBox(height: 16),
-              Text('Erreur: $e'),
+              Text(userFriendlyError(e)),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => ref.invalidate(dailyChallengesProvider),
@@ -863,54 +886,56 @@ class DailyChallengesScreen extends ConsumerWidget {
         // En-tête avec stats
         _buildStatsHeader(isDark, data),
         const SizedBox(height: 16),
-        
+
         // Timer de rafraîchissement
         Center(child: ChallengeRefreshTimer(nextRefresh: data.nextRefresh)),
         const SizedBox(height: 24),
-        
+
         // À réclamer
         if (data.claimableChallenges.isNotEmpty) ...[
           _buildSectionHeader('À réclamer', Icons.celebration, Colors.amber),
-          ...data.claimableChallenges.map((c) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: DailyChallengeCard(
-              challenge: c,
-              onClaim: () {
-                ref.read(gamificationRepositoryProvider)
-                    .claimChallengeReward(c.id);
-                ref.invalidate(dailyChallengesProvider);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('🎉 +${c.xpReward} XP réclamés !'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              },
+          ...data.claimableChallenges.map(
+            (c) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: DailyChallengeCard(
+                challenge: c,
+                onClaim: () {
+                  ref
+                      .read(gamificationRepositoryProvider)
+                      .claimChallengeReward(c.id);
+                  ref.invalidate(dailyChallengesProvider);
+                  context.showSuccess('🎉 +${c.xpReward} XP réclamés !');
+                },
+              ),
             ),
-          )),
+          ),
           const SizedBox(height: 16),
         ],
-        
+
         // En cours
         _buildSectionHeader('En cours', Icons.pending_actions, Colors.blue),
         ...data.activeChallenges
             .where((c) => !c.isCompleted)
-            .map((c) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: DailyChallengeCard(challenge: c),
-            )),
-        
+            .map(
+              (c) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: DailyChallengeCard(challenge: c),
+              ),
+            ),
+
         const SizedBox(height: 16),
-        
+
         // Terminés
         if (data.completedChallenges.isNotEmpty) ...[
           _buildSectionHeader('Terminés', Icons.check_circle, Colors.green),
           ...data.completedChallenges
               .where((c) => c.isClaimed)
-              .map((c) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: DailyChallengeCard(challenge: c),
-              )),
+              .map(
+                (c) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: DailyChallengeCard(challenge: c),
+                ),
+              ),
         ],
       ],
     );
@@ -944,11 +969,7 @@ class DailyChallengesScreen extends ConsumerWidget {
               'Jour(s) de suite',
             ),
           ),
-          Container(
-            width: 1,
-            height: 50,
-            color: Colors.white30,
-          ),
+          Container(width: 1, height: 50, color: Colors.white30),
           // XP aujourd'hui
           Expanded(
             child: _buildStatItem(
@@ -957,11 +978,7 @@ class DailyChallengesScreen extends ConsumerWidget {
               'XP aujourd\'hui',
             ),
           ),
-          Container(
-            width: 1,
-            height: 50,
-            color: Colors.white30,
-          ),
+          Container(width: 1, height: 50, color: Colors.white30),
           // Complétés
           Expanded(
             child: _buildStatItem(
@@ -990,10 +1007,7 @@ class DailyChallengesScreen extends ConsumerWidget {
         ),
         Text(
           label,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 11,
-          ),
+          style: const TextStyle(color: Colors.white70, fontSize: 11),
           textAlign: TextAlign.center,
         ),
       ],

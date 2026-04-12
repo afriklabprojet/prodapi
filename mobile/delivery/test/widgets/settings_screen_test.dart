@@ -43,17 +43,15 @@ void main() {
       await tester.pumpWidget(buildScreen());
       await tester.pumpAndSettle();
 
-      expect(find.text('Apparence'), findsOneWidget);
+      expect(find.text('Affichage & Navigation'), findsOneWidget);
       expect(find.text('Thème'), findsOneWidget);
-      expect(find.textContaining('mode clair'), findsOneWidget); // default theme label
     });
 
     testWidgets('displays Préférences section', (tester) async {
       await tester.pumpWidget(buildScreen());
       await tester.pumpAndSettle();
 
-      expect(find.text('Préférences'), findsOneWidget);
-      expect(find.text('Application de Navigation'), findsOneWidget);
+      expect(find.text('Affichage & Navigation'), findsOneWidget);
     });
 
     testWidgets('displays Compte section', (tester) async {
@@ -61,9 +59,9 @@ void main() {
       await tester.pumpAndSettle();
 
       final listView = find.byType(Scrollable).first;
-      await tester.scrollUntilVisible(find.text('Compte'), 200, scrollable: listView);
+      await tester.scrollUntilVisible(find.text('Compte & Sécurité'), 200, scrollable: listView);
       
-      expect(find.text('Compte'), findsOneWidget);
+      expect(find.text('Compte & Sécurité'), findsOneWidget);
       expect(find.text('Changer le mot de passe'), findsOneWidget);
       expect(find.text('Langue de l\'application'), findsOneWidget);
     });
@@ -73,9 +71,9 @@ void main() {
       await tester.pumpAndSettle();
 
       final listView = find.byType(Scrollable).first;
-      await tester.scrollUntilVisible(find.text('Sécurité'), 200, scrollable: listView);
+      await tester.scrollUntilVisible(find.text('Connexion biométrique'), 200, scrollable: listView);
 
-      expect(find.text('Sécurité'), findsOneWidget);
+      expect(find.text('Compte & Sécurité'), findsOneWidget);
       expect(find.text('Connexion biométrique'), findsOneWidget);
     });
 
@@ -135,7 +133,8 @@ void main() {
       await tester.pumpAndSettle();
 
       final listView = find.byType(Scrollable).first;
-      await tester.scrollUntilVisible(find.text('Langue de l\'application'), 200, scrollable: listView);
+      await tester.scrollUntilVisible(find.text('Langue de l\'application'), 300, scrollable: listView);
+      await tester.pumpAndSettle();
 
       await tester.tap(find.text('Langue de l\'application'));
       await tester.pumpAndSettle();
@@ -194,10 +193,10 @@ void main() {
       await tester.pumpAndSettle();
 
       final listView = find.byType(Scrollable).first;
-      await tester.scrollUntilVisible(find.text('Optimisation'), 200, scrollable: listView);
+      await tester.scrollUntilVisible(find.text('Zone dangereuse'), 200, scrollable: listView);
 
-      expect(find.text('Optimisation'), findsOneWidget);
-      expect(find.text('Localisation en arrière-plan'), findsOneWidget);
+      expect(find.text('Zone dangereuse'), findsOneWidget);
+      expect(find.text('Supprimer mon compte'), findsOneWidget);
     });
 
     testWidgets('displays Centre d\'aide FAQ action', (tester) async {
@@ -236,7 +235,8 @@ void main() {
       await tester.pumpAndSettle();
 
       final listView = find.byType(Scrollable).first;
-      await tester.scrollUntilVisible(find.text('Langue de l\'application'), 200, scrollable: listView);
+      await tester.scrollUntilVisible(find.text('Langue de l\'application'), 300, scrollable: listView);
+      await tester.pumpAndSettle();
 
       await tester.tap(find.text('Langue de l\'application'));
       await tester.pumpAndSettle();

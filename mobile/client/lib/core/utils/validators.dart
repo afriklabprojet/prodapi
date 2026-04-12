@@ -4,7 +4,7 @@ class Validators {
 
   /// Valide un email
   static bool isValidEmail(String email) {
-    return RegExp(r'^[\w\-\.]+@([\w\-]+\.)+[\w\-]{2,}$').hasMatch(email);
+    return RegExp(r'^[\w\-\.+]+@([\w\-]+\.)+[\w\-]{2,}$').hasMatch(email);
   }
 
   /// Valide un numéro de téléphone ivoirien

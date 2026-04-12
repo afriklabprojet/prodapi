@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/network/api_client.dart';
+import '../../core/utils/safe_json_utils.dart';
 import '../models/support_ticket.dart';
 
 final supportRepositoryProvider = Provider<SupportRepository>((ref) {
@@ -185,12 +186,7 @@ class SupportRepository {
     }
   }
 
-  /// Parse sécurisé des réponses API (protège contre data qui n'est pas un Map)
-  static Map<String, dynamic> _safeData(dynamic data) {
-    if (data is Map<String, dynamic>) return data;
-    if (data is Map) return Map<String, dynamic>.from(data);
-    return {};
-  }
+
 
   /// Gestion des erreurs
   Exception _handleError(DioException e) {
@@ -198,11 +194,11 @@ class SupportRepository {
       return Exception('Ticket non trouvé');
     }
     if (e.response?.statusCode == 400) {
-      final message = _safeData(e.response?.data)['message'] ?? 'Action non autorisée';
+      final message = SafeJsonUtils.safeData(e.response?.data)['message'] ?? 'Action non autorisée';
       return Exception(message);
     }
     if (e.response?.statusCode == 422) {
-      final data = _safeData(e.response?.data);
+      final data = SafeJsonUtils.safeData(e.response?.data);
       if (data.containsKey('message')) {
         return Exception(data['message']);
       }

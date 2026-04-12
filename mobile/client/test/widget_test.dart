@@ -30,16 +30,19 @@ void main() {
 
     // Build our app and trigger a frame.
     await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MyApp(),
-      ),
+      UncontrolledProviderScope(container: container, child: const MyApp()),
     );
-    
-    // Allow any pending timers (like Splash screen navigation) to complete
-    await tester.pumpAndSettle(const Duration(seconds: 3));
+
+    // Use pump with duration instead of pumpAndSettle to avoid timeout with infinite animations
+    // Pump enough time to complete splash page timer (2 seconds) and navigation
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump(const Duration(milliseconds: 500));
 
     // Verify that the app starts (finds at least one Scaffold or Material app structure)
     expect(find.byType(MaterialApp), findsOneWidget);
+
+    // Clean up container
+    container.dispose();
   });
 }

@@ -6,10 +6,10 @@ import '../../../../core/providers/core_providers.dart';
 abstract class WalletRemoteDataSource {
   /// Récupère les données du portefeuille
   Future<Map<String, dynamic>> getWalletData();
-  
+
   /// Récupère les statistiques par période
   Future<Map<String, dynamic>> getStatsByPeriod(String period);
-  
+
   /// Demande de retrait
   Future<Map<String, dynamic>> requestWithdrawal({
     required double amount,
@@ -18,7 +18,7 @@ abstract class WalletRemoteDataSource {
     String? phone,
     String? pin,
   });
-  
+
   /// Enregistrer les informations bancaires
   Future<void> saveBankInfo({
     required String bankName,
@@ -26,7 +26,7 @@ abstract class WalletRemoteDataSource {
     required String accountNumber,
     String? iban,
   });
-  
+
   /// Enregistrer les informations Mobile Money
   Future<void> saveMobileMoneyInfo({
     required String operator,
@@ -34,21 +34,42 @@ abstract class WalletRemoteDataSource {
     required String accountName,
     bool isPrimary = true,
   });
-  
+
   /// Récupérer les paramètres de seuil de retrait
   Future<Map<String, dynamic>> getWithdrawalSettings();
-  
+
   /// Configurer le seuil de retrait automatique
   Future<Map<String, dynamic>> setWithdrawalThreshold({
     required double threshold,
     required bool autoWithdraw,
   });
-  
+
   /// Exporter les transactions
   Future<Map<String, dynamic>> exportTransactions({
     required String format,
     required DateTime startDate,
     required DateTime endDate,
+  });
+
+  /// Récupérer les informations de paiement
+  Future<Map<String, dynamic>> getPaymentInfo();
+
+  /// Configurer le code PIN de retrait (première fois)
+  Future<Map<String, dynamic>> setWithdrawalPin(String pin);
+
+  /// Modifier le code PIN de retrait
+  Future<Map<String, dynamic>> changeWithdrawalPin({
+    required String currentPin,
+    required String newPin,
+  });
+
+  /// Demander la réinitialisation du PIN (envoie OTP)
+  Future<Map<String, dynamic>> requestPinReset();
+
+  /// Confirmer la réinitialisation du PIN avec OTP
+  Future<Map<String, dynamic>> confirmPinReset({
+    required String otp,
+    required String newPin,
   });
 }
 
@@ -57,7 +78,8 @@ class WalletRemoteDataSourceImpl implements WalletRemoteDataSource {
   final ApiClient _apiClient;
   static const String _endpoint = '/pharmacy/wallet';
 
-  WalletRemoteDataSourceImpl({required ApiClient apiClient}) : _apiClient = apiClient;
+  WalletRemoteDataSourceImpl({required ApiClient apiClient})
+    : _apiClient = apiClient;
 
   @override
   Future<Map<String, dynamic>> getWalletData() async {
@@ -144,10 +166,7 @@ class WalletRemoteDataSourceImpl implements WalletRemoteDataSource {
   }) async {
     final response = await _apiClient.post(
       '$_endpoint/threshold',
-      data: {
-        'threshold': threshold,
-        'auto_withdraw': autoWithdraw,
-      },
+      data: {'threshold': threshold, 'auto_withdraw': autoWithdraw},
     );
     return _extractData(response.data);
   }
@@ -169,10 +188,60 @@ class WalletRemoteDataSourceImpl implements WalletRemoteDataSource {
     return _extractData(response.data);
   }
 
+  @override
+  Future<Map<String, dynamic>> getPaymentInfo() async {
+    final response = await _apiClient.get('$_endpoint/payment-info');
+    return _extractData(response.data);
+  }
+
+  @override
+  Future<Map<String, dynamic>> setWithdrawalPin(String pin) async {
+    final response = await _apiClient.post(
+      '$_endpoint/pin/set',
+      data: {'pin': pin, 'pin_confirmation': pin},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  @override
+  Future<Map<String, dynamic>> changeWithdrawalPin({
+    required String currentPin,
+    required String newPin,
+  }) async {
+    final response = await _apiClient.post(
+      '$_endpoint/pin/change',
+      data: {
+        'current_pin': currentPin,
+        'new_pin': newPin,
+        'new_pin_confirmation': newPin,
+      },
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  @override
+  Future<Map<String, dynamic>> requestPinReset() async {
+    final response = await _apiClient.post('$_endpoint/pin/reset-request');
+    return response.data as Map<String, dynamic>;
+  }
+
+  @override
+  Future<Map<String, dynamic>> confirmPinReset({
+    required String otp,
+    required String newPin,
+  }) async {
+    final response = await _apiClient.post(
+      '$_endpoint/pin/reset-confirm',
+      data: {'otp': otp, 'new_pin': newPin, 'new_pin_confirmation': newPin},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
   /// Extract data from API response
   Map<String, dynamic> _extractData(dynamic responseData) {
     if (responseData is Map<String, dynamic>) {
-      if (responseData['data'] != null && responseData['data'] is Map<String, dynamic>) {
+      if (responseData['data'] != null &&
+          responseData['data'] is Map<String, dynamic>) {
         return responseData['data'] as Map<String, dynamic>;
       }
       return responseData;

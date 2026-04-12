@@ -17,9 +17,20 @@ class PrescriptionModel {
   final List<dynamic>? matchedProducts;
   final List<dynamic>? unmatchedMedications;
   final double? ocrConfidence;
+  final String? ocrRawText;
   final String? analyzedAt;
   final String? analysisStatus;
   final String? analysisError;
+
+  // Dispensing fields
+  final String fulfillmentStatus;
+  final int dispensingCount;
+  final String? firstDispensedAt;
+  final String? imageHash;
+  final List<dynamic>? dispensings;
+
+  // Duplicate detection
+  final bool isDuplicate;
 
   PrescriptionModel({
     required this.id,
@@ -36,9 +47,16 @@ class PrescriptionModel {
     this.matchedProducts,
     this.unmatchedMedications,
     this.ocrConfidence,
+    this.ocrRawText,
     this.analyzedAt,
     this.analysisStatus,
     this.analysisError,
+    this.fulfillmentStatus = 'none',
+    this.dispensingCount = 0,
+    this.firstDispensedAt,
+    this.imageHash,
+    this.dispensings,
+    this.isDuplicate = false,
   });
 
   /// Safe parser - handles numeric fields returned as String or num from MySQL/PDO.
@@ -54,43 +72,73 @@ class PrescriptionModel {
       adminNotes: json['admin_notes']?.toString(),
       pharmacyNotes: json['pharmacy_notes']?.toString(),
       quoteAmount: _parseDouble(json['quote_amount']),
-      createdAt: json['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+      createdAt:
+          json['created_at']?.toString() ?? DateTime.now().toIso8601String(),
       customer: json['customer'] as Map<String, dynamic>?,
       extractedMedications: json['extracted_medications'] as List<dynamic>?,
       matchedProducts: json['matched_products'] as List<dynamic>?,
       unmatchedMedications: json['unmatched_medications'] as List<dynamic>?,
       ocrConfidence: _parseDouble(json['ocr_confidence']),
+      ocrRawText: json['ocr_raw_text']?.toString(),
       analyzedAt: json['analyzed_at']?.toString(),
       analysisStatus: json['analysis_status']?.toString(),
       analysisError: json['analysis_error']?.toString(),
+      fulfillmentStatus: json['fulfillment_status']?.toString() ?? 'none',
+      dispensingCount: _parseInt(json['dispensing_count']) ?? 0,
+      firstDispensedAt: json['first_dispensed_at']?.toString(),
+      imageHash: json['image_hash']?.toString(),
+      dispensings: json['dispensings'] as List<dynamic>?,
+      isDuplicate: json['is_duplicate'] == true,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'customer_id': customerId,
-        'status': status,
-        'notes': notes,
-        'images': images,
-        'admin_notes': adminNotes,
-        'pharmacy_notes': pharmacyNotes,
-        'quote_amount': quoteAmount,
-        'created_at': createdAt,
-        'customer': customer,
-        'extracted_medications': extractedMedications,
-        'matched_products': matchedProducts,
-        'unmatched_medications': unmatchedMedications,
-        'ocr_confidence': ocrConfidence,
-        'analyzed_at': analyzedAt,
-        'analysis_status': analysisStatus,
-        'analysis_error': analysisError,
-      };
+    'id': id,
+    'customer_id': customerId,
+    'status': status,
+    'notes': notes,
+    'images': images,
+    'admin_notes': adminNotes,
+    'pharmacy_notes': pharmacyNotes,
+    'quote_amount': quoteAmount,
+    'created_at': createdAt,
+    'customer': customer,
+    'extracted_medications': extractedMedications,
+    'matched_products': matchedProducts,
+    'unmatched_medications': unmatchedMedications,
+    'ocr_confidence': ocrConfidence,
+    'ocr_raw_text': ocrRawText,
+    'analyzed_at': analyzedAt,
+    'analysis_status': analysisStatus,
+    'analysis_error': analysisError,
+    'fulfillment_status': fulfillmentStatus,
+    'dispensing_count': dispensingCount,
+    'first_dispensed_at': firstDispensedAt,
+    'image_hash': imageHash,
+    'dispensings': dispensings,
+    'is_duplicate': isDuplicate,
+  };
 
   bool get isAnalyzed => analysisStatus == 'completed';
   bool get needsManualReview => analysisStatus == 'manual_review';
   bool get analysisFailed => analysisStatus == 'failed';
   bool get isPendingAnalysis =>
       analysisStatus == null || analysisStatus == 'pending';
+
+  bool get isFullyDispensed => fulfillmentStatus == 'full';
+  bool get isPartiallyDispensed => fulfillmentStatus == 'partial';
+  bool get isNeverDispensed => fulfillmentStatus == 'none';
+
+  /// Get total dispensed quantity for a medication
+  int getDispensedQuantity(String medicationName) {
+    if (dispensings == null) return 0;
+    return dispensings!
+        .where((d) => d is Map && d['medication_name'] == medicationName)
+        .fold<int>(
+          0,
+          (sum, d) => sum + ((d['quantity_dispensed'] as num?)?.toInt() ?? 0),
+        );
+  }
 
   /// Parse a value that may be int, double, or String into int.
   static int? _parseInt(dynamic v) {

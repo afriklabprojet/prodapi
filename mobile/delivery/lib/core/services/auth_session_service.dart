@@ -24,6 +24,9 @@ class AuthSessionService {
 
   final _controller = StreamController<AuthSessionState>.broadcast();
 
+  /// Indique si le service a été disposé
+  bool _disposed = false;
+
   /// Stream que l'UI écoute pour réagir aux changements de session
   Stream<AuthSessionState> get sessionStream => _controller.stream;
 
@@ -34,7 +37,7 @@ class AuthSessionService {
   /// Nettoie le token et notifie l'UI une seule fois
   Future<void> onSessionExpired() async {
     // Éviter les appels multiples simultanés (plusieurs requêtes 401 en parallèle)
-    if (_isHandlingExpiration) return;
+    if (_isHandlingExpiration || _disposed) return;
     _isHandlingExpiration = true;
 
     try {
@@ -71,6 +74,8 @@ class AuthSessionService {
 
   /// Libérer les ressources
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
     _controller.close();
   }
 }

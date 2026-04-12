@@ -15,23 +15,30 @@ import 'package:drpharma_client/features/orders/presentation/providers/cart_stat
 import 'package:drpharma_client/features/orders/presentation/providers/cart_notifier.dart'; // Add this
 import 'package:drpharma_client/features/pharmacies/presentation/providers/pharmacies_notifier.dart'; // Add this
 import 'package:drpharma_client/features/pharmacies/presentation/providers/pharmacies_state.dart'; // Add this
+import 'package:drpharma_client/features/treatments/data/services/smart_refill_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'helpers/fake_api_client.dart';
 
 // Mocks
-class MockAuthNotifier extends StateNotifier<AuthState> with Mock implements AuthNotifier {
+class MockAuthNotifier extends StateNotifier<AuthState>
+    with Mock
+    implements AuthNotifier {
   MockAuthNotifier() : super(const AuthState.initial());
 }
 
-class MockCartNotifier extends StateNotifier<CartState> with Mock implements CartNotifier {
+class MockCartNotifier extends StateNotifier<CartState>
+    with Mock
+    implements CartNotifier {
   MockCartNotifier() : super(CartState.initial());
 }
 
-class MockPharmaciesNotifier extends StateNotifier<PharmaciesState> with Mock implements PharmaciesNotifier {
+class MockPharmaciesNotifier extends StateNotifier<PharmaciesState>
+    with Mock
+    implements PharmaciesNotifier {
   MockPharmaciesNotifier() : super(const PharmaciesState());
 
   @override
-  Future<void> fetchFeaturedPharmacies() async {}
+  Future<void> fetchFeaturedPharmacies({bool isRetry = false}) async {}
 
   @override
   Future<void> fetchPharmacies({bool refresh = false}) async {}
@@ -56,6 +63,21 @@ class MockPharmaciesNotifier extends StateNotifier<PharmaciesState> with Mock im
 
 class FakeAuthState extends Fake implements AuthState {}
 
+/// Mock SmartRefillNotifier that does nothing (avoids HiveError in tests)
+class MockSmartRefillNotifier extends StateNotifier<SmartRefillState>
+    implements SmartRefillNotifier {
+  MockSmartRefillNotifier() : super(const SmartRefillState());
+
+  @override
+  Future<void> checkRefills() async {}
+
+  @override
+  Future<void> dismissSuggestion(String treatmentId) async {}
+
+  @override
+  Future<void> markAsOrdered(String treatmentId) async {}
+}
+
 void main() {
   late SharedPreferences sharedPreferences;
   late MockPharmaciesNotifier mockPharmaciesNotifier;
@@ -65,15 +87,24 @@ void main() {
   });
 
   setUp(() async {
-  SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({});
     sharedPreferences = await SharedPreferences.getInstance();
     mockPharmaciesNotifier = MockPharmaciesNotifier();
   });
 
-  Widget createTestWidget({
-    AuthState? authState,
-    CartState? cartState,
-  }) {
+  /// Helper to set up proper viewport size for tests
+  Future<void> setUpViewport(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.5;
+  }
+
+  /// Clean up viewport after test
+  void tearDownViewport(WidgetTester tester) {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+  }
+
+  Widget createTestWidget({AuthState? authState, CartState? cartState}) {
     return ProviderScope(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(sharedPreferences),
@@ -93,6 +124,7 @@ void main() {
           return notifier;
         }),
         pharmaciesProvider.overrideWith((ref) => mockPharmaciesNotifier),
+        smartRefillProvider.overrideWith((ref) => MockSmartRefillNotifier()),
       ],
       child: MaterialApp(
         locale: const Locale('fr'),
@@ -119,24 +151,32 @@ void main() {
 
   group('HomePage Widget Tests', () {
     testWidgets('should render home page', (tester) async {
+      await setUpViewport(tester);
+      tearDownViewport(tester);
       await tester.pumpWidget(createTestWidget());
 
       expect(find.byType(HomePage), findsOneWidget);
     });
 
     testWidgets('should show app bar', (tester) async {
+      await setUpViewport(tester);
+      tearDownViewport(tester);
       await tester.pumpWidget(createTestWidget());
 
       expect(find.byType(AppBar), findsOneWidget);
     });
 
     testWidgets('should display DR-PHARMA branding', (tester) async {
+      await setUpViewport(tester);
+      tearDownViewport(tester);
       await tester.pumpWidget(createTestWidget());
 
       expect(find.textContaining('DR'), findsWidgets);
     });
 
     testWidgets('should have search functionality', (tester) async {
+      await setUpViewport(tester);
+      tearDownViewport(tester);
       await tester.pumpWidget(createTestWidget());
 
       // The home page should be rendered with its content
@@ -144,12 +184,16 @@ void main() {
     });
 
     testWidgets('should have cart icon', (tester) async {
+      await setUpViewport(tester);
+      tearDownViewport(tester);
       await tester.pumpWidget(createTestWidget());
 
       expect(find.byIcon(Icons.shopping_bag_outlined), findsWidgets);
     });
 
     testWidgets('should have notifications icon', (tester) async {
+      await setUpViewport(tester);
+      tearDownViewport(tester);
       await tester.pumpWidget(createTestWidget());
 
       expect(find.byIcon(Icons.notifications_outlined), findsWidgets);
@@ -158,6 +202,8 @@ void main() {
 
   group('HomePage Promo Slider', () {
     testWidgets('should display promo slider', (tester) async {
+      await setUpViewport(tester);
+      tearDownViewport(tester);
       await tester.pumpWidget(createTestWidget());
 
       // Le slider promotionnel devrait être présent
@@ -165,6 +211,8 @@ void main() {
     });
 
     testWidgets('should show promo items', (tester) async {
+      await setUpViewport(tester);
+      tearDownViewport(tester);
       await tester.pumpWidget(createTestWidget());
 
       // Les promos devraient être visibles
@@ -172,6 +220,8 @@ void main() {
     });
 
     testWidgets('should have page indicators', (tester) async {
+      await setUpViewport(tester);
+      tearDownViewport(tester);
       await tester.pumpWidget(createTestWidget());
 
       // Les indicateurs de page
@@ -181,6 +231,8 @@ void main() {
 
   group('HomePage Quick Actions', () {
     testWidgets('should display quick action buttons', (tester) async {
+      await setUpViewport(tester);
+      tearDownViewport(tester);
       await tester.pumpWidget(createTestWidget());
 
       // Les actions rapides
@@ -188,18 +240,24 @@ void main() {
     });
 
     testWidgets('should have pharmacies action', (tester) async {
+      await setUpViewport(tester);
+      tearDownViewport(tester);
       await tester.pumpWidget(createTestWidget());
 
       expect(find.textContaining('Pharmacie'), findsWidgets);
     });
 
     testWidgets('should have prescriptions action', (tester) async {
+      await setUpViewport(tester);
+      tearDownViewport(tester);
       await tester.pumpWidget(createTestWidget());
 
       expect(find.textContaining('Ordonnance'), findsWidgets);
     });
 
     testWidgets('should have on-duty pharmacies action', (tester) async {
+      await setUpViewport(tester);
+      tearDownViewport(tester);
       await tester.pumpWidget(createTestWidget());
 
       expect(find.textContaining('garde'), findsWidgets);
@@ -208,14 +266,20 @@ void main() {
 
   group('HomePage Featured Pharmacies', () {
     testWidgets('should display featured pharmacies section', (tester) async {
+      await setUpViewport(tester);
+      tearDownViewport(tester);
       await tester.pumpWidget(createTestWidget());
 
       expect(find.byType(HomePage), findsOneWidget);
     });
 
-    testWidgets('should show loading while fetching pharmacies', (tester) async {
-      mockPharmaciesNotifier.state = const PharmaciesState(status: PharmaciesStatus.loading);
-    
+    testWidgets('should show loading while fetching pharmacies', (
+      tester,
+    ) async {
+      mockPharmaciesNotifier.state = const PharmaciesState(
+        status: PharmaciesStatus.loading,
+      );
+
       await tester.pumpWidget(createTestWidget());
 
       expect(find.byType(HomePage), findsOneWidget);
@@ -224,20 +288,24 @@ void main() {
 
   group('HomePage Cart Badge', () {
     testWidgets('should show cart badge with item count', (tester) async {
-      await tester.pumpWidget(createTestWidget(
-        cartState: CartState.initial().copyWith(
-          items: [],
-          selectedPharmacyId: 1,
+      await setUpViewport(tester);
+      tearDownViewport(tester);
+      await tester.pumpWidget(
+        createTestWidget(
+          cartState: CartState.initial().copyWith(
+            items: [],
+            selectedPharmacyId: 1,
+          ),
         ),
-      ));
+      );
 
       expect(find.byIcon(Icons.shopping_bag_outlined), findsWidgets);
     });
 
     testWidgets('should not show badge when cart is empty', (tester) async {
-      await tester.pumpWidget(createTestWidget(
-        cartState: CartState.initial(),
-      ));
+      await setUpViewport(tester);
+      tearDownViewport(tester);
+      await tester.pumpWidget(createTestWidget(cartState: CartState.initial()));
 
       expect(find.byType(HomePage), findsOneWidget);
     });
@@ -245,6 +313,8 @@ void main() {
 
   group('HomePage Navigation', () {
     testWidgets('should navigate to products on tap', (tester) async {
+      await setUpViewport(tester);
+      tearDownViewport(tester);
       await tester.pumpWidget(createTestWidget());
 
       // Trouver et taper sur un élément de navigation
@@ -257,6 +327,8 @@ void main() {
     });
 
     testWidgets('should navigate to cart on icon tap', (tester) async {
+      await setUpViewport(tester);
+      tearDownViewport(tester);
       await tester.pumpWidget(createTestWidget());
 
       final cartIcon = find.byIcon(Icons.shopping_cart);
@@ -269,6 +341,8 @@ void main() {
     });
 
     testWidgets('should navigate to notifications on icon tap', (tester) async {
+      await setUpViewport(tester);
+      tearDownViewport(tester);
       await tester.pumpWidget(createTestWidget());
 
       // Verify the notifications icon exists
@@ -278,6 +352,8 @@ void main() {
 
   group('HomePage Auto-Scroll', () {
     testWidgets('should auto-scroll promo carousel', (tester) async {
+      await setUpViewport(tester);
+      tearDownViewport(tester);
       await tester.pumpWidget(createTestWidget());
 
       // Verify promo slider exists (don't pump duration to avoid timer issues)
@@ -287,21 +363,25 @@ void main() {
 
   group('HomePage User Greeting', () {
     testWidgets('should show greeting for authenticated user', (tester) async {
-      await tester.pumpWidget(createTestWidget(
-        authState: const AuthState(
-          status: AuthStatus.authenticated,
+      await setUpViewport(tester);
+      tearDownViewport(tester);
+      await tester.pumpWidget(
+        createTestWidget(
+          authState: const AuthState(status: AuthStatus.authenticated),
         ),
-      ));
+      );
 
       expect(find.byType(HomePage), findsOneWidget);
     });
 
     testWidgets('should show default greeting for guest', (tester) async {
-      await tester.pumpWidget(createTestWidget(
-        authState: const AuthState(
-          status: AuthStatus.unauthenticated,
+      await setUpViewport(tester);
+      tearDownViewport(tester);
+      await tester.pumpWidget(
+        createTestWidget(
+          authState: const AuthState(status: AuthStatus.unauthenticated),
         ),
-      ));
+      );
 
       expect(find.byType(HomePage), findsOneWidget);
     });
@@ -309,6 +389,8 @@ void main() {
 
   group('HomePage Scroll Behavior', () {
     testWidgets('should be scrollable', (tester) async {
+      await setUpViewport(tester);
+      tearDownViewport(tester);
       await tester.pumpWidget(createTestWidget());
 
       // The page uses CustomScrollView, not SingleChildScrollView
@@ -318,12 +400,16 @@ void main() {
 
   group('HomePage Accessibility', () {
     testWidgets('should have semantic labels', (tester) async {
+      await setUpViewport(tester);
+      tearDownViewport(tester);
       await tester.pumpWidget(createTestWidget());
 
       expect(find.byType(Semantics), findsWidgets);
     });
 
     testWidgets('should support keyboard navigation', (tester) async {
+      await setUpViewport(tester);
+      tearDownViewport(tester);
       await tester.pumpWidget(createTestWidget());
 
       expect(find.byType(HomePage), findsOneWidget);
@@ -332,13 +418,18 @@ void main() {
 
   group('HomePage Responsive', () {
     testWidgets('should adapt to screen size', (tester) async {
-      // Use a large enough size to avoid overflow issues
-      await tester.binding.setSurfaceSize(const Size(800, 1200));
+      await setUpViewport(tester);
+      tearDownViewport(tester);
+      // Use a large enough physical size to avoid overflow issues
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.5;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       await tester.pumpWidget(createTestWidget());
+      await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.byType(HomePage), findsOneWidget);
-
-      await tester.binding.setSurfaceSize(null);
     });
   });
 }

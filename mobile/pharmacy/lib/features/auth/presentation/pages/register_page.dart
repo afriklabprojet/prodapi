@@ -6,6 +6,8 @@ import '../../../../core/presentation/widgets/error_display.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../providers/auth_provider.dart';
 import '../providers/state/auth_state.dart';
+import '../widgets/form_fields.dart';
+import '../widgets/registration_step_indicator.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
@@ -15,24 +17,31 @@ class RegisterPage extends ConsumerStatefulWidget {
 }
 
 class _RegisterPageState extends ConsumerState<RegisterPage> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController(); // Owner Name
-  final _pharmacyNameController = TextEditingController();
+  // ── Étapes ──────────────────────────────────────────────────────────────
+  int _currentStep = 0;
+  static const int _totalSteps = 3;
+
+  // Étape 1 : Identité
+  final _formKey1 = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _addressController = TextEditingController();
-  final _cityController = TextEditingController();
-  final _licenseController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  
-  // GPS coordinates
+
+  // Étape 2 : Pharmacie
+  final _formKey2 = GlobalKey<FormState>();
+  final _pharmacyNameController = TextEditingController();
+  final _licenseController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _addressController = TextEditingController();
+
+  // Étape 3 : Localisation GPS
   double? _latitude;
   double? _longitude;
   bool _isLocating = false;
   String? _locationError;
-  
-  // Track if the form has been submitted at least once
+
   bool _hasSubmitted = false;
 
   @override
@@ -144,25 +153,21 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     
     final authState = ref.read(authProvider);
     
-    // Empêcher les soumissions multiples
     if (authState.status == AuthStatus.loading) {
-      ErrorSnackBar.showWarning(
-        context,
-        'Inscription en cours, veuillez patienter...',
-      );
+      ErrorSnackBar.showWarning(context, 'Inscription en cours, veuillez patienter...');
       return;
     }
     
-    // Vérifier les coordonnées GPS obligatoires
     if (_latitude == null || _longitude == null) {
-      ErrorSnackBar.showWarning(
-        context,
-        'Veuillez détecter la position GPS de votre pharmacie',
-      );
+      ErrorSnackBar.showWarning(context, 'Veuillez détecter la position GPS de votre pharmacie');
       return;
     }
     
-    if (_formKey.currentState!.validate()) {
+    // Revalider les deux étapes précédentes avant soumission finale
+    final step1Valid = _formKey1.currentState?.validate() ?? false;
+    final step2Valid = _formKey2.currentState?.validate() ?? false;
+
+    if (step1Valid && step2Valid) {
       ref.read(authProvider.notifier).register(
             name: _nameController.text.trim(),
             pName: _pharmacyNameController.text.trim(),
@@ -176,11 +181,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             longitude: _longitude!,
           );
     } else {
-      // Afficher un message pour les erreurs de validation
-      ErrorSnackBar.showWarning(
-        context,
-        'Veuillez corriger les erreurs du formulaire',
-      );
+      ErrorSnackBar.showWarning(context, 'Veuillez corriger les erreurs du formulaire');
     }
   }
 
@@ -345,7 +346,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         // ✅ Revalider le formulaire pour afficher les erreurs de champ serveur
         if (next.hasFieldErrors) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            _formKey.currentState?.validate();
+            _formKey1.currentState?.validate();
+            _formKey2.currentState?.validate();
           });
         }
         
@@ -427,447 +429,44 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : Colors.teal[50],
-      body: Center(
+      body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const SizedBox(height: 48), // Top spacing
-              // Header with Logo
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkCard : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: isDark ? [] : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Image.asset(
-                  'assets/images/logo.png',
-                  width: 80,
-                  height: 80,
-                  fit: BoxFit.contain,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Création de compte',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: isDark ? Colors.white : Colors.teal[900],
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Rejoignez le réseau DR-PHARMA',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: isDark ? Colors.grey[400] : Colors.teal[600],
-                    ),
-              ),
-              const SizedBox(height: 32),
+              // Logo + titre
+              _buildPageHeader(context, isDark),
+              const SizedBox(height: 20),
 
-              // Form
+              // Indicateur d'étapes
+              _buildStepIndicator(context, isDark),
+              const SizedBox(height: 20),
+
+              // Carte contenu des étapes (IndexedStack = toutes en mémoire)
               Card(
                 elevation: isDark ? 0 : 4,
                 color: isDark ? AppColors.darkCard : Colors.white,
                 shadowColor: Colors.black26,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 child: Padding(
                   padding: const EdgeInsets.all(24.0),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Nom du propriétaire
-                        TextFormField(
-                          controller: _nameController,
-                          decoration: _buildInputDecoration(
-                            'Nom du pharmacien titulaire',
-                            Icons.person_outline,
-                            serverError: _getServerError('name'),
-                          ),
-                          onChanged: (_) => _onFieldChanged('name'),
-                          validator: (value) {
-                            final serverError = _getServerError('name');
-                            if (serverError != null) return serverError;
-                            if (value == null || value.isEmpty) {
-                              return 'Veuillez entrer votre nom complet';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Nom de la pharmacie
-                        TextFormField(
-                          controller: _pharmacyNameController,
-                          decoration: _buildInputDecoration(
-                            'Nom de la pharmacie',
-                            Icons.store_rounded,
-                            serverError: _getServerError('pharmacy_name'),
-                          ),
-                          onChanged: (_) => _onFieldChanged('pharmacy_name'),
-                          validator: (value) {
-                            final serverError = _getServerError('pharmacy_name');
-                            if (serverError != null) return serverError;
-                            if (value == null || value.isEmpty) {
-                              return 'Veuillez entrer le nom de la pharmacie';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // License Number
-                        TextFormField(
-                          controller: _licenseController,
-                          decoration: _buildInputDecoration(
-                            'Numéro de licence',
-                            Icons.badge_outlined,
-                            serverError: _getServerError('license'),
-                          ),
-                          onChanged: (_) => _onFieldChanged('license'),
-                          validator: (value) {
-                            final serverError = _getServerError('license');
-                            if (serverError != null) return serverError;
-                            if (value == null || value.isEmpty) {
-                              return 'Veuillez entrer le numéro de licence';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Email
-                        TextFormField(
-                          controller: _emailController,
-                          decoration: _buildInputDecoration(
-                            'Adresse Email',
-                            Icons.email_outlined,
-                            serverError: _getServerError('email'),
-                          ),
-                          keyboardType: TextInputType.emailAddress,
-                          onChanged: (_) => _onFieldChanged('email'),
-                          validator: (value) {
-                            final serverError = _getServerError('email');
-                            if (serverError != null) return serverError;
-                            if (value == null || value.isEmpty) {
-                              return 'Veuillez entrer un email';
-                            }
-                            if (!value.contains('@')) {
-                              return 'Email invalide';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Téléphone
-                        TextFormField(
-                          controller: _phoneController,
-                          decoration: _buildInputDecoration(
-                            'Numéro de téléphone',
-                            Icons.phone_outlined,
-                            serverError: _getServerError('phone'),
-                          ),
-                          keyboardType: TextInputType.phone,
-                          onChanged: (_) => _onFieldChanged('phone'),
-                          validator: (value) {
-                            final serverError = _getServerError('phone');
-                            if (serverError != null) return serverError;
-                            if (value == null || value.isEmpty) {
-                              return 'Veuillez entrer un numéro de téléphone';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Ville
-                        TextFormField(
-                          controller: _cityController,
-                          decoration: _buildInputDecoration(
-                            'Ville',
-                            Icons.location_city,
-                            serverError: _getServerError('city'),
-                          ),
-                          onChanged: (_) => _onFieldChanged('city'),
-                          validator: (value) {
-                            final serverError = _getServerError('city');
-                            if (serverError != null) return serverError;
-                            if (value == null || value.isEmpty) {
-                              return 'Veuillez entrer la ville';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Adresse
-                        TextFormField(
-                          controller: _addressController,
-                          decoration: _buildInputDecoration(
-                            'Adresse complète',
-                            Icons.location_on_outlined,
-                            serverError: _getServerError('address'),
-                          ),
-                          maxLines: 2,
-                          onChanged: (_) => _onFieldChanged('address'),
-                          validator: (value) {
-                            final serverError = _getServerError('address');
-                            if (serverError != null) return serverError;
-                            if (value == null || value.isEmpty) {
-                              return 'Veuillez entrer une adresse';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // === LOCALISATION GPS ===
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: _latitude != null 
-                                ? Colors.green.withValues(alpha: 0.05)
-                                : (_hasSubmitted && _latitude == null)
-                                    ? Colors.red.withValues(alpha: 0.05)
-                                    : Colors.teal.withValues(alpha: 0.05),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: _latitude != null 
-                                  ? Colors.green.shade300
-                                  : (_hasSubmitted && _latitude == null)
-                                      ? Colors.red.shade400
-                                      : Colors.teal.shade200,
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    _latitude != null ? Icons.check_circle : Icons.my_location,
-                                    color: _latitude != null ? Colors.green : Colors.teal,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'Position GPS de la pharmacie *',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        color: _latitude != null 
-                                            ? Colors.green[800]
-                                            : (_hasSubmitted && _latitude == null)
-                                                ? Colors.red[700]
-                                                : Colors.teal[800],
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Placez-vous dans votre pharmacie et appuyez sur le bouton pour détecter automatiquement la position.',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                  height: 1.3,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              // Bouton de détection
-                              SizedBox(
-                                width: double.infinity,
-                                height: 44,
-                                child: OutlinedButton.icon(
-                                  onPressed: _isLocating ? null : _detectLocation,
-                                  icon: _isLocating
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(strokeWidth: 2),
-                                        )
-                                      : Icon(
-                                          _latitude != null ? Icons.refresh : Icons.gps_fixed,
-                                          size: 20,
-                                        ),
-                                  label: Text(
-                                    _isLocating
-                                        ? 'Détection en cours...'
-                                        : _latitude != null
-                                            ? 'Actualiser la position'
-                                            : 'Détecter ma position',
-                                    style: const TextStyle(fontWeight: FontWeight.w600),
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: _latitude != null ? Colors.green : Colors.teal,
-                                    side: BorderSide(
-                                      color: _latitude != null ? Colors.green : Colors.teal,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              // Coordonnées détectées
-                              if (_latitude != null && _longitude != null) ...[
-                                const SizedBox(height: 10),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.check, color: Colors.green, size: 16),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          'GPS: ${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.green[800],
-                                            fontFamily: 'monospace',
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                              // Erreur de localisation
-                              if (_locationError != null) ...[
-                                const SizedBox(height: 8),
-                                Text(
-                                  _locationError!,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.red[600],
-                                  ),
-                                ),
-                              ],
-                              // Message d'erreur si pas de GPS à la soumission
-                              if (_hasSubmitted && _latitude == null && _locationError == null) ...[
-                                const SizedBox(height: 8),
-                                Text(
-                                  'La position GPS est obligatoire pour l\'inscription',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.red[600],
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Mot de passe
-                        TextFormField(
-                          controller: _passwordController,
-                          decoration: _buildInputDecoration(
-                            'Mot de passe',
-                            Icons.lock_outline,
-                            serverError: _getServerError('password'),
-                          ),
-                          obscureText: true,
-                          onChanged: (_) => _onFieldChanged('password'),
-                          validator: (value) {
-                            final serverError = _getServerError('password');
-                            if (serverError != null) return serverError;
-                            if (value == null || value.isEmpty) {
-                              return 'Veuillez choisir un mot de passe';
-                            }
-                            if (value.length < 8) {
-                              return 'Le mot de passe doit faire au moins 8 caractères';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Confirmation Mot de passe
-                        TextFormField(
-                          controller: _confirmPasswordController,
-                          decoration: _buildInputDecoration(
-                            'Confirmer le mot de passe',
-                            Icons.lock_outline,
-                          ),
-                          obscureText: true,
-                          validator: (value) {
-                            if (value != _passwordController.text) {
-                              return 'Les mots de passe ne correspondent pas';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 32),
-
-                        // Bouton Valider
-                        SizedBox(
-                          height: 50,
-                          child: FilledButton(
-                            onPressed: isLoading ? null : _submit,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: Colors.teal,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: isLoading
-                                ? Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: const [
-                                      SizedBox(
-                                        height: 20,
-                                        width: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      SizedBox(width: 12),
-                                      Text(
-                                        'Inscription en cours...',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white70,
-                                        ),
-                                      ),
-                                    ],
-                                  )
-                                : const Text(
-                                    "S'inscrire",
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ],
-                    ),
+                  child: IndexedStack(
+                    index: _currentStep,
+                    children: [
+                      _buildStep1(context, isDark),
+                      _buildStep2(context, isDark),
+                      _buildStep3(context, isDark),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
+
+              // Boutons de navigation
+              _buildNavigationButtons(context, isDark, isLoading),
+              const SizedBox(height: 16),
+
+              // Lien "Déjà un compte ?"
               Wrap(
                 alignment: WrapAlignment.center,
                 crossAxisAlignment: WrapCrossAlignment.center,
@@ -886,13 +485,470 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 24),
             ],
           ),
         ),
       ),
     );
+  }
+
+  // ═══════════════════════════════════════════════════
+  // HEADER
+  // ═══════════════════════════════════════════════════
+  Widget _buildPageHeader(BuildContext context, bool isDark) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkCard : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: isDark ? [] : [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))],
+          ),
+          child: Image.asset('assets/images/logo.png', width: 40, height: 40, fit: BoxFit.contain),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Création de compte',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.teal[900],
+                ),
+              ),
+              Text(
+                'Rejoignez le réseau DR-PHARMA',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark ? Colors.grey[400] : Colors.teal[600],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════
+  // INDICATEUR D'ÉTAPES
+  // ═══════════════════════════════════════════════════
+  Widget _buildStepIndicator(BuildContext context, bool isDark) {
+    return RegistrationStepIndicator(
+      currentStep: _currentStep,
+      totalSteps: _totalSteps,
+      stepLabels: const ['Identité', 'Pharmacie', 'Localisation'],
+      isDark: isDark,
+    );
+  }
+
+  // ═══════════════════════════════════════════════════
+  // ÉTAPE 1 : IDENTITÉ
+  // ═══════════════════════════════════════════════════
+  Widget _buildStep1(BuildContext context, bool isDark) {
+    return Form(
+      key: _formKey1,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Votre identité',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : Colors.teal[900],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Informations personnelles du pharmacien titulaire',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 20),
+
+          TextFormField(
+            controller: _nameController,
+            decoration: _buildInputDecoration('Nom complet', Icons.person_outline,
+                serverError: _getServerError('name')),
+            onChanged: (_) => _onFieldChanged('name'),
+            validator: (value) {
+              final serverError = _getServerError('name');
+              if (serverError != null) return serverError;
+              if (value == null || value.isEmpty) return 'Veuillez entrer votre nom complet';
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+
+          TextFormField(
+            controller: _emailController,
+            decoration: _buildInputDecoration('Adresse email', Icons.email_outlined,
+                serverError: _getServerError('email')),
+            keyboardType: TextInputType.emailAddress,
+            onChanged: (_) => _onFieldChanged('email'),
+            validator: (value) {
+              final serverError = _getServerError('email');
+              if (serverError != null) return serverError;
+              if (value == null || value.isEmpty) return 'Veuillez entrer un email';
+              if (!value.contains('@')) return 'Email invalide';
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+
+          PharmacyPasswordField(
+            controller: _passwordController,
+            labelText: 'Mot de passe',
+            showStrengthIndicator: true,
+            minLength: 8,
+            validator: (value) {
+              final serverError = _getServerError('password');
+              if (serverError != null) return serverError;
+              if (value == null || value.isEmpty) return 'Veuillez choisir un mot de passe';
+              if (value.length < 8) return 'Le mot de passe doit faire au moins 8 caractères';
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+
+          PharmacyPasswordField(
+            controller: _confirmPasswordController,
+            labelText: 'Confirmer le mot de passe',
+            showStrengthIndicator: false,
+            validator: (value) {
+              if (value != _passwordController.text) return 'Les mots de passe ne correspondent pas';
+              return null;
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════
+  // ÉTAPE 2 : PHARMACIE
+  // ═══════════════════════════════════════════════════
+  Widget _buildStep2(BuildContext context, bool isDark) {
+    return Form(
+      key: _formKey2,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Votre pharmacie',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : Colors.teal[900],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Informations officielles de l\'établissement',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 20),
+
+          TextFormField(
+            controller: _pharmacyNameController,
+            decoration: _buildInputDecoration('Nom de la pharmacie', Icons.store_rounded,
+                serverError: _getServerError('pharmacy_name')),
+            onChanged: (_) => _onFieldChanged('pharmacy_name'),
+            validator: (value) {
+              final serverError = _getServerError('pharmacy_name');
+              if (serverError != null) return serverError;
+              if (value == null || value.isEmpty) return 'Veuillez entrer le nom de la pharmacie';
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+
+          TextFormField(
+            controller: _licenseController,
+            decoration: _buildInputDecoration('Numéro de licence', Icons.badge_outlined,
+                serverError: _getServerError('license')),
+            onChanged: (_) => _onFieldChanged('license'),
+            validator: (value) {
+              final serverError = _getServerError('license');
+              if (serverError != null) return serverError;
+              if (value == null || value.isEmpty) return 'Veuillez entrer le numéro de licence';
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+
+          TextFormField(
+            controller: _phoneController,
+            decoration: _buildInputDecoration('Numéro de téléphone', Icons.phone_outlined,
+                serverError: _getServerError('phone')).copyWith(
+              prefixText: '+225 ',
+              prefixStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+              hintText: '07 00 00 00 00',
+            ),
+            keyboardType: TextInputType.phone,
+            onChanged: (_) => _onFieldChanged('phone'),
+            validator: (value) {
+              final serverError = _getServerError('phone');
+              if (serverError != null) return serverError;
+              if (value == null || value.isEmpty) return 'Veuillez entrer un numéro de téléphone';
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+
+          TextFormField(
+            controller: _cityController,
+            decoration: _buildInputDecoration('Ville', Icons.location_city,
+                serverError: _getServerError('city')),
+            onChanged: (_) => _onFieldChanged('city'),
+            validator: (value) {
+              final serverError = _getServerError('city');
+              if (serverError != null) return serverError;
+              if (value == null || value.isEmpty) return 'Veuillez entrer la ville';
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+
+          TextFormField(
+            controller: _addressController,
+            decoration: _buildInputDecoration('Adresse complète', Icons.location_on_outlined,
+                serverError: _getServerError('address')),
+            maxLines: 2,
+            onChanged: (_) => _onFieldChanged('address'),
+            validator: (value) {
+              final serverError = _getServerError('address');
+              if (serverError != null) return serverError;
+              if (value == null || value.isEmpty) return 'Veuillez entrer une adresse';
+              return null;
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════
+  // ÉTAPE 3 : LOCALISATION GPS
+  // ═══════════════════════════════════════════════════
+  Widget _buildStep3(BuildContext context, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Localisation de la pharmacie',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: isDark ? Colors.white : Colors.teal[900],
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Placez-vous dans votre pharmacie et détectez automatiquement sa position GPS.',
+          style: TextStyle(fontSize: 12, color: Colors.grey[600], height: 1.4),
+        ),
+        const SizedBox(height: 24),
+
+        // Illustration / icône GPS grande
+        Center(
+          child: Container(
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              color: _latitude != null
+                  ? Colors.green.withValues(alpha: 0.08)
+                  : Colors.teal.withValues(alpha: 0.08),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              _latitude != null ? Icons.check_circle_rounded : Icons.location_on_rounded,
+              size: 56,
+              color: _latitude != null ? Colors.green : Colors.teal,
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Bouton de détection
+        SizedBox(
+          height: 52,
+          child: OutlinedButton.icon(
+            onPressed: _isLocating ? null : _detectLocation,
+            icon: _isLocating
+                ? const SizedBox(
+                    width: 18, height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(_latitude != null ? Icons.refresh : Icons.gps_fixed, size: 20),
+            label: Text(
+              _isLocating
+                  ? 'Détection en cours...'
+                  : _latitude != null
+                      ? 'Actualiser la position'
+                      : 'Détecter ma position',
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _latitude != null ? Colors.green : Colors.teal,
+              side: BorderSide(color: _latitude != null ? Colors.green : Colors.teal, width: 1.5),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+
+        // Coordonnées détectées
+        if (_latitude != null && _longitude != null) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.green.shade300),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.green, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Position enregistrée : ${_latitude!.toStringAsFixed(5)}, ${_longitude!.toStringAsFixed(5)}',
+                    style: TextStyle(fontSize: 13, color: Colors.green[800]),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+
+        // Erreur de localisation
+        if (_locationError != null) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.red.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.red.shade300),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.red[600], size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(_locationError!,
+                      style: TextStyle(fontSize: 13, color: Colors.red[700])),
+                ),
+              ],
+            ),
+          ),
+        ],
+
+        if (_hasSubmitted && _latitude == null && _locationError == null) ...[
+          const SizedBox(height: 12),
+          Text(
+            'La position GPS est obligatoire pour finaliser l\'inscription',
+            style: TextStyle(fontSize: 12, color: Colors.red[600]),
+          ),
+        ],
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════
+  // BOUTONS DE NAVIGATION
+  // ═══════════════════════════════════════════════════
+  Widget _buildNavigationButtons(BuildContext context, bool isDark, bool isLoading) {
+    final isFirstStep = _currentStep == 0;
+    final isLastStep = _currentStep == _totalSteps - 1;
+
+    return Row(
+      children: [
+        // Bouton Précédent
+        if (!isFirstStep) ...[
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: isLoading ? null : () => setState(() => _currentStep--),
+              icon: const Icon(Icons.arrow_back_rounded, size: 18),
+              label: const Text('Précédent'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                foregroundColor: Colors.teal,
+                side: const BorderSide(color: Colors.teal),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+        ],
+
+        // Bouton Suivant ou S'inscrire
+        Expanded(
+          flex: isFirstStep ? 1 : 2,
+          child: FilledButton.icon(
+            onPressed: isLoading ? null : () {
+              if (isLastStep) {
+                _submit();
+              } else {
+                _goToNextStep();
+              }
+            },
+            icon: isLoading
+                ? const SizedBox(
+                    width: 18, height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : Icon(
+                    isLastStep ? Icons.check_rounded : Icons.arrow_forward_rounded,
+                    size: 18,
+                  ),
+            label: Text(
+              isLoading
+                  ? 'Inscription...'
+                  : isLastStep
+                      ? "S'inscrire"
+                      : 'Suivant',
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+            ),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              backgroundColor: Colors.teal,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _goToNextStep() {
+    bool valid = false;
+    switch (_currentStep) {
+      case 0:
+        valid = _formKey1.currentState?.validate() ?? false;
+        break;
+      case 1:
+        valid = _formKey2.currentState?.validate() ?? false;
+        break;
+      default:
+        valid = true;
+    }
+    if (valid) {
+      setState(() => _currentStep++);
+    }
   }
 
   InputDecoration _buildInputDecoration(String label, IconData icon, {String? serverError}) {

@@ -1,129 +1,46 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../products/domain/entities/product_entity.dart';
-import '../../../products/data/models/product_model.dart';
-import '../../../products/data/models/pharmacy_model.dart';
-import '../../../products/data/models/category_model.dart';
+import '../../data/datasources/cart_local_datasource.dart';
 import '../../domain/entities/cart_item_entity.dart';
 import '../../domain/entities/pricing_entity.dart';
 import 'cart_state.dart';
 
 class CartNotifier extends StateNotifier<CartState> {
-  final SharedPreferences sharedPreferences;
-  static const String _cartKey = 'shopping_cart';
-  static const int _cartVersion = 2; // Increment when cart schema changes
+  final CartLocalDataSource _cartLocalDataSource;
 
-  CartNotifier(this.sharedPreferences) : super(const CartState.initial()) {
+  CartNotifier(this._cartLocalDataSource) : super(const CartState.initial()) {
     _loadCart();
   }
 
   // Load cart from local storage
   Future<void> _loadCart() async {
     try {
-      final cartString = sharedPreferences.getString(_cartKey);
-      if (cartString != null) {
-        final cartData = jsonDecode(cartString) as Map<String, dynamic>;
-
-        // Check cart version — clear if outdated
-        final version = cartData['version'] as int? ?? 1;
-        if (version < _cartVersion) {
-          await sharedPreferences.remove(_cartKey);
-          state = const CartState.initial();
-          return;
-        }
-
-        // Deserialize cart items
-        final itemsJson = cartData['items'] as List<dynamic>?;
-        if (itemsJson != null && itemsJson.isNotEmpty) {
-          final items = itemsJson.map((itemJson) {
-            final productJson = itemJson['product'] as Map<String, dynamic>;
-            final quantity = itemJson['quantity'] as int;
-
-            // Convert ProductModel to ProductEntity
-            final productModel = ProductModel.fromJson(productJson);
-            final product = productModel.toEntity();
-
-            return CartItemEntity(product: product, quantity: quantity);
-          }).toList();
-
-          final pharmacyId = cartData['pharmacy_id'] as int?;
-
-          state = CartState(
-            status: CartStatus.loaded,
-            items: items,
-            selectedPharmacyId: pharmacyId,
-          );
-        } else {
-          state = const CartState.initial();
-        }
+      final (:items, :pharmacyId) = await _cartLocalDataSource.loadCart();
+      if (items.isNotEmpty) {
+        state = CartState(
+          status: CartStatus.loaded,
+          items: items,
+          selectedPharmacyId: pharmacyId,
+        );
+      } else {
+        state = const CartState.initial();
       }
-    } catch (e) {
-      // If deserialization fails, start with empty cart
+    } catch (_) {
       state = const CartState.initial();
     }
   }
 
   // Save cart to local storage
   Future<void> _saveCart() async {
-    try {
-      // Serialize cart items
-      final itemsJson = state.items.map((item) {
-        // Convert ProductEntity to ProductModel for serialization
-        final pharmacy = item.product.pharmacy;
-        final pharmacyModel = PharmacyModel(
-          id: pharmacy.id,
-          name: pharmacy.name,
-          address: pharmacy.address,
-          phone: pharmacy.phone,
-          email: pharmacy.email,
-          latitude: pharmacy.latitude,
-          longitude: pharmacy.longitude,
-          status: pharmacy.status,
-          isOpen: pharmacy.isOpen,
-        );
-
-        final categoryModel = item.product.category != null
-            ? CategoryModel(
-                id: item.product.category!.id,
-                name: item.product.category!.name,
-                description: item.product.category!.description,
-              )
-            : null;
-
-        final productModel = ProductModel(
-          id: item.product.id,
-          name: item.product.name,
-          description: item.product.description,
-          price: item.product.price,
-          imageUrl: item.product.imageUrl,
-          stockQuantity: item.product.stockQuantity,
-          manufacturer: item.product.manufacturer,
-          requiresPrescription: item.product.requiresPrescription,
-          pharmacy: pharmacyModel,
-          category: categoryModel,
-          createdAt: item.product.createdAt.toIso8601String(),
-          updatedAt: item.product.updatedAt.toIso8601String(),
-        );
-
-        return {'product': productModel.toJson(), 'quantity': item.quantity};
-      }).toList();
-
-      final cartData = {
-        'version': _cartVersion,
-        'items': itemsJson,
-        'pharmacy_id': state.selectedPharmacyId,
-      };
-
-      await sharedPreferences.setString(_cartKey, jsonEncode(cartData));
-    } catch (e) {
-      // Handle error silently
-    }
+    await _cartLocalDataSource.saveCart(
+      state.items,
+      pharmacyId: state.selectedPharmacyId,
+    );
   }
 
   // Add item to cart
-  Future<void> addItem(ProductEntity product, {int quantity = 1}) async {
-    if (quantity <= 0) return;
+  Future<bool> addItem(ProductEntity product, {int quantity = 1}) async {
+    if (quantity <= 0) return false;
 
     // Check if product is available
     if (!product.isAvailable) {
@@ -131,7 +48,7 @@ class CartNotifier extends StateNotifier<CartState> {
         status: CartStatus.error,
         errorMessage: 'Ce produit n\'est plus disponible',
       );
-      return;
+      return false;
     }
 
     // Check stock
@@ -140,7 +57,7 @@ class CartNotifier extends StateNotifier<CartState> {
         status: CartStatus.error,
         errorMessage: 'Stock insuffisant. Disponible: ${product.stockQuantity}',
       );
-      return;
+      return false;
     }
 
     // Check if cart has items from different pharmacy
@@ -152,7 +69,7 @@ class CartNotifier extends StateNotifier<CartState> {
         errorMessage:
             'Vous ne pouvez commander que dans une seule pharmacie à la fois. Videz le panier pour changer de pharmacie.',
       );
-      return;
+      return false;
     }
 
     final existingItem = state.getItem(product.id);
@@ -167,7 +84,7 @@ class CartNotifier extends StateNotifier<CartState> {
           errorMessage:
               'Stock insuffisant. Disponible: ${product.stockQuantity}',
         );
-        return;
+        return false;
       }
 
       final updatedItems = state.items.map((item) {
@@ -196,6 +113,7 @@ class CartNotifier extends StateNotifier<CartState> {
     }
 
     await _saveCart();
+    return true;
   }
 
   // Remove item from cart
@@ -253,14 +171,14 @@ class CartNotifier extends StateNotifier<CartState> {
   // Clear cart
   Future<void> clearCart() async {
     state = const CartState.initial();
-    await sharedPreferences.remove(_cartKey);
+    await _cartLocalDataSource.clearCart();
   }
 
   // Clear error
   void clearError() {
     if (state.errorMessage != null) {
       state = state.copyWith(
-        errorMessage: null,
+        clearError: true,
         status: state.items.isEmpty ? CartStatus.initial : CartStatus.loaded,
       );
     }
@@ -268,10 +186,7 @@ class CartNotifier extends StateNotifier<CartState> {
 
   /// Mettre à jour les frais de livraison calculés dynamiquement
   /// Appelé depuis le checkout quand l'adresse de livraison est sélectionnée
-  void updateDeliveryFee({
-    required double deliveryFee,
-    double? distanceKm,
-  }) {
+  void updateDeliveryFee({required double deliveryFee, double? distanceKm}) {
     state = state.copyWith(
       calculatedDeliveryFee: deliveryFee,
       deliveryDistanceKm: distanceKm,
@@ -280,9 +195,7 @@ class CartNotifier extends StateNotifier<CartState> {
 
   /// Réinitialiser les frais de livraison (quand l'adresse change)
   void clearDeliveryFee() {
-    state = state.copyWith(
-      clearDeliveryFee: true,
-    );
+    state = state.copyWith(clearDeliveryFee: true);
   }
 
   /// Mettre à jour la configuration de tarification

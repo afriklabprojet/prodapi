@@ -3,6 +3,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:courier/data/repositories/delivery_repository.dart';
 import 'package:courier/core/constants/api_constants.dart';
 import 'package:courier/core/services/cache_service.dart';
+import 'package:courier/core/utils/app_exceptions.dart';
 import '../helpers/test_helpers.dart';
 
 void main() {
@@ -417,9 +418,7 @@ void main() {
 
       expect(
         () => repo.getProfile(),
-        throwsA(isA<Exception>().having(
-          (e) => e.toString(), 'msg', contains('Profil coursier non trouvé'),
-        )),
+        throwsA(isA<ForbiddenException>()),
       );
     });
 
@@ -465,9 +464,7 @@ void main() {
 
       expect(
         () => repo.getProfile(),
-        throwsA(isA<Exception>().having(
-          (e) => e.toString(), 'msg', contains('charger le profil'),
-        )),
+        throwsA(isA<NetworkException>()),
       );
     });
   });

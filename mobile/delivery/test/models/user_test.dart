@@ -59,14 +59,12 @@ void main() {
 
     test('fromJson handles non-parseable string id', () {
       final json = {'id': 'abc', 'name': 'Test', 'email': 'test@test.com'};
-      final user = User.fromJson(json);
-      expect(user.id, 0);
+      expect(() => User.fromJson(json), throwsA(isA<FormatException>()));
     });
 
     test('fromJson handles bool id (_forceInt default)', () {
       final json = {'id': true, 'name': 'Test', 'email': 'test@test.com'};
-      final user = User.fromJson(json);
-      expect(user.id, 0);
+      expect(() => User.fromJson(json), throwsA(isA<FormatException>()));
     });
 
     test('toJson round-trip', () {

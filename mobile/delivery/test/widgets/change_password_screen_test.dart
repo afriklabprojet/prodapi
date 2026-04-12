@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:courier/presentation/screens/change_password_screen.dart';
 import 'package:courier/data/repositories/auth_repository.dart';
+import 'package:courier/core/services/biometric_service.dart';
+import '../helpers/widget_test_helpers.dart';
 
 class MockAuthRepository extends Mock implements AuthRepository {}
 
@@ -20,6 +22,7 @@ void main() {
     return ProviderScope(
       overrides: [
         authRepositoryProvider.overrideWithValue(mockAuthRepo),
+        biometricServiceProvider.overrideWithValue(FakeBiometricService()),
       ],
       child: const MaterialApp(
         home: ChangePasswordScreen(),

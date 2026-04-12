@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../core/router/route_names.dart';
 import '../../core/theme/theme_provider.dart';
 import '../../data/repositories/challenge_repository.dart';
 import '../widgets/common/common_widgets.dart';
 import '../../core/utils/responsive.dart';
-import 'gamification_screen.dart';
 
 class ChallengesScreen extends ConsumerWidget {
   const ChallengesScreen({super.key});
@@ -18,7 +19,9 @@ class ChallengesScreen extends ConsumerWidget {
     final isDark = context.isDark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8F9FD),
+      backgroundColor: isDark
+          ? const Color(0xFF121212)
+          : const Color(0xFFF8F9FD),
       body: AsyncValueWidget<Map<String, dynamic>>(
         value: challengesAsync,
         data: (data) => _ChallengesContent(data: data, ref: ref),
@@ -29,7 +32,9 @@ class ChallengesScreen extends ConsumerWidget {
 }
 
 // Provider pour les challenges
-final challengesProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+final challengesProvider = FutureProvider.autoDispose<Map<String, dynamic>>((
+  ref,
+) async {
   final repo = ref.read(challengeRepositoryProvider);
   return repo.getChallenges();
 });
@@ -43,10 +48,15 @@ class _ChallengesContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final challenges = data['challenges'] as Map<String, dynamic>? ?? {};
-    final inProgress = (challenges['in_progress'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-    final completed = (challenges['completed'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-    final rewarded = (challenges['rewarded'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-    final activeBonuses = (data['active_bonuses'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final inProgress =
+        (challenges['in_progress'] as List?)?.cast<Map<String, dynamic>>() ??
+        [];
+    final completed =
+        (challenges['completed'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final rewarded =
+        (challenges['rewarded'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final activeBonuses =
+        (data['active_bonuses'] as List?)?.cast<Map<String, dynamic>>() ?? [];
     final stats = data['stats'] as Map<String, dynamic>? ?? {};
 
     return CustomScrollView(
@@ -79,14 +89,21 @@ class _ChallengesContent extends StatelessWidget {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.emoji_events, color: Colors.amber, size: 18),
+                            const Icon(
+                              Icons.emoji_events,
+                              color: Colors.amber,
+                              size: 18,
+                            ),
                             const SizedBox(width: 6),
                             Text(
                               '${stats['rewarded_count'] ?? 0}',
@@ -119,20 +136,24 @@ class _ChallengesContent extends StatelessWidget {
                       const Spacer(),
                       // Bouton vers Gamification
                       InkWell(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const GamificationScreen()),
-                        ),
+                        onTap: () => context.push(AppRoutes.gamification),
                         borderRadius: BorderRadius.circular(12),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Row(
                             children: [
-                              Icon(Icons.leaderboard, color: Colors.white, size: 20),
+                              Icon(
+                                Icons.leaderboard,
+                                color: Colors.white,
+                                size: 20,
+                              ),
                               SizedBox(width: 6),
                               Text(
                                 'Classement',
@@ -194,7 +215,10 @@ class _ChallengesContent extends StatelessWidget {
           SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, index) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
                 child: _ChallengeCard(
                   challenge: completed[index],
                   canClaim: true,
@@ -220,7 +244,10 @@ class _ChallengesContent extends StatelessWidget {
           SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, index) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
                 child: _ChallengeCard(challenge: inProgress[index]),
               ),
               childCount: inProgress.length,
@@ -246,7 +273,10 @@ class _ChallengesContent extends StatelessWidget {
           SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, index) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
                 child: _ChallengeCard(
                   challenge: rewarded[index],
                   isRewarded: true,
@@ -264,7 +294,11 @@ class _ChallengesContent extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.emoji_events_outlined, size: 64, color: Colors.grey),
+                  Icon(
+                    Icons.emoji_events_outlined,
+                    size: 64,
+                    color: Colors.grey,
+                  ),
                   SizedBox(height: 16),
                   Text(
                     'Aucun défi disponible',
@@ -280,16 +314,35 @@ class _ChallengesContent extends StatelessWidget {
     );
   }
 
-  Future<void> _claimReward(BuildContext context, Map<String, dynamic> challenge, WidgetRef ref) async {
+  Future<void> _claimReward(
+    BuildContext context,
+    Map<String, dynamic> challenge,
+    WidgetRef ref,
+  ) async {
+    final challengeId = challenge['id'];
+    if (challengeId == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Identifiant du défi invalide.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
     try {
       final repo = ref.read(challengeRepositoryProvider);
-      final result = await repo.claimReward(challenge['id']);
-      
+      final result = await repo.claimReward(challengeId as int);
+
       if (context.mounted) {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -300,7 +353,11 @@ class _ChallengesContent extends StatelessWidget {
                     color: Colors.green.shade50,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.celebration, color: Colors.green, size: 40),
+                  child: const Icon(
+                    Icons.celebration,
+                    color: Colors.green,
+                    size: 40,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 Text(
@@ -344,7 +401,10 @@ class _ChallengesContent extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -434,7 +494,11 @@ class _BonusCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.local_fire_department, color: Colors.white, size: 20),
+              const Icon(
+                Icons.local_fire_department,
+                color: Colors.white,
+                size: 20,
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -511,7 +575,9 @@ class _ChallengeCard extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: isRewarded ? Colors.grey.shade100 : color.withValues(alpha: 0.1),
+                  color: isRewarded
+                      ? Colors.grey.shade100
+                      : color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -538,15 +604,22 @@ class _ChallengeCard extends StatelessWidget {
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
-                            color: isRewarded ? Colors.grey.shade100 : Colors.green.shade50,
+                            color: isRewarded
+                                ? Colors.grey.shade100
+                                : Colors.green.shade50,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             '+${currencyFormat.format(rewardAmount)} F',
                             style: TextStyle(
-                              color: isRewarded ? Colors.grey : Colors.green.shade700,
+                              color: isRewarded
+                                  ? Colors.grey
+                                  : Colors.green.shade700,
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
                             ),
@@ -577,7 +650,9 @@ class _ChallengeCard extends StatelessWidget {
                     child: LinearProgressIndicator(
                       value: progress / 100,
                       backgroundColor: Colors.grey.shade200,
-                      valueColor: AlwaysStoppedAnimation(canClaim ? Colors.green : color),
+                      valueColor: AlwaysStoppedAnimation(
+                        canClaim ? Colors.green : color,
+                      ),
                       minHeight: 8,
                     ),
                   ),

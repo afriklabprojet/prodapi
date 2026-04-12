@@ -73,22 +73,26 @@ void main() {
   group('DeliveryAddressSection', () {
     group('rendering', () {
       testWidgets('should render with default values', (tester) async {
-        await tester.pumpWidget(buildWidget(
-          useManualAddress: true, // Use manual to avoid AddressSelector needing ProviderScope
-        ));
+        await tester.pumpWidget(
+          buildWidget(
+            useManualAddress:
+                true, // Use manual to avoid AddressSelector needing ProviderScope
+          ),
+        );
         await tester.pump();
 
         expect(find.byType(DeliveryAddressSection), findsOneWidget);
       });
 
-      testWidgets('should show address type toggle when has addresses', (tester) async {
-        await tester.pumpWidget(buildWidget(
-          hasAddresses: true,
-          useManualAddress: true,
-        ));
+      testWidgets('should show address type toggle when has addresses', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          buildWidget(hasAddresses: true, useManualAddress: true),
+        );
         await tester.pump();
 
-        expect(find.text('Adresse enregistrée'), findsOneWidget);
+        expect(find.text('Adresses enregistrées'), findsOneWidget);
         expect(find.text('Nouvelle adresse'), findsOneWidget);
       });
 
@@ -96,26 +100,28 @@ void main() {
         await tester.pumpWidget(buildWidget(hasAddresses: false));
         await tester.pump();
 
-        expect(find.text('Adresse enregistrée'), findsNothing);
+        expect(find.text('Adresses enregistrées'), findsNothing);
         expect(find.text('Nouvelle adresse'), findsNothing);
       });
 
-      testWidgets('should show address form when useManualAddress is true', (tester) async {
-        await tester.pumpWidget(buildWidget(
-          useManualAddress: true,
-          hasAddresses: true,
-        ));
+      testWidgets('should show address form when useManualAddress is true', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          buildWidget(useManualAddress: true, hasAddresses: true),
+        );
         await tester.pump();
 
         // The form should contain text fields
         expect(find.byType(TextFormField), findsWidgets);
       });
 
-      testWidgets('should show address form when no addresses exist', (tester) async {
-        await tester.pumpWidget(buildWidget(
-          useManualAddress: false,
-          hasAddresses: false,
-        ));
+      testWidgets('should show address form when no addresses exist', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          buildWidget(useManualAddress: false, hasAddresses: false),
+        );
         await tester.pump();
 
         // Form should be shown automatically
@@ -124,101 +130,112 @@ void main() {
     });
 
     group('toggle buttons', () {
-      testWidgets('should highlight saved address button when not using manual', (tester) async {
+      testWidgets('should highlight saved address button when not using manual', (
+        tester,
+      ) async {
         // Note: We use useManualAddress: true to avoid AddressSelector which needs ProviderScope
         // and just verify the button is present
-        await tester.pumpWidget(buildWidget(
-          useManualAddress: true,
-          hasAddresses: true,
-        ));
+        await tester.pumpWidget(
+          buildWidget(useManualAddress: true, hasAddresses: true),
+        );
         await tester.pump();
 
-        final savedAddressButton = find.text('Adresse enregistrée');
+        final savedAddressButton = find.text('Adresses enregistrées');
         expect(savedAddressButton, findsOneWidget);
       });
 
-      testWidgets('should highlight new address button when using manual', (tester) async {
-        await tester.pumpWidget(buildWidget(
-          useManualAddress: true,
-          hasAddresses: true,
-        ));
+      testWidgets('should highlight new address button when using manual', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          buildWidget(useManualAddress: true, hasAddresses: true),
+        );
         await tester.pump();
 
         final newAddressButton = find.text('Nouvelle adresse');
         expect(newAddressButton, findsOneWidget);
       });
 
-      testWidgets('should call onToggleManualAddress when saved address button tapped', (tester) async {
-        bool? toggledValue;
-        await tester.pumpWidget(buildWidget(
-          useManualAddress: true,
-          hasAddresses: true,
-          onToggleManualAddress: (value) => toggledValue = value,
-        ));
-        await tester.pump();
+      testWidgets(
+        'should call onToggleManualAddress when saved address button tapped',
+        (tester) async {
+          bool? toggledValue;
+          await tester.pumpWidget(
+            buildWidget(
+              useManualAddress: true,
+              hasAddresses: true,
+              onToggleManualAddress: (value) => toggledValue = value,
+            ),
+          );
+          await tester.pump();
 
-        await tester.tap(find.text('Adresse enregistrée'));
-        await tester.pump();
+          await tester.tap(find.text('Adresses enregistrées'));
+          await tester.pump();
 
-        expect(toggledValue, false);
-      });
+          expect(toggledValue, false);
+        },
+      );
 
-      testWidgets('should call onToggleManualAddress when new address button tapped', (tester) async {
-        bool? toggledValue;
-        await tester.pumpWidget(buildWidget(
-          useManualAddress: true, // Use true to avoid AddressSelector
-          hasAddresses: true,
-          onToggleManualAddress: (value) => toggledValue = value,
-        ));
-        await tester.pump();
+      testWidgets(
+        'should call onToggleManualAddress when new address button tapped',
+        (tester) async {
+          bool? toggledValue;
+          await tester.pumpWidget(
+            buildWidget(
+              useManualAddress: true, // Use true to avoid AddressSelector
+              hasAddresses: true,
+              onToggleManualAddress: (value) => toggledValue = value,
+            ),
+          );
+          await tester.pump();
 
-        await tester.tap(find.text('Nouvelle adresse'));
-        await tester.pump();
+          await tester.tap(find.text('Nouvelle adresse'));
+          await tester.pump();
 
-        expect(toggledValue, true);
-      });
+          expect(toggledValue, true);
+        },
+      );
     });
 
     group('icons', () {
-      testWidgets('should show bookmark icon for saved address', (tester) async {
-        await tester.pumpWidget(buildWidget(
-          hasAddresses: true,
-          useManualAddress: true,
-        ));
+      testWidgets('should show bookmark icon for saved address', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          buildWidget(hasAddresses: true, useManualAddress: true),
+        );
         await tester.pump();
 
-        expect(find.byIcon(Icons.bookmark), findsOneWidget);
+        // Form shows bookmark_border when saveAddress is false (default)
+        expect(find.byIcon(Icons.bookmark_border), findsOneWidget);
       });
 
-      testWidgets('should show edit_location_alt icon for new address', (tester) async {
-        await tester.pumpWidget(buildWidget(
-          hasAddresses: true,
-          useManualAddress: true,
-        ));
+      testWidgets('should show my_location icon for new address form', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          buildWidget(hasAddresses: true, useManualAddress: true),
+        );
         await tester.pump();
 
-        expect(find.byIcon(Icons.edit_location_alt), findsOneWidget);
+        expect(find.byIcon(Icons.my_location), findsOneWidget);
       });
     });
 
     group('dark mode', () {
       testWidgets('should render correctly in dark mode', (tester) async {
-        await tester.pumpWidget(buildWidget(
-          isDark: true,
-          hasAddresses: true,
-          useManualAddress: true,
-        ));
+        await tester.pumpWidget(
+          buildWidget(isDark: true, hasAddresses: true, useManualAddress: true),
+        );
         await tester.pump();
 
         expect(find.byType(DeliveryAddressSection), findsOneWidget);
       });
 
       testWidgets('should render form in dark mode', (tester) async {
-        await tester.pumpWidget(buildWidget(
-          isDark: true,
-          useManualAddress: true,
-          hasAddresses: true,
-        ));
+        await tester.pumpWidget(
+          buildWidget(isDark: true, useManualAddress: true, hasAddresses: true),
+        );
         await tester.pump();
 
         expect(find.byType(TextFormField), findsWidgets);
@@ -229,31 +246,38 @@ void main() {
       // Note: Tests with useManualAddress: false require ProviderScope
       // because AddressSelector uses Riverpod. We test with useManualAddress: true
       // to avoid this dependency in unit tests.
-      
+
       testWidgets('should accept selected address parameter', (tester) async {
         // Test that widget accepts selectedAddress parameter without crashing
         // Using useManualAddress to avoid AddressSelector which needs ProviderScope
-        await tester.pumpWidget(buildWidget(
-          hasAddresses: true,
-          useManualAddress: true, // Use manual to avoid AddressSelector
-          selectedAddress: tAddress,
-        ));
+        await tester.pumpWidget(
+          buildWidget(
+            hasAddresses: true,
+            useManualAddress: true, // Use manual to avoid AddressSelector
+            selectedAddress: tAddress,
+          ),
+        );
         await tester.pump();
 
         expect(find.byType(DeliveryAddressSection), findsOneWidget);
       });
 
-      testWidgets('should display form when using manual address with selected', (tester) async {
-        await tester.pumpWidget(buildWidget(
-          useManualAddress: true,
-          hasAddresses: true,
-          selectedAddress: tAddress,
-        ));
-        await tester.pump();
+      testWidgets(
+        'should display form when using manual address with selected',
+        (tester) async {
+          await tester.pumpWidget(
+            buildWidget(
+              useManualAddress: true,
+              hasAddresses: true,
+              selectedAddress: tAddress,
+            ),
+          );
+          await tester.pump();
 
-        // Form should be shown when using manual address
-        expect(find.byType(TextFormField), findsWidgets);
-      });
+          // Form should be shown when using manual address
+          expect(find.byType(TextFormField), findsWidgets);
+        },
+      );
     });
 
     group('controller values', () {
@@ -263,10 +287,9 @@ void main() {
         phoneController.text = '0699999999';
         labelController.text = 'Work';
 
-        await tester.pumpWidget(buildWidget(
-          useManualAddress: true,
-          hasAddresses: true,
-        ));
+        await tester.pumpWidget(
+          buildWidget(useManualAddress: true, hasAddresses: true),
+        );
         await tester.pump();
 
         // Controllers should retain their values
@@ -279,23 +302,27 @@ void main() {
 
     group('save address checkbox', () {
       testWidgets('should respect saveAddress value', (tester) async {
-        await tester.pumpWidget(buildWidget(
-          useManualAddress: true,
-          hasAddresses: true,
-          saveAddress: true,
-        ));
+        await tester.pumpWidget(
+          buildWidget(
+            useManualAddress: true,
+            hasAddresses: true,
+            saveAddress: true,
+          ),
+        );
         await tester.pump();
 
         expect(find.byType(DeliveryAddressSection), findsOneWidget);
       });
 
       testWidgets('should pass onSaveAddressChanged to form', (tester) async {
-        await tester.pumpWidget(buildWidget(
-          useManualAddress: true,
-          hasAddresses: true,
-          saveAddress: false,
-          onSaveAddressChanged: (_) {},
-        ));
+        await tester.pumpWidget(
+          buildWidget(
+            useManualAddress: true,
+            hasAddresses: true,
+            saveAddress: false,
+            onSaveAddressChanged: (_) {},
+          ),
+        );
         await tester.pump();
 
         // Widget should build without errors
@@ -304,30 +331,39 @@ void main() {
     });
 
     group('InkWell interaction', () {
-      testWidgets('should have InkWell for toggle buttons with manual mode', (tester) async {
-        await tester.pumpWidget(buildWidget(
-          hasAddresses: true,
-          useManualAddress: true, // Use manual to avoid AddressSelector needing ProviderScope
-        ));
+      testWidgets('should have InkWell for toggle buttons with manual mode', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          buildWidget(
+            hasAddresses: true,
+            useManualAddress:
+                true, // Use manual to avoid AddressSelector needing ProviderScope
+          ),
+        );
         await tester.pump();
 
         expect(find.byType(InkWell), findsWidgets);
       });
 
-      testWidgets('should respond to tap on both buttons from manual mode', (tester) async {
+      testWidgets('should respond to tap on both buttons from manual mode', (
+        tester,
+      ) async {
         final toggleValues = <bool>[];
-        await tester.pumpWidget(buildWidget(
-          hasAddresses: true,
-          useManualAddress: true, // Start in manual mode
-          onToggleManualAddress: (value) => toggleValues.add(value),
-        ));
+        await tester.pumpWidget(
+          buildWidget(
+            hasAddresses: true,
+            useManualAddress: true, // Start in manual mode
+            onToggleManualAddress: (value) => toggleValues.add(value),
+          ),
+        );
         await tester.pump();
 
         // Tap on saved address button (switching from manual)
-        await tester.tap(find.text('Adresse enregistrée'));
+        await tester.tap(find.text('Adresses enregistrées'));
         await tester.pump();
-        
-        // Tap on new address button 
+
+        // Tap on new address button
         await tester.tap(find.text('Nouvelle adresse'));
         await tester.pump();
 

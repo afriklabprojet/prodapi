@@ -10,10 +10,10 @@ class SyncService {
   final OfflineStorageService _offlineStorage;
   final ApiClient _apiClient;
   final NetworkInfo _networkInfo;
-  
+
   Timer? _syncTimer;
   bool _isSyncing = false;
-  
+
   // Callbacks
   VoidCallback? onSyncStarted;
   VoidCallback? onSyncCompleted;
@@ -24,15 +24,18 @@ class SyncService {
     required OfflineStorageService offlineStorage,
     required ApiClient apiClient,
     required NetworkInfo networkInfo,
-  })  : _offlineStorage = offlineStorage,
-        _apiClient = apiClient,
-        _networkInfo = networkInfo;
+  }) : _offlineStorage = offlineStorage,
+       _apiClient = apiClient,
+       _networkInfo = networkInfo;
 
   /// Démarre la synchronisation automatique
   void startAutoSync({Duration interval = const Duration(minutes: 5)}) {
     _syncTimer?.cancel();
     _syncTimer = Timer.periodic(interval, (_) => syncIfNeeded());
-    if (kDebugMode) debugPrint('🔄 [SyncService] Auto-sync started (interval: ${interval.inMinutes}min)');
+    if (kDebugMode)
+      debugPrint(
+        '🔄 [SyncService] Auto-sync started (interval: ${interval.inMinutes}min)',
+      );
   }
 
   /// Arrête la synchronisation automatique
@@ -82,14 +85,17 @@ class SyncService {
 
     _isSyncing = true;
     onSyncStarted?.call();
-    
+
     int syncedCount = 0;
     int failedCount = 0;
     final errors = <String>[];
 
     try {
       final actions = _offlineStorage.getPendingActions();
-      if (kDebugMode) debugPrint('🔄 [SyncService] Starting sync of ${actions.length} actions');
+      if (kDebugMode)
+        debugPrint(
+          '🔄 [SyncService] Starting sync of ${actions.length} actions',
+        );
 
       for (final action in actions) {
         try {
@@ -102,12 +108,15 @@ class SyncService {
             failedCount++;
           }
         } catch (e) {
-          if (kDebugMode) debugPrint('❌ [SyncService] Error syncing action ${action.id}: $e');
+          if (kDebugMode)
+            debugPrint('❌ [SyncService] Error syncing action ${action.id}: $e');
           errors.add('${action.collection}/${action.entityId}: $e');
-          
+
           // Incrémenter le compteur de retry
           if (action.retryCount < 3) {
-            final updatedAction = action.copyWith(retryCount: action.retryCount + 1);
+            final updatedAction = action.copyWith(
+              retryCount: action.retryCount + 1,
+            );
             await _offlineStorage.removeAction(action.id);
             await _offlineStorage.queueAction(updatedAction);
           } else {
@@ -119,12 +128,15 @@ class SyncService {
       }
 
       await _offlineStorage.updateLastSyncTime();
-      
-      if (kDebugMode) debugPrint('✅ [SyncService] Sync completed: $syncedCount synced, $failedCount failed');
-      
+
+      if (kDebugMode)
+        debugPrint(
+          '✅ [SyncService] Sync completed: $syncedCount synced, $failedCount failed',
+        );
+
       return SyncResult(
         success: failedCount == 0,
-        message: failedCount == 0 
+        message: failedCount == 0
             ? 'Synchronisation réussie'
             : '$failedCount actions en échec',
         syncedCount: syncedCount,
@@ -166,8 +178,41 @@ class SyncService {
   }
 
   Future<bool> _executeUpdate(PendingAction action) async {
-    if (action.entityId == null || action.data == null) return false;
+    if (action.entityId == null) return false;
 
+    // Handle order-specific actions
+    if (action.collection == OfflineCollections.orders && action.data != null) {
+      final orderAction = action.data!['action'] as String?;
+      final orderId = action.entityId;
+
+      switch (orderAction) {
+        case 'confirm':
+          final response = await _apiClient.post(
+            '/pharmacy/orders/$orderId/confirm',
+          );
+          return response.statusCode == 200;
+        case 'mark_ready':
+          final response = await _apiClient.post(
+            '/pharmacy/orders/$orderId/ready',
+          );
+          return response.statusCode == 200;
+        case 'reject':
+          final reason = action.data!['reason'] as String?;
+          final response = await _apiClient.post(
+            '/pharmacy/orders/$orderId/reject',
+            data: reason != null ? {'reason': reason} : null,
+          );
+          return response.statusCode == 200;
+        case 'deliver':
+          final response = await _apiClient.post(
+            '/pharmacy/orders/$orderId/deliver',
+          );
+          return response.statusCode == 200;
+      }
+    }
+
+    // Default update behavior for other collections
+    if (action.data == null) return false;
     final endpoint = '${_getEndpoint(action.collection)}/${action.entityId}';
     final response = await _apiClient.put(endpoint, data: action.data);
     return response.statusCode == 200;

@@ -7,8 +7,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
-import '../../../../core/presentation/widgets/ui_components.dart';
-import '../../../../core/presentation/widgets/error_display.dart';
+import '../../../../core/presentation/widgets/adaptive_picker.dart';
+import '../../../../core/presentation/widgets/widgets.dart';
 import '../../../../core/utils/error_messages.dart';
 import '../providers/inventory_provider.dart';
 import '../../domain/entities/product_entity.dart';
@@ -262,6 +262,7 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
               child: Form(
                 key: _formKey,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
                 child: Column(
                   children: [
                     // Image Picker
@@ -469,7 +470,7 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
                         Expanded(
                           child: InkWell(
                             onTap: () async {
-                              final d = await showDatePicker(
+                              final d = await AdaptivePicker.showDate(
                                 context: context,
                                 initialDate: _expiryDate ?? DateTime.now().add(const Duration(days: 365)),
                                 firstDate: DateTime.now(),

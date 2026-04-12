@@ -17,6 +17,7 @@ class CreateOrderUseCase {
     String? prescriptionImage,
     String? customerNotes,
     int? prescriptionId,
+    String? promoCode,
   }) {
     return repository.createOrder(
       pharmacyId: pharmacyId,
@@ -26,6 +27,7 @@ class CreateOrderUseCase {
       prescriptionImage: prescriptionImage,
       customerNotes: customerNotes,
       prescriptionId: prescriptionId,
+      promoCode: promoCode,
     );
   }
 }

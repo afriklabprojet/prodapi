@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/app_exceptions.dart';
 import 'app_loading_widget.dart';
 import 'app_error_widget.dart';
 
@@ -60,8 +61,23 @@ class AsyncValueWidget<T> extends StatelessWidget {
       error: (e, st) {
         if (error != null) return error!(e, st);
 
-        final errorMessage = e.toString();
-        final isProfileError = errorMessage.contains('coursier') ||
+        // KYC incomplet — afficher un message propre avec icône document
+        if (e is IncompleteKycException) {
+          return AppErrorWidget(
+            message:
+                'Complétez votre vérification d\'identité pour accéder à cette section.',
+            icon: Icons.verified_user_outlined,
+            iconColor: Colors.orange,
+            title: 'Vérification requise',
+            onRetry: onRetry,
+          );
+        }
+
+        final errorMessage = e is AppException
+            ? e.userMessage
+            : e.toString().replaceAll('Exception: ', '');
+        final isProfileError =
+            errorMessage.contains('coursier') ||
             errorMessage.contains('403') ||
             errorMessage.contains('non trouvé');
 
@@ -72,10 +88,7 @@ class AsyncValueWidget<T> extends StatelessWidget {
           );
         }
 
-        return AppErrorWidget(
-          message: errorMessage,
-          onRetry: onRetry,
-        );
+        return AppErrorWidget(message: errorMessage, onRetry: onRetry);
       },
       data: data,
     );
@@ -109,16 +122,12 @@ class SliverAsyncValueWidget<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return value.when(
-      loading: () => SliverFillRemaining(
-        child: AppLoadingWidget(message: loadingMessage),
-      ),
+      loading: () =>
+          SliverFillRemaining(child: AppLoadingWidget(message: loadingMessage)),
       error: (e, st) {
         final errorMessage = e.toString();
         return SliverFillRemaining(
-          child: AppErrorWidget(
-            message: errorMessage,
-            onRetry: onRetry,
-          ),
+          child: AppErrorWidget(message: errorMessage, onRetry: onRetry),
         );
       },
       data: data,

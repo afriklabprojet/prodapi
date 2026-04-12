@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
+import '../../../l10n/app_localizations.dart';
 import '../../services/voice_search_service.dart';
 
 /// Widget de bouton de recherche vocale
@@ -333,6 +334,7 @@ class _VoiceSearchModalState extends State<VoiceSearchModal>
             Icons.send,
             color: Theme.of(context).colorScheme.primary,
           ),
+          tooltip: 'Envoyer',
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -478,7 +480,7 @@ class _VoiceSearchModalState extends State<VoiceSearchModal>
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text('Annuler'),
+                      child: Text(AppLocalizations.of(context).cancel),
                     ),
                   ),
                   const SizedBox(width: 12),

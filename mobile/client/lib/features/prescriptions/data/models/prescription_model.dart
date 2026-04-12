@@ -15,6 +15,8 @@ class PrescriptionModel {
   final int? orderId;
   final String? orderReference;
   final String? source;
+  final String fulfillmentStatus;
+  final int dispensingCount;
 
   const PrescriptionModel({
     required this.id,
@@ -29,6 +31,8 @@ class PrescriptionModel {
     this.orderId,
     this.orderReference,
     this.source,
+    this.fulfillmentStatus = 'none',
+    this.dispensingCount = 0,
   });
 
   factory PrescriptionModel.fromJson(Map<String, dynamic> json) {
@@ -60,6 +64,8 @@ class PrescriptionModel {
       orderId: json['order_id'] as int?,
       orderReference: json['order_reference'] as String?,
       source: json['source'] as String?,
+      fulfillmentStatus: json['fulfillment_status']?.toString() ?? 'none',
+      dispensingCount: (json['dispensing_count'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -77,6 +83,8 @@ class PrescriptionModel {
       'order_id': orderId,
       'order_reference': orderReference,
       'source': source,
+      'fulfillment_status': fulfillmentStatus,
+      'dispensing_count': dispensingCount,
     };
   }
 
@@ -95,6 +103,8 @@ class PrescriptionModel {
       orderId: orderId,
       orderReference: orderReference,
       source: source,
+      fulfillmentStatus: fulfillmentStatus,
+      dispensingCount: dispensingCount,
     );
   }
 }

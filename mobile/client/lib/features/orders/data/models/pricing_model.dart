@@ -5,16 +5,19 @@ import '../../domain/entities/pricing_entity.dart';
 class PricingConfigModel {
   final DeliveryPricingModel delivery;
   final ServicePricingModel service;
+  final PaymentModesModel paymentModes;
 
   PricingConfigModel({
     required this.delivery,
     required this.service,
+    required this.paymentModes,
   });
 
   factory PricingConfigModel.fromJson(Map<String, dynamic> json) {
     return PricingConfigModel(
       delivery: DeliveryPricingModel.fromJson(json['delivery'] ?? {}),
       service: ServicePricingModel.fromJson(json['service'] ?? {}),
+      paymentModes: PaymentModesModel.fromJson(json['payment_modes'] ?? {}),
     );
   }
 
@@ -22,6 +25,7 @@ class PricingConfigModel {
     return PricingConfigModel(
       delivery: DeliveryPricingModel.defaults(),
       service: ServicePricingModel.defaults(),
+      paymentModes: PaymentModesModel.defaults(),
     );
   }
 
@@ -30,6 +34,7 @@ class PricingConfigModel {
     return PricingConfigEntity(
       delivery: delivery.toEntity(),
       service: service.toEntity(),
+      paymentModes: paymentModes.toEntity(),
     );
   }
 }
@@ -183,6 +188,43 @@ class PaymentFeeConfigModel {
       enabled: enabled,
       fixedFee: fixedFee,
       percentage: percentage,
+    );
+  }
+}
+
+/// Model pour modes de paiement
+class PaymentModesModel {
+  final bool platformEnabled;
+  final bool cashEnabled;
+  final bool walletEnabled;
+
+  PaymentModesModel({
+    required this.platformEnabled,
+    required this.cashEnabled,
+    required this.walletEnabled,
+  });
+
+  factory PaymentModesModel.fromJson(Map<String, dynamic> json) {
+    return PaymentModesModel(
+      platformEnabled: json['platform'] as bool? ?? true,
+      cashEnabled: json['cash'] as bool? ?? false,
+      walletEnabled: json['wallet'] as bool? ?? true,
+    );
+  }
+
+  factory PaymentModesModel.defaults() {
+    return PaymentModesModel(
+      platformEnabled: true,
+      cashEnabled: false,
+      walletEnabled: true,
+    );
+  }
+
+  PaymentModesEntity toEntity() {
+    return PaymentModesEntity(
+      platformEnabled: platformEnabled,
+      cashEnabled: cashEnabled,
+      walletEnabled: walletEnabled,
     );
   }
 }

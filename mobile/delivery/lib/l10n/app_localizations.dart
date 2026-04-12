@@ -107,7 +107,7 @@ abstract class AppLocalizations {
   /// No description provided for @welcome.
   ///
   /// In fr, this message translates to:
-  /// **'Bienvenue'**
+  /// **'Bienvenue sur'**
   String get welcome;
 
   /// No description provided for @login.
@@ -1447,6 +1447,570 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Félicitations ! Vous êtes passé au niveau {level} !'**
   String levelUp(int level);
+
+  /// Notification géofence pharmacie
+  ///
+  /// In fr, this message translates to:
+  /// **'Vous approchez de la pharmacie {name}'**
+  String approachingPharmacy(String name);
+
+  /// Notification géofence client
+  ///
+  /// In fr, this message translates to:
+  /// **'Vous approchez du client {name}'**
+  String approachingClient(String name);
+
+  /// Notification arrivée pharmacie
+  ///
+  /// In fr, this message translates to:
+  /// **'Vous êtes arrivé à la pharmacie !'**
+  String get arrivedAtPharmacy;
+
+  /// Notification arrivée client
+  ///
+  /// In fr, this message translates to:
+  /// **'Vous êtes arrivé chez le client !'**
+  String get arrivedAtClient;
+
+  /// Message TTS arrivée
+  ///
+  /// In fr, this message translates to:
+  /// **'Vous êtes arrivé à destination.'**
+  String get arrivedAtDestination;
+
+  /// Point de récupération
+  ///
+  /// In fr, this message translates to:
+  /// **'Récupération'**
+  String get pickupPoint;
+
+  /// Point de livraison
+  ///
+  /// In fr, this message translates to:
+  /// **'Livraison'**
+  String get deliveryPoint;
+
+  /// Indication pull-to-refresh
+  ///
+  /// In fr, this message translates to:
+  /// **'Tirez vers le bas pour actualiser'**
+  String get pullToRefresh;
+
+  /// Liste vide
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune course trouvée'**
+  String get noDeliveriesFound;
+
+  /// Description paramètre géofence
+  ///
+  /// In fr, this message translates to:
+  /// **'Notification automatique quand vous approchez de la pharmacie ou du client'**
+  String get geofenceNotificationHint;
+
+  /// Succès liveness
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérification d\'identité réussie !'**
+  String get verificationSuccess;
+
+  /// Échec liveness
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérification échouée: {error}'**
+  String verificationFailed(String error);
+
+  /// Succès capture selfie
+  ///
+  /// In fr, this message translates to:
+  /// **'Selfie capturé avec succès'**
+  String get selfieCaptured;
+
+  /// Erreur taille image
+  ///
+  /// In fr, this message translates to:
+  /// **'Image trop petite. Rapprochez-vous de la caméra.'**
+  String get imageTooSmall;
+
+  /// Succès inscription
+  ///
+  /// In fr, this message translates to:
+  /// **'Inscription réussie !'**
+  String get registrationSuccess;
+
+  /// Info inscription
+  ///
+  /// In fr, this message translates to:
+  /// **'Votre demande a été soumise et est en cours de vérification.'**
+  String get registrationPending;
+
+  /// No description provided for @phoneNumberUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Numéro non disponible'**
+  String get phoneNumberUnavailable;
+
+  /// No description provided for @cannotLaunchNavigation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de lancer la navigation avec {app}'**
+  String cannotLaunchNavigation(String app);
+
+  /// No description provided for @cannotCall.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible d\'appeler {phone}'**
+  String cannotCall(String phone);
+
+  /// No description provided for @quickMessage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Message rapide'**
+  String get quickMessage;
+
+  /// No description provided for @enRouteToPharmacy.
+  ///
+  /// In fr, this message translates to:
+  /// **'Je suis en route vers votre pharmacie'**
+  String get enRouteToPharmacy;
+
+  /// No description provided for @arrivedAtPharmacyMsg.
+  ///
+  /// In fr, this message translates to:
+  /// **'Je suis arrivé devant la pharmacie'**
+  String get arrivedAtPharmacyMsg;
+
+  /// No description provided for @isOrderReady.
+  ///
+  /// In fr, this message translates to:
+  /// **'La commande est-elle prête ?'**
+  String get isOrderReady;
+
+  /// No description provided for @cannotFindAddress.
+  ///
+  /// In fr, this message translates to:
+  /// **'Je ne trouve pas l\'adresse'**
+  String get cannotFindAddress;
+
+  /// No description provided for @arrivingInFiveMin.
+  ///
+  /// In fr, this message translates to:
+  /// **'J\'arrive dans 5 minutes'**
+  String get arrivingInFiveMin;
+
+  /// No description provided for @atYourBuilding.
+  ///
+  /// In fr, this message translates to:
+  /// **'Je suis en bas de votre immeuble'**
+  String get atYourBuilding;
+
+  /// No description provided for @pleaseComeDown.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pouvez-vous descendre svp ?'**
+  String get pleaseComeDown;
+
+  /// No description provided for @cannotFindYourAddress.
+  ///
+  /// In fr, this message translates to:
+  /// **'Je ne trouve pas votre adresse'**
+  String get cannotFindYourAddress;
+
+  /// No description provided for @customerNotResponding.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le client ne répond pas'**
+  String get customerNotResponding;
+
+  /// No description provided for @onboardingTitle1.
+  ///
+  /// In fr, this message translates to:
+  /// **'Bienvenue Livreur'**
+  String get onboardingTitle1;
+
+  /// No description provided for @onboardingDesc1.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rejoignez l\'équipe DR-PHARMA et livrez des médicaments essentiels. Chaque livraison compte !'**
+  String get onboardingDesc1;
+
+  /// No description provided for @onboardingTitle2.
+  ///
+  /// In fr, this message translates to:
+  /// **'Gagnez plus'**
+  String get onboardingTitle2;
+
+  /// No description provided for @onboardingDesc2.
+  ///
+  /// In fr, this message translates to:
+  /// **'Suivez vos gains en temps réel, complétez des défis et montez en niveau pour débloquer des bonus.'**
+  String get onboardingDesc2;
+
+  /// No description provided for @onboardingTitle3.
+  ///
+  /// In fr, this message translates to:
+  /// **'Comment ça marche ?'**
+  String get onboardingTitle3;
+
+  /// No description provided for @onboardingDesc3.
+  ///
+  /// In fr, this message translates to:
+  /// **'Une commission est déduite de votre wallet à chaque livraison. Le reste est à vous ! Retirez vos gains à tout moment.'**
+  String get onboardingDesc3;
+
+  /// No description provided for @getStarted.
+  ///
+  /// In fr, this message translates to:
+  /// **'Commencer'**
+  String get getStarted;
+
+  /// No description provided for @skip.
+  ///
+  /// In fr, this message translates to:
+  /// **'Passer'**
+  String get skip;
+
+  /// No description provided for @errorOccurredRetry.
+  ///
+  /// In fr, this message translates to:
+  /// **'Une erreur est survenue. Veuillez réessayer.'**
+  String get errorOccurredRetry;
+
+  /// No description provided for @connectionTimeout.
+  ///
+  /// In fr, this message translates to:
+  /// **'La connexion a pris trop de temps. Veuillez réessayer.'**
+  String get connectionTimeout;
+
+  /// No description provided for @connectionTimeoutCheck.
+  ///
+  /// In fr, this message translates to:
+  /// **'La connexion a pris trop de temps. Vérifiez votre connexion.'**
+  String get connectionTimeoutCheck;
+
+  /// No description provided for @requestCancelled.
+  ///
+  /// In fr, this message translates to:
+  /// **'Requête annulée'**
+  String get requestCancelled;
+
+  /// No description provided for @securityError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Erreur de sécurité. Contactez le support.'**
+  String get securityError;
+
+  /// No description provided for @unexpectedError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Une erreur inattendue est survenue'**
+  String get unexpectedError;
+
+  /// No description provided for @slowConnection.
+  ///
+  /// In fr, this message translates to:
+  /// **'Connexion trop lente. Vérifiez votre connexion internet.'**
+  String get slowConnection;
+
+  /// No description provided for @slowUpload.
+  ///
+  /// In fr, this message translates to:
+  /// **'Envoi des données trop lent. Réessayez.'**
+  String get slowUpload;
+
+  /// No description provided for @serverTimeout.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le serveur met trop de temps à répondre.'**
+  String get serverTimeout;
+
+  /// No description provided for @cannotConnectServer.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de se connecter au serveur. Vérifiez votre connexion.'**
+  String get cannotConnectServer;
+
+  /// No description provided for @noInternetConnection.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pas de connexion internet'**
+  String get noInternetConnection;
+
+  /// No description provided for @unknownConnectionError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Erreur de connexion inconnue'**
+  String get unknownConnectionError;
+
+  /// No description provided for @serverCommunicationError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Erreur de communication avec le serveur'**
+  String get serverCommunicationError;
+
+  /// No description provided for @invalidRequest.
+  ///
+  /// In fr, this message translates to:
+  /// **'Requête invalide. Vérifiez les données saisies.'**
+  String get invalidRequest;
+
+  /// No description provided for @accessDenied.
+  ///
+  /// In fr, this message translates to:
+  /// **'Accès refusé. Vous n\'avez pas les permissions nécessaires.'**
+  String get accessDenied;
+
+  /// No description provided for @resourceNotFound.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ressource introuvable.'**
+  String get resourceNotFound;
+
+  /// No description provided for @timeoutRetry.
+  ///
+  /// In fr, this message translates to:
+  /// **'Délai d\'attente dépassé. Réessayez.'**
+  String get timeoutRetry;
+
+  /// No description provided for @dataConflict.
+  ///
+  /// In fr, this message translates to:
+  /// **'Conflit de données. L\'élément existe peut-être déjà.'**
+  String get dataConflict;
+
+  /// No description provided for @invalidData.
+  ///
+  /// In fr, this message translates to:
+  /// **'Données invalides. Vérifiez les informations saisies.'**
+  String get invalidData;
+
+  /// No description provided for @tooManyRequests.
+  ///
+  /// In fr, this message translates to:
+  /// **'Trop de requêtes. Attendez un moment avant de réessayer.'**
+  String get tooManyRequests;
+
+  /// No description provided for @internalServerError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Erreur interne du serveur. Réessayez plus tard.'**
+  String get internalServerError;
+
+  /// No description provided for @serviceUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Service temporairement indisponible.'**
+  String get serviceUnavailable;
+
+  /// No description provided for @estimatedDuration.
+  ///
+  /// In fr, this message translates to:
+  /// **'Durée estimée'**
+  String get estimatedDuration;
+
+  /// No description provided for @estimatedDurationMinutes.
+  ///
+  /// In fr, this message translates to:
+  /// **'{minutes} min estimées'**
+  String estimatedDurationMinutes(int minutes);
+
+  /// No description provided for @biometricAuthReason.
+  ///
+  /// In fr, this message translates to:
+  /// **'Authentifiez-vous pour accéder à l\'application'**
+  String get biometricAuthReason;
+
+  /// No description provided for @loginWithCredentialsFirst.
+  ///
+  /// In fr, this message translates to:
+  /// **'Veuillez d\'abord vous connecter avec vos identifiants'**
+  String get loginWithCredentialsFirst;
+
+  /// No description provided for @biometricError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Erreur biométrique: {error}'**
+  String biometricError(String error);
+
+  /// No description provided for @pleaseEnterPhoneNumber.
+  ///
+  /// In fr, this message translates to:
+  /// **'Veuillez entrer votre numéro'**
+  String get pleaseEnterPhoneNumber;
+
+  /// No description provided for @connectionFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Connexion impossible. Vérifiez votre connexion internet.'**
+  String get connectionFailed;
+
+  /// No description provided for @incorrectCredentials.
+  ///
+  /// In fr, this message translates to:
+  /// **'Identifiants incorrects'**
+  String get incorrectCredentials;
+
+  /// No description provided for @checkEmailAndPassword.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérifiez votre email et mot de passe'**
+  String get checkEmailAndPassword;
+
+  /// No description provided for @resetPassword.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réinitialiser le mot de passe'**
+  String get resetPassword;
+
+  /// No description provided for @resetPasswordPhoneDesc.
+  ///
+  /// In fr, this message translates to:
+  /// **'Entrez votre numéro de téléphone. Un code OTP vous sera envoyé par WhatsApp ou SMS.'**
+  String get resetPasswordPhoneDesc;
+
+  /// No description provided for @resetPasswordEmailDesc.
+  ///
+  /// In fr, this message translates to:
+  /// **'Entrez votre email et nous vous enverrons un lien pour réinitialiser votre mot de passe.'**
+  String get resetPasswordEmailDesc;
+
+  /// No description provided for @phoneNumber.
+  ///
+  /// In fr, this message translates to:
+  /// **'Numéro de téléphone'**
+  String get phoneNumber;
+
+  /// No description provided for @phoneHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'+225 07 00 00 00 00'**
+  String get phoneHint;
+
+  /// No description provided for @emailAddress.
+  ///
+  /// In fr, this message translates to:
+  /// **'Adresse email'**
+  String get emailAddress;
+
+  /// No description provided for @emailHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'votre@email.com'**
+  String get emailHint;
+
+  /// No description provided for @pleaseEnterEmail.
+  ///
+  /// In fr, this message translates to:
+  /// **'Veuillez entrer votre email'**
+  String get pleaseEnterEmail;
+
+  /// No description provided for @invalidEmail.
+  ///
+  /// In fr, this message translates to:
+  /// **'Email invalide'**
+  String get invalidEmail;
+
+  /// No description provided for @resetLinkSent.
+  ///
+  /// In fr, this message translates to:
+  /// **'Un lien de réinitialisation a été envoyé à votre email.'**
+  String get resetLinkSent;
+
+  /// No description provided for @sendOtpCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Envoyer le code OTP'**
+  String get sendOtpCode;
+
+  /// No description provided for @sendLink.
+  ///
+  /// In fr, this message translates to:
+  /// **'Envoyer le lien'**
+  String get sendLink;
+
+  /// No description provided for @courierSpace.
+  ///
+  /// In fr, this message translates to:
+  /// **'ESPACE LIVREUR'**
+  String get courierSpace;
+
+  /// No description provided for @loginSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Connectez-vous pour commencer vos livraisons'**
+  String get loginSubtitle;
+
+  /// No description provided for @emailOrPhone.
+  ///
+  /// In fr, this message translates to:
+  /// **'Email ou Téléphone'**
+  String get emailOrPhone;
+
+  /// No description provided for @fieldRequired.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ce champ est requis'**
+  String get fieldRequired;
+
+  /// No description provided for @sendCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'ENVOYER LE CODE'**
+  String get sendCode;
+
+  /// No description provided for @signInButton.
+  ///
+  /// In fr, this message translates to:
+  /// **'SE CONNECTER'**
+  String get signInButton;
+
+  /// No description provided for @or.
+  ///
+  /// In fr, this message translates to:
+  /// **'ou'**
+  String get or;
+
+  /// No description provided for @biometricLogin.
+  ///
+  /// In fr, this message translates to:
+  /// **'Connexion biométrique'**
+  String get biometricLogin;
+
+  /// No description provided for @noAccountYet.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pas encore de compte ? '**
+  String get noAccountYet;
+
+  /// No description provided for @becomeCourier.
+  ///
+  /// In fr, this message translates to:
+  /// **'Devenir livreur'**
+  String get becomeCourier;
+
+  /// No description provided for @secure.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sécurisé'**
+  String get secure;
+
+  /// No description provided for @certified.
+  ///
+  /// In fr, this message translates to:
+  /// **'Certifié'**
+  String get certified;
+
+  /// No description provided for @support247.
+  ///
+  /// In fr, this message translates to:
+  /// **'Support 24/7'**
+  String get support247;
+
+  /// No description provided for @versionLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Version {version}'**
+  String versionLabel(String version);
 }
 
 class _AppLocalizationsDelegate

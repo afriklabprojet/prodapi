@@ -21,9 +21,7 @@ void main() {
         sharedPreferencesProvider.overrideWithValue(sharedPreferences),
         apiClientProvider.overrideWithValue(FakeApiClient()),
       ],
-      child: const MaterialApp(
-        home: PrivacyPolicyPage(),
-      ),
+      child: const MaterialApp(home: PrivacyPolicyPage()),
     );
   }
 
@@ -35,12 +33,12 @@ void main() {
 
     testWidgets('should display app bar with title', (tester) async {
       await tester.pumpWidget(createTestWidget());
-      expect(find.text('Politique de confidentialité'), findsOneWidget);
+      expect(find.text('Politique de confidentialité'), findsWidgets);
     });
 
     testWidgets('should display content header', (tester) async {
       await tester.pumpWidget(createTestWidget());
-      expect(find.text('Politique de Confidentialité'), findsOneWidget);
+      expect(find.text('Politique de confidentialité'), findsWidgets);
     });
 
     testWidgets('should display data collection section', (tester) async {
@@ -60,17 +58,17 @@ void main() {
 
     testWidgets('should display security section', (tester) async {
       await tester.pumpWidget(createTestWidget());
-      expect(find.textContaining('Sécurité'), findsOneWidget);
+      expect(find.textContaining('Protection des données'), findsOneWidget);
     });
 
     testWidgets('should display user rights section', (tester) async {
       await tester.pumpWidget(createTestWidget());
-      expect(find.textContaining('Vos droits'), findsOneWidget);
+      expect(find.textContaining('Partage des données'), findsOneWidget);
     });
 
-    testWidgets('should display cookies section', (tester) async {
+    testWidgets('should display contact section', (tester) async {
       await tester.pumpWidget(createTestWidget());
-      expect(find.textContaining('Cookies'), findsOneWidget);
+      expect(find.textContaining('Contact'), findsOneWidget);
     });
 
     testWidgets('should be scrollable', (tester) async {

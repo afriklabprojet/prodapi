@@ -2,15 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/router/app_router.dart';
 import '../providers/orders_provider.dart';
 import '../providers/orders_state.dart';
+import '../providers/payment_provider.dart';
+import '../providers/payment_state.dart';
+import '../providers/cart_provider.dart';
 import '../../domain/entities/order_entity.dart';
+import '../../../products/domain/entities/product_entity.dart';
+import '../../../products/domain/entities/pharmacy_entity.dart' as products;
 import 'payment_webview_page.dart';
 import '../widgets/payment_dialogs.dart';
 import '../widgets/rating_bottom_sheet.dart';
+import '../widgets/order_status_timeline.dart';
+import '../../../wallet/presentation/providers/wallet_provider.dart';
+import '../../../../main_shell_page.dart';
 
 class OrderDetailsPage extends ConsumerStatefulWidget {
   final int orderId;
@@ -39,6 +48,18 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
       appBar: AppBar(
         title: const Text('Détails de la commande'),
         backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              ref.read(mainShellTabProvider.notifier).state = 1;
+              context.go(AppRoutes.home);
+            }
+          },
+        ),
         actions: [
           if (order != null && order.canBeCancelled)
             IconButton(
@@ -54,7 +75,14 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
           ? _buildError(ordersState.errorMessage)
           : order == null
           ? _buildError('Commande non trouvée')
-          : _buildOrderDetails(order),
+          : RefreshIndicator(
+              onRefresh: () async {
+                await ref
+                    .read(ordersProvider.notifier)
+                    .loadOrderDetails(widget.orderId);
+              },
+              child: _buildOrderDetails(order),
+            ),
       bottomNavigationBar: (order != null && order.needsPayment)
           ? Container(
               padding: const EdgeInsets.all(16),
@@ -91,21 +119,54 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
 
   Widget _buildError(String? message) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 64, color: AppColors.error),
-          const SizedBox(height: 16),
-          Text(
-            message ?? 'Une erreur s\'est produite',
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Retour'),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.error_outline,
+                size: 48,
+                color: AppColors.error,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              message ?? 'Une erreur s\'est produite',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.arrow_back),
+                  label: const Text('Retour'),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  onPressed: () => ref
+                      .read(ordersProvider.notifier)
+                      .loadOrderDetails(widget.orderId),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Réessayer'),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -118,12 +179,20 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
     );
 
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Status Card
           _buildStatusCard(order),
+          const SizedBox(height: 16),
+
+          // Timeline de statuts
+          OrderStatusTimeline(
+            order: order,
+            isDark: Theme.of(context).brightness == Brightness.dark,
+          ),
           const SizedBox(height: 16),
 
           // Order Info
@@ -146,9 +215,9 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
           _buildSectionCard('Pharmacie', [
             _buildInfoRow('Nom', order.pharmacyName),
             if (order.pharmacyPhone != null)
-              _buildInfoRow('Téléphone', order.pharmacyPhone!),
+              _buildPhoneRow('Téléphone', order.pharmacyPhone!),
             if (order.pharmacyAddress != null)
-              _buildInfoRow('Adresse', order.pharmacyAddress!),
+              _buildAddressRow('Adresse', order.pharmacyAddress!),
           ]),
           const SizedBox(height: 16),
 
@@ -158,11 +227,20 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
 
           // Delivery Address
           _buildSectionCard('Adresse de livraison', [
-            _buildInfoRow('Adresse', order.deliveryAddress.fullAddress),
+            _buildAddressRow('Adresse', order.deliveryAddress.fullAddress),
             if (order.deliveryAddress.phone != null)
-              _buildInfoRow('Téléphone', order.deliveryAddress.phone!),
+              _buildPhoneRow('Téléphone', order.deliveryAddress.phone!),
           ]),
           const SizedBox(height: 16),
+
+          // Delivery Code — always visible until delivered/cancelled
+          if (order.deliveryCode != null &&
+              order.status != OrderStatus.delivered &&
+              order.status != OrderStatus.cancelled &&
+              order.status != OrderStatus.failed) ...[
+            _buildDeliveryCodeSection(order),
+            const SizedBox(height: 16),
+          ],
 
           // Notes
           if (order.customerNotes != null) ...[
@@ -195,8 +273,31 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
           // Total Summary
           _buildTotalCard(order, currencyFormat),
 
-          // Rate order button (only for delivered orders)
-          if (order.status == OrderStatus.delivered) ...[            const SizedBox(height: 20),
+          // Buttons for delivered orders
+          if (order.status == OrderStatus.delivered) ...[
+            const SizedBox(height: 20),
+            // Recommander cette commande
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _reorderItems(order),
+                icon: const Icon(Icons.replay),
+                label: const Text(
+                  'Recommander cette commande',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: BorderSide(color: AppColors.primary),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Évaluer la commande
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -287,7 +388,10 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                       if (order.isPaid) ...[
                         const SizedBox(width: 12),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.success,
                             borderRadius: BorderRadius.circular(12),
@@ -295,7 +399,11 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: const [
-                              Icon(Icons.check_circle, size: 12, color: Colors.white),
+                              Icon(
+                                Icons.check_circle,
+                                size: 12,
+                                color: Colors.white,
+                              ),
                               SizedBox(width: 4),
                               Text(
                                 'Payé',
@@ -321,9 +429,9 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                     ),
                   ),
                   if (order.deliveryCode != null &&
-                      (order.status == OrderStatus.delivering ||
-                          order.status == OrderStatus.ready ||
-                          order.status == OrderStatus.confirmed)) ...[
+                      order.status != OrderStatus.delivered &&
+                      order.status != OrderStatus.cancelled &&
+                      order.status != OrderStatus.failed) ...[
                     const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -391,6 +499,53 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
     return card;
   }
 
+  Widget _buildDeliveryCodeSection(OrderEntity order) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.lock_outline, color: AppColors.warning, size: 28),
+          const SizedBox(height: 8),
+          Text(
+            'Code de livraison',
+            style: TextStyle(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.grey[400]
+                  : AppColors.textSecondary,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            order.deliveryCode!,
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 8,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Communiquez ce code au livreur pour confirmer la réception',
+            style: TextStyle(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.grey[500]
+                  : AppColors.textSecondary,
+              fontSize: 12,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSectionCard(String title, List<Widget> children) {
     return Card(
       child: Padding(
@@ -435,6 +590,138 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
         ],
       ),
     );
+  }
+
+  /// Ligne avec téléphone cliquable
+  Widget _buildPhoneRow(String label, String phone) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _launchPhone(phone),
+              child: Row(
+                children: [
+                  Icon(Icons.phone, size: 16, color: AppColors.primary),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      phone,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Ligne avec adresse cliquable (ouvre Maps)
+  Widget _buildAddressRow(String label, String address) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _launchMaps(address),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.location_on, size: 16, color: AppColors.primary),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      address,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _launchPhone(String phone) async {
+    final uri = Uri.parse('tel:$phone');
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Impossible d\'ouvrir le téléphone')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erreur lors de l\'appel')),
+        );
+      }
+    }
+  }
+
+  Future<void> _launchMaps(String address) async {
+    final encodedAddress = Uri.encodeComponent(address);
+    final uri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$encodedAddress',
+    );
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Impossible d\'ouvrir Maps')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erreur lors de l\'ouverture de Maps')),
+        );
+      }
+    }
   }
 
   Widget _buildItemsCard(OrderEntity order, NumberFormat currencyFormat) {
@@ -581,19 +868,42 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
               Navigator.of(context).pop();
 
               // Await the cancel operation
-              await ref.read(ordersProvider.notifier).cancelOrder(order.id, reason);
+              final error = await ref
+                  .read(ordersProvider.notifier)
+                  .cancelOrder(order.id, reason);
 
               if (!context.mounted) return;
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Commande annulée'),
-                  backgroundColor: AppColors.success,
-                ),
-              );
+              if (error != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Impossible d\'annuler la commande. Réessayez.',
+                    ),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
+              } else {
+                // Capture the messenger before navigating away
+                final messenger = ScaffoldMessenger.of(context);
 
-              // Navigate back using GoRouter
-              context.pop();
+                // Refresh orders list so status is updated
+                ref.read(ordersProvider.notifier).loadOrders();
+
+                // Navigate back first
+                if (context.mounted) {
+                  context.pop();
+                }
+
+                // Show confirmation snackbar on the destination page
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Commande annulée avec succès ✓'),
+                    backgroundColor: AppColors.success,
+                    duration: Duration(seconds: 3),
+                  ),
+                );
+              }
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
             child: const Text('Oui, annuler'),
@@ -606,14 +916,65 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
   Future<void> _initiatePayment(int orderId) async {
     if (!mounted) return;
 
-    // Show payment method selection dialog (Wave, Orange, MTN, Moov, Djamo)
-    final selection = await PaymentProviderDialog.show(context);
+    // Récupérer le solde wallet et le montant de la commande pour le dialogue
+    final walletState = ref.read(walletProvider);
+    final order = ref.read(ordersProvider).selectedOrder;
+    final orderTotal = order?.totalAmount;
+    final orderReference = order?.reference ?? orderId.toString();
+
+    // Show payment method selection dialog (Wave, Orange, MTN, Moov, Djamo + Portefeuille)
+    final selection = await PaymentProviderDialog.show(
+      context,
+      walletBalance: walletState.wallet?.balance,
+      orderAmount: orderTotal,
+    );
     if (selection == null) return; // User cancelled
 
     final provider = selection['provider'] ?? 'jeko';
     final paymentMethod = selection['payment_method'] ?? 'orange';
 
     if (!mounted) return;
+
+    // ── Paiement par portefeuille ──────────────────────────────────────────────
+    if (provider == 'wallet') {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Paiement en cours...'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      final success = await ref
+          .read(walletProvider.notifier)
+          .payOrder(amount: orderTotal ?? 0, orderReference: orderReference);
+      if (!mounted) return;
+      Navigator.pop(context); // fermer loading
+      ref.read(ordersProvider.notifier).loadOrderDetails(orderId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success
+                ? 'Paiement effectué avec succès !'
+                : 'Paiement échoué. Vérifiez votre solde.',
+          ),
+          backgroundColor: success ? AppColors.success : AppColors.error,
+        ),
+      );
+      return;
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     // Show loading
     showDialog(
@@ -637,16 +998,23 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
     );
 
     // Call initiatePayment with selected payment method
-    final result = await ref
-        .read(ordersProvider.notifier)
-        .initiatePayment(orderId: orderId, provider: provider, paymentMethod: paymentMethod);
+    await ref
+        .read(paymentProvider.notifier)
+        .initiatePayment(
+          orderId: orderId,
+          provider: provider,
+          paymentMethod: paymentMethod,
+        );
 
     // Hide loading
     if (mounted) Navigator.pop(context);
 
-    if (result != null && result.containsKey('payment_url')) {
-      final paymentUrl = result['payment_url'] as String;
-      
+    final paymentState = ref.read(paymentProvider);
+
+    if (paymentState.status == PaymentStatus.success &&
+        paymentState.result != null) {
+      final paymentUrl = paymentState.result!.paymentUrl;
+
       // Open WebView for better mobile experience
       if (!mounted) return;
       final paymentResult = await PaymentWebViewPage.show(
@@ -654,11 +1022,11 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
         paymentUrl: paymentUrl,
         orderId: orderId.toString(),
       );
-      
+
       // Refresh order details to show updated payment status
       if (mounted) {
         ref.read(ordersProvider.notifier).loadOrderDetails(orderId);
-        
+
         if (paymentResult == true) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -678,15 +1046,11 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
       }
     } else {
       if (mounted) {
-        // Extract error message from result or use generic message
-        final errorMsg = (result != null && result.containsKey('_error'))
-            ? result['_error'] as String
-            : 'Erreur lors de l\'initialisation du paiement';
+        final errorMsg =
+            paymentState.errorMessage ??
+            'Erreur lors de l\'initialisation du paiement';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMsg),
-            backgroundColor: AppColors.error,
-          ),
+          SnackBar(content: Text(errorMsg), backgroundColor: AppColors.error),
         );
         // Refresh order details to get latest payment status from server
         ref.read(ordersProvider.notifier).loadOrderDetails(orderId);
@@ -700,6 +1064,59 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
       orderId: order.id,
       pharmacyName: order.pharmacyName,
       courierName: 'Livreur', // Courier name
+    );
+  }
+
+  /// Ajoute tous les articles de la commande au panier pour recommander
+  void _reorderItems(OrderEntity order) async {
+    final cartNotifier = ref.read(cartProvider.notifier);
+    int addedCount = 0;
+    final now = DateTime.now();
+
+    for (final item in order.items) {
+      // Créer un ProductEntity minimal à partir des données de l'item
+      final product = ProductEntity(
+        id: item.productId ?? 0,
+        name: item.name,
+        description: '',
+        price: item.unitPrice,
+        stockQuantity: 100, // Disponibilité inconnue, on suppose disponible
+        imageUrl: null, // Pas d'image disponible dans OrderItemEntity
+        pharmacy: products.PharmacyEntity(
+          id: order.pharmacyId,
+          name: order.pharmacyName,
+          address: order.pharmacyAddress ?? '',
+          phone: order.pharmacyPhone ?? '',
+          status: 'open',
+          isOpen: true,
+        ),
+        requiresPrescription: false, // On ne peut pas savoir
+        manufacturer: null,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      // Ajouter au panier avec la quantité originale
+      for (int i = 0; i < item.quantity; i++) {
+        cartNotifier.addItem(product);
+      }
+      addedCount += item.quantity;
+    }
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '$addedCount article${addedCount > 1 ? 's' : ''} ajouté${addedCount > 1 ? 's' : ''} au panier',
+        ),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'Voir le panier',
+          onPressed: () => context.goToCart(),
+        ),
+      ),
     );
   }
 }

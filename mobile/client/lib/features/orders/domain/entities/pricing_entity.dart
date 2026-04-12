@@ -4,14 +4,16 @@ import 'package:equatable/equatable.dart';
 class PricingConfigEntity extends Equatable {
   final DeliveryPricingEntity delivery;
   final ServicePricingEntity service;
+  final PaymentModesEntity paymentModes;
 
   const PricingConfigEntity({
     required this.delivery,
     required this.service,
+    this.paymentModes = const PaymentModesEntity(),
   });
 
   @override
-  List<Object?> get props => [delivery, service];
+  List<Object?> get props => [delivery, service, paymentModes];
 }
 
 /// Pricing livraison
@@ -78,6 +80,22 @@ class PaymentFeeConfigEntity extends Equatable {
 
   @override
   List<Object?> get props => [enabled, fixedFee, percentage];
+}
+
+/// Config modes de paiement activés (configurable depuis le dashboard admin)
+class PaymentModesEntity extends Equatable {
+  final bool platformEnabled;
+  final bool cashEnabled;
+  final bool walletEnabled;
+
+  const PaymentModesEntity({
+    this.platformEnabled = true,
+    this.cashEnabled = false,
+    this.walletEnabled = true,
+  });
+
+  @override
+  List<Object?> get props => [platformEnabled, cashEnabled, walletEnabled];
 }
 
 /// Résultat de calcul de tarification

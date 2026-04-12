@@ -6,14 +6,28 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 import '../../data/models/enhanced_chat_message.dart';
+import '../../presentation/providers/delivery_providers.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // PROVIDERS
 // ══════════════════════════════════════════════════════════════════════════════
 
 /// Provider pour le service de chat enrichi
+/// Auto-initialisé avec le profil du livreur
 final enhancedChatServiceProvider = Provider<EnhancedChatService>((ref) {
-  return EnhancedChatService();
+  final service = EnhancedChatService();
+  
+  // Auto-initialiser dès que le profil est disponible
+  final profileAsync = ref.watch(courierProfileProvider);
+  profileAsync.whenData((profile) {
+    service.initialize(
+      courierId: profile.id,
+      courierName: profile.name,
+      courierAvatar: profile.avatar,
+    );
+  });
+  
+  return service;
 });
 
 /// Provider pour écouter les messages enrichis en temps réel

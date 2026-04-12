@@ -154,8 +154,8 @@ void main() {
       expect(CacheService.profileTtl, const Duration(minutes: 30));
     });
 
-    test('walletTtl is 5 minutes', () {
-      expect(CacheService.walletTtl, const Duration(minutes: 5));
+    test('walletTtl is 15 minutes', () {
+      expect(CacheService.walletTtl, const Duration(minutes: 15));
     });
 
     test('statsTtl is 15 minutes', () {

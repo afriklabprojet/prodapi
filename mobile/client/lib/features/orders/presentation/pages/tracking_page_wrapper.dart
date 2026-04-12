@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../config/providers.dart';
@@ -22,7 +23,8 @@ class TrackingPageWrapper extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<TrackingPageWrapper> createState() => _TrackingPageWrapperState();
+  ConsumerState<TrackingPageWrapper> createState() =>
+      _TrackingPageWrapperState();
 }
 
 class _TrackingPageWrapperState extends ConsumerState<TrackingPageWrapper> {
@@ -43,16 +45,21 @@ class _TrackingPageWrapperState extends ConsumerState<TrackingPageWrapper> {
   Future<OrderEntity?> _fetchOrderDetails() async {
     final repository = ref.read(ordersRepositoryProvider);
     final result = await repository.getOrderDetails(widget.orderId);
-    
-    return result.fold(
-      (failure) {
-        setState(() {
-          _errorMessage = failure.message;
-        });
-        return null;
-      },
-      (order) => order,
-    );
+
+    return result.fold((failure) {
+      setState(() {
+        _errorMessage = failure.message;
+      });
+      return null;
+    }, (order) => order);
+  }
+
+  Future<void> _retryFetch() async {
+    HapticFeedback.lightImpact();
+    setState(() {
+      _errorMessage = null;
+      _orderFuture = _fetchOrderDetails();
+    });
   }
 
   @override
@@ -76,19 +83,11 @@ class _TrackingPageWrapperState extends ConsumerState<TrackingPageWrapper> {
               title: const Text('Suivi de livraison'),
               leading: IconButton(
                 icon: const Icon(Icons.arrow_back),
-                onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
+                onPressed: () =>
+                    context.canPop() ? context.pop() : context.go('/home'),
               ),
             ),
-            body: const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Chargement des détails de la commande...'),
-                ],
-              ),
-            ),
+            body: _buildLoadingState(),
           );
         }
 
@@ -98,7 +97,9 @@ class _TrackingPageWrapperState extends ConsumerState<TrackingPageWrapper> {
 
         final order = snapshot.data;
         if (order == null) {
-          return _buildErrorPage('Impossible de charger les détails de la commande');
+          return _buildErrorPage(
+            'Impossible de charger les détails de la commande',
+          );
         }
 
         return TrackingPage(
@@ -110,13 +111,74 @@ class _TrackingPageWrapperState extends ConsumerState<TrackingPageWrapper> {
     );
   }
 
+  Widget _buildLoadingState() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseColor = isDark ? AppColors.darkElevated : Colors.grey.shade200;
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Container(
+          height: 20,
+          width: 220,
+          decoration: BoxDecoration(
+            color: baseColor,
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          height: 120,
+          decoration: BoxDecoration(
+            color: baseColor,
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          height: 88,
+          decoration: BoxDecoration(
+            color: baseColor,
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          height: 88,
+          decoration: BoxDecoration(
+            color: baseColor,
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2.2),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Chargement du suivi de commande...',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildErrorPage(String message) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Erreur'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/home'),
         ),
       ),
       body: Center(
@@ -128,7 +190,8 @@ class _TrackingPageWrapperState extends ConsumerState<TrackingPageWrapper> {
               const Icon(
                 Icons.error_outline,
                 size: 64,
-                color: Colors.orange,
+                color: AppColors.warning,
+                semanticLabel: 'Erreur de chargement',
               ),
               const SizedBox(height: 16),
               Text(
@@ -139,19 +202,14 @@ class _TrackingPageWrapperState extends ConsumerState<TrackingPageWrapper> {
               const SizedBox(height: 8),
               Text(
                 message,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey[600],
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
               ElevatedButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _errorMessage = null;
-                    _orderFuture = _fetchOrderDetails();
-                  });
-                },
+                onPressed: _retryFetch,
                 icon: const Icon(Icons.refresh),
                 label: const Text('Réessayer'),
                 style: ElevatedButton.styleFrom(
@@ -161,7 +219,8 @@ class _TrackingPageWrapperState extends ConsumerState<TrackingPageWrapper> {
               ),
               const SizedBox(height: 12),
               TextButton(
-                onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
+                onPressed: () =>
+                    context.canPop() ? context.pop() : context.go('/home'),
                 child: const Text('Retour'),
               ),
             ],

@@ -1,8 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/config/app_config.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/network/api_client.dart';
 import '../../core/utils/error_handler.dart';
+import '../../core/utils/safe_json_utils.dart';
 
 final jekoPaymentRepositoryProvider = Provider<JekoPaymentRepository>((ref) {
   return JekoPaymentRepository(ref.read(dioProvider));
@@ -99,32 +101,60 @@ class JekoPaymentRepository {
 
   JekoPaymentRepository(this._dio);
 
-  /// Parse sécurisé des réponses API (protège contre data qui n'est pas un Map)
-  static Map<String, dynamic> _safeData(dynamic data) {
-    if (data is Map<String, dynamic>) return data;
-    if (data is Map) return Map<String, dynamic>.from(data);
-    return {};
-  }
-
   /// Initier un rechargement de wallet via JEKO
   Future<PaymentInitResponse> initiateWalletTopup({
     required double amount,
     required JekoPaymentMethod method,
   }) async {
     try {
-      final response = await _dio.post(ApiConstants.paymentsInitiate, data: {
-        'type': 'wallet_topup',
-        'amount': amount,
-        'payment_method': method.value,
-      });
+      final response = await _dio.post(
+        ApiConstants.paymentsInitiate,
+        data: {
+          'type': 'wallet_topup',
+          'amount': amount,
+          'payment_method': method.value,
+        },
+        options: Options(
+          // Utiliser les timeouts spécifiques pour les paiements
+          sendTimeout: AppConfig.paymentConnectionTimeout,
+          receiveTimeout: AppConfig.paymentReceiveTimeout,
+        ),
+      );
 
-      if (response.data['status'] == 'success') {
-        return PaymentInitResponse.fromJson(response.data['data']);
+      final data = response.data;
+
+      // L'API peut retourner soit { status: 'success', data: {...} }
+      // soit { success: true, redirect_url: '...', ... } directement
+      final isSuccess = data['status'] == 'success' || data['success'] == true;
+
+      if (isSuccess) {
+        // Cas 1: { status: 'success', data: {...} }
+        if (data['data'] != null) {
+          return PaymentInitResponse.fromJson(data['data']);
+        }
+        // Cas 2: { success: true, redirect_url: '...', ... } - données à la racine
+        return PaymentInitResponse.fromJson(data);
       } else {
-        throw Exception(response.data['message'] ?? 'Erreur lors de l\'initiation du paiement');
+        throw Exception(
+          data['message'] ?? 'Erreur lors de l\'initiation du paiement',
+        );
       }
     } on DioException catch (e) {
-      final message = _safeData(e.response?.data)['message'] ?? 'Erreur de connexion';
+      // Message d'erreur plus clair selon le type d'erreur
+      String message;
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.sendTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+        message =
+            'Le serveur met trop de temps à répondre. Veuillez réessayer.';
+      } else if (e.type == DioExceptionType.connectionError) {
+        message =
+            'Impossible de se connecter au serveur. Vérifiez votre connexion internet.';
+      } else {
+        message =
+            SafeJsonUtils.safeData(e.response?.data)['message'] ??
+            'Erreur de connexion';
+      }
       throw Exception(message);
     }
   }
@@ -135,19 +165,49 @@ class JekoPaymentRepository {
     required JekoPaymentMethod method,
   }) async {
     try {
-      final response = await _dio.post(ApiConstants.paymentsInitiate, data: {
-        'type': 'order',
-        'order_id': orderId,
-        'payment_method': method.value,
-      });
+      final response = await _dio.post(
+        ApiConstants.paymentsInitiate,
+        data: {
+          'type': 'order',
+          'order_id': orderId,
+          'payment_method': method.value,
+        },
+        options: Options(
+          // Utiliser les timeouts spécifiques pour les paiements
+          sendTimeout: AppConfig.paymentConnectionTimeout,
+          receiveTimeout: AppConfig.paymentReceiveTimeout,
+        ),
+      );
 
-      if (response.data['status'] == 'success') {
-        return PaymentInitResponse.fromJson(response.data['data']);
+      final data = response.data;
+      final isSuccess = data['status'] == 'success' || data['success'] == true;
+
+      if (isSuccess) {
+        if (data['data'] != null) {
+          return PaymentInitResponse.fromJson(data['data']);
+        }
+        return PaymentInitResponse.fromJson(data);
       } else {
-        throw Exception(response.data['message'] ?? 'Erreur lors de l\'initiation du paiement');
+        throw Exception(
+          data['message'] ?? 'Erreur lors de l\'initiation du paiement',
+        );
       }
     } on DioException catch (e) {
-      final message = _safeData(e.response?.data)['message'] ?? 'Erreur de connexion';
+      // Message d'erreur plus clair selon le type d'erreur
+      String message;
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.sendTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+        message =
+            'Le serveur met trop de temps à répondre. Veuillez réessayer.';
+      } else if (e.type == DioExceptionType.connectionError) {
+        message =
+            'Impossible de se connecter au serveur. Vérifiez votre connexion internet.';
+      } else {
+        message =
+            SafeJsonUtils.safeData(e.response?.data)['message'] ??
+            'Erreur de connexion';
+      }
       throw Exception(message);
     }
   }
@@ -157,13 +217,21 @@ class JekoPaymentRepository {
     try {
       final response = await _dio.get(ApiConstants.paymentStatus(reference));
 
-      if (response.data['status'] == 'success') {
-        return PaymentStatusResponse.fromJson(response.data['data']);
+      final data = response.data;
+      final isSuccess = data['status'] == 'success' || data['success'] == true;
+
+      if (isSuccess) {
+        if (data['data'] != null) {
+          return PaymentStatusResponse.fromJson(data['data']);
+        }
+        return PaymentStatusResponse.fromJson(data);
       } else {
-        throw Exception(response.data['message'] ?? 'Erreur lors de la vérification');
+        throw Exception(data['message'] ?? 'Erreur lors de la vérification');
       }
     } on DioException catch (e) {
-      final message = _safeData(e.response?.data)['message'] ?? 'Erreur de connexion';
+      final message =
+          SafeJsonUtils.safeData(e.response?.data)['message'] ??
+          'Erreur de connexion';
       throw Exception(message);
     }
   }
@@ -179,16 +247,17 @@ class JekoPaymentRepository {
       return [];
     } catch (e) {
       // Retourner les méthodes par défaut en cas d'erreur
-      return JekoPaymentMethod.values.map((m) => {
-        'value': m.value,
-        'label': m.label,
-        'icon': m.icon,
-      }).toList();
+      return JekoPaymentMethod.values
+          .map((m) => {'value': m.value, 'label': m.label, 'icon': m.icon})
+          .toList();
     }
   }
 
   /// Obtenir l'historique des paiements
-  Future<List<Map<String, dynamic>>> getPaymentHistory({int page = 1, int perPage = 20}) async {
+  Future<List<Map<String, dynamic>>> getPaymentHistory({
+    int page = 1,
+    int perPage = 20,
+  }) async {
     try {
       final response = await _dio.get(
         ApiConstants.paymentsHistory,
@@ -200,7 +269,12 @@ class JekoPaymentRepository {
       }
       return [];
     } catch (e) {
-      throw Exception(ErrorHandler.getReadableMessage(e, defaultMessage: 'Impossible de charger l\'historique des paiements.'));
+      throw Exception(
+        ErrorHandler.getReadableMessage(
+          e,
+          defaultMessage: 'Impossible de charger l\'historique des paiements.',
+        ),
+      );
     }
   }
 
@@ -210,10 +284,14 @@ class JekoPaymentRepository {
       final response = await _dio.post(ApiConstants.cancelPayment(reference));
 
       if (response.data['status'] != 'success') {
-        throw Exception(response.data['message'] ?? 'Impossible d\'annuler le paiement');
+        throw Exception(
+          response.data['message'] ?? 'Impossible d\'annuler le paiement',
+        );
       }
     } on DioException catch (e) {
-      final message = _safeData(e.response?.data)['message'] ?? 'Impossible d\'annuler le paiement';
+      final message =
+          SafeJsonUtils.safeData(e.response?.data)['message'] ??
+          'Impossible d\'annuler le paiement';
       throw Exception(message);
     }
   }

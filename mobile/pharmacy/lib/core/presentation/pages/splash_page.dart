@@ -77,12 +77,11 @@ class _SplashPageState extends ConsumerState<SplashPage> with SingleTickerProvid
   }
 
   Future<void> _checkAuthAndNavigate() async {
-    // Wait for minimum display time + animation
+    // Attendre l'animation minimum (3s)
     await Future.delayed(const Duration(seconds: 3));
-
     if (!mounted) return;
 
-    // Check if onboarding is completed
+    // Check onboarding
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     final onboardingCompleted = prefs.getBool('pharmacy_onboarding_completed') ?? false;
@@ -92,19 +91,28 @@ class _SplashPageState extends ConsumerState<SplashPage> with SingleTickerProvid
       return;
     }
 
-    // The redirection logic is mainly handled by the GoRouter redirect.
-    // However, since this is the initial route, we can just trigger a refresh or push.
-    // But since GoRouter's redirect checks auth state, we just need to make sure
-    // we move away from splash if the router doesn't do it automatically.
-    
-    // In this specific setup, the SplashPage is likely the initial route.
-    // We check the provider state.
+    // Déclencher la vérification du token (initialize() est idempotent)
+    final notifier = ref.read(authProvider.notifier);
+    try {
+      await notifier.initialize().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          if (kDebugMode) debugPrint('⏱️ [Splash] Auth check timeout — redirect to login');
+        },
+      );
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ [Splash] Auth check failed: $e');
+    }
+
+    if (!mounted) return;
+
+    // Maintenant l'état est résolu (authenticated ou unauthenticated)
     final authState = ref.read(authProvider);
     
     if (authState.status == AuthStatus.authenticated) {
-        context.go('/dashboard');
+      context.go('/dashboard');
     } else {
-        context.go('/login');
+      context.go('/login');
     }
   }
 

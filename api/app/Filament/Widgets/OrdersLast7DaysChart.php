@@ -18,6 +18,21 @@ class OrdersLast7DaysChart extends ChartWidget
 
     protected function getData(): array
     {
+        $startDate = Carbon::now()->subDays(6)->startOfDay();
+        $endDate = Carbon::now()->endOfDay();
+        $pendingStatuses = ['pending', 'confirmed', 'preparing', 'ready_for_pickup', 'on_the_way'];
+
+        // 1 seule requête pour total + delivered + pending (au lieu de 21)
+        $orderStats = Order::query()
+            ->selectRaw('DATE(created_at) as date')
+            ->selectRaw('COUNT(*) as total_count')
+            ->selectRaw('SUM(CASE WHEN status = "delivered" THEN 1 ELSE 0 END) as delivered_count')
+            ->selectRaw('SUM(CASE WHEN status IN ("pending","confirmed","preparing","ready_for_pickup","on_the_way") THEN 1 ELSE 0 END) as pending_count')
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->groupBy('date')
+            ->get()
+            ->keyBy('date');
+
         $dates = collect();
         $totalOrders = collect();
         $pendingOrders = collect();
@@ -25,35 +40,14 @@ class OrdersLast7DaysChart extends ChartWidget
 
         for ($i = 6; $i >= 0; $i--) {
             $date = Carbon::now()->subDays($i);
+            $dateKey = $date->format('Y-m-d');
             $dates->push($date->format('D d/m'));
-            
-            // Total commandes du jour
-            $total = Order::whereDate('created_at', $date)->count();
-            $totalOrders->push($total);
-            
-            // Commandes en attente/préparation
-            $pending = Order::whereDate('created_at', $date)
-                ->whereIn('status', ['pending', 'confirmed', 'preparing', 'ready_for_pickup', 'on_the_way'])
-                ->count();
-            $pendingOrders->push($pending);
-            
-            // Commandes livrées
-            $delivered = Order::whereDate('created_at', $date)
-                ->where('status', 'delivered')
-                ->count();
-            $deliveredOrders->push($delivered);
-        }
 
-        // Calcul des tendances
-        $weekTotal = $totalOrders->sum();
-        $previousWeekTotal = Order::whereBetween('created_at', [
-            Carbon::now()->subDays(13),
-            Carbon::now()->subDays(7),
-        ])->count();
-        
-        $trend = $previousWeekTotal > 0 
-            ? round((($weekTotal - $previousWeekTotal) / $previousWeekTotal) * 100, 1)
-            : 0;
+            $dayStats = $orderStats->get($dateKey);
+            $totalOrders->push((int) ($dayStats->total_count ?? 0));
+            $deliveredOrders->push((int) ($dayStats->delivered_count ?? 0));
+            $pendingOrders->push((int) ($dayStats->pending_count ?? 0));
+        }
 
         return [
             'datasets' => [

@@ -50,4 +50,27 @@ class AppColors {
   static const Color shimmerHighlight = Color(0xFFF5F5F5);
   static const Color rating = Color(0xFFFFC107);
   static const Color shadow = Color(0x1A000000);
+
+  // ── Opérateurs de paiement ──
+  static const Color operatorWave = Color(0xFF1DC3F0);
+  static const Color operatorOrange = Color(0xFFFF6600);
+  static const Color operatorMtn = Color(0xFFFFCC00);
+  static const Color operatorMoov = Color(0xFF0066B3);
+  static const Color operatorDjamo = Color(0xFF6C63FF);
+  static const Color walletGreen = Color(0xFF00B67A);
+  static const Color whatsApp = Color(0xFF25D366);
+
+  // ── Statuts pharmacie ──
+  static const Color onDuty = Color(0xFFFF5722);
+  static const Color pharmacyOpen = Color(0xFF4CAF50);
+  static const Color pharmacyOpenDark = Color(0xFF2E7D32);
+  static const Color pharmacyClosed = Color(0xFFEF5350);
+  static const Color pharmacyClosedDark = Color(0xFFC62828);
+
+  // ── Palette dark mode ──
+  static const Color darkElevated = Color(0xFF2C2C2C);
+  static const Color darkBorder = Color(0xFF3C3C3C);
+  static const Color darkBackgroundDeep = Color(0xFF1A1A2E);
+  static const Color darkCard = Color(0xFF16213E);
+  static const Color errorRed = Color(0xFFE53935); // alias AppColors.error
 }

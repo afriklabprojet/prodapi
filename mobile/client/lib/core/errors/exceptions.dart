@@ -4,8 +4,10 @@
 class ServerException implements Exception {
   final String message;
   final int? statusCode;
+  /// Données brutes de la réponse serveur (utile pour PAYMENT_IN_PROGRESS / redirect_url)
+  final Map<String, dynamic>? responseData;
 
-  ServerException({required this.message, this.statusCode});
+  ServerException({required this.message, this.statusCode, this.responseData});
 
   @override
   String toString() => 'ServerException: $message (status: $statusCode)';

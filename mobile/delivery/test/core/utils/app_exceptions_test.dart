@@ -119,9 +119,51 @@ void main() {
         ConflictException() => 'conflict',
         RateLimitException() => 'rate_limit',
         ApiException() => 'api',
+        PendingApprovalException() => 'pending_approval',
+        IncompleteKycException() => 'incomplete_kyc',
       };
 
       expect(result, 'session');
+    });
+
+    test('PendingApprovalException has correct defaults', () {
+      const e = PendingApprovalException();
+      expect(e.userMessage, contains('approbation'));
+      expect(e.code, 'PENDING_APPROVAL');
+      expect(e.status, 'pending_approval');
+    });
+
+    test('PendingApprovalException with custom status', () {
+      const e = PendingApprovalException(status: 'suspended');
+      expect(e.status, 'suspended');
+    });
+
+    test('IncompleteKycException has correct defaults', () {
+      const e = IncompleteKycException();
+      expect(e.userMessage, contains('vérification'));
+      expect(e.code, 'INCOMPLETE_KYC');
+      expect(e.rejectionReason, isNull);
+    });
+
+    test('IncompleteKycException with rejection reason', () {
+      const e = IncompleteKycException(rejectionReason: 'Document unclear');
+      expect(e.rejectionReason, 'Document unclear');
+    });
+
+    test('ApiException errors field', () {
+      const e = ApiException(
+        statusCode: 422,
+        message: 'Validation',
+        userMessage: 'Invalid',
+        errors: {'email': 'required'},
+      );
+      expect(e.errors, isNotNull);
+      expect(e.errors!['email'], 'required');
+    });
+
+    test('ApiException errors default null', () {
+      const e = ApiException(message: 'x', userMessage: 'x');
+      expect(e.errors, isNull);
     });
   });
 }

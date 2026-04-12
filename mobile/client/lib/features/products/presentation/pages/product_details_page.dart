@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:badges/badges.dart' as badges;
@@ -9,8 +10,13 @@ import '../../../../core/widgets/cached_image.dart';
 import '../../domain/entities/product_entity.dart';
 import '../providers/products_provider.dart';
 import '../providers/products_state.dart';
+import '../providers/favorites_provider.dart';
 import '../../../orders/presentation/providers/cart_provider.dart';
 import '../../../orders/presentation/providers/cart_state.dart';
+import '../../../orders/presentation/utils/cart_ui_guards.dart';
+import '../widgets/price_comparison_section.dart';
+import '../widgets/product_reviews_section.dart';
+import '../../../../core/widgets/trust_badges_section.dart';
 
 /// Provider for product quantity selection, auto-disposed per product page
 final _quantityProvider = StateProvider.autoDispose.family<int, int>(
@@ -82,11 +88,48 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
           ? _buildAddToCartFAB(product, quantity)
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      bottomNavigationBar: product != null && !product.isAvailable
+          ? _buildOutOfStockBar(product)
+          : null,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: BackButton(color: AppColors.textPrimary),
         actions: [
+          // Bouton favori
+          if (product != null)
+            Consumer(
+              builder: (context, ref, child) {
+                final isFavorite = ref.watch(isFavoriteProvider(product.id));
+                return IconButton(
+                  tooltip: isFavorite
+                      ? 'Retirer des favoris'
+                      : 'Ajouter aux favoris',
+                  icon: Icon(
+                    isFavorite ? Icons.favorite : Icons.favorite_border,
+                    color: isFavorite ? Colors.red : AppColors.textPrimary,
+                  ),
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    ref
+                        .read(favoritesProvider.notifier)
+                        .toggleFavorite(product);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          isFavorite
+                              ? 'Retiré des favoris'
+                              : 'Ajouté aux favoris',
+                        ),
+                        duration: const Duration(seconds: 1),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          // Bouton panier
           Consumer(
             builder: (context, ref, child) {
               final cartState = ref.watch(cartProvider);
@@ -103,7 +146,10 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                   ),
                   child: IconButton(
                     tooltip: 'Voir le panier',
-                    icon: Icon(Icons.shopping_cart_outlined, color: AppColors.textPrimary),
+                    icon: Icon(
+                      Icons.shopping_cart_outlined,
+                      color: AppColors.textPrimary,
+                    ),
                     onPressed: () {
                       context.goToCart();
                     },
@@ -157,26 +203,39 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                     label: 'Diminuer la quantité',
                     enabled: quantity > 1,
                     child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: quantity > 1
-                          ? () => ref.read(_quantityProvider(widget.productId).notifier).state--
-                          : null,
-                      borderRadius: const BorderRadius.horizontal(left: Radius.circular(24)),
-                      child: Container(
-                        width: 44,
-                        height: 48,
-                        alignment: Alignment.center,
-                        child: Icon(
-                          Icons.remove,
-                          size: 20,
-                          color: quantity > 1 
-                              ? AppColors.primary 
-                              : (isDark ? Colors.grey[600] : Colors.grey[400]),
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: quantity > 1
+                            ? () {
+                                HapticFeedback.selectionClick();
+                                ref
+                                    .read(
+                                      _quantityProvider(
+                                        widget.productId,
+                                      ).notifier,
+                                    )
+                                    .state--;
+                              }
+                            : null,
+                        borderRadius: const BorderRadius.horizontal(
+                          left: Radius.circular(24),
+                        ),
+                        child: Container(
+                          width: 44,
+                          height: 48,
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.remove,
+                            size: 20,
+                            color: quantity > 1
+                                ? AppColors.primary
+                                : (isDark
+                                      ? Colors.grey[600]
+                                      : Colors.grey[400]),
+                          ),
                         ),
                       ),
                     ),
-                  ),
                   ),
                   // Quantity display
                   Container(
@@ -197,51 +256,87 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                     label: 'Augmenter la quantité',
                     enabled: quantity < product.stockQuantity,
                     child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: quantity < product.stockQuantity
-                          ? () => ref.read(_quantityProvider(widget.productId).notifier).state++
-                          : null,
-                      borderRadius: const BorderRadius.horizontal(right: Radius.circular(24)),
-                      child: Container(
-                        width: 44,
-                        height: 48,
-                        alignment: Alignment.center,
-                        child: Icon(
-                          Icons.add,
-                          size: 20,
-                          color: quantity < product.stockQuantity 
-                              ? AppColors.primary 
-                              : (isDark ? Colors.grey[600] : Colors.grey[400]),
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: quantity < product.stockQuantity
+                            ? () {
+                                HapticFeedback.selectionClick();
+                                ref
+                                    .read(
+                                      _quantityProvider(
+                                        widget.productId,
+                                      ).notifier,
+                                    )
+                                    .state++;
+                              }
+                            : null,
+                        borderRadius: const BorderRadius.horizontal(
+                          right: Radius.circular(24),
+                        ),
+                        child: Container(
+                          width: 44,
+                          height: 48,
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.add,
+                            size: 20,
+                            color: quantity < product.stockQuantity
+                                ? AppColors.primary
+                                : (isDark
+                                      ? Colors.grey[600]
+                                      : Colors.grey[400]),
+                          ),
                         ),
                       ),
                     ),
-                  ),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 12),
-            // Add to cart button - sleek design
+            // Add to cart button - sleek design with debounce
             Expanded(
               child: SizedBox(
                 height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    ref
+                child: DebouncedElevatedButton(
+                  onPressed: () async {
+                    HapticFeedback.mediumImpact();
+                    // Capture values before async gap
+                    final expectedQuantity = currentQuantity > 0
+                        ? currentQuantity + quantity
+                        : quantity;
+
+                    await ref
                         .read(cartProvider.notifier)
                         .addItem(product, quantity: quantity);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          currentQuantity > 0
-                              ? 'Quantité mise à jour: ${currentQuantity + quantity}'
-                              : 'Ajouté au panier',
+
+                    // Check the result from cart state
+                    if (!context.mounted) return;
+
+                    final cartState = ref.read(cartProvider);
+                    if (cartState.errorMessage != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(cartState.errorMessage!),
+                          backgroundColor: AppColors.error,
+                          duration: const Duration(seconds: 3),
                         ),
-                        backgroundColor: AppColors.success,
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
+                      );
+                      // Clear the error
+                      ref.read(cartProvider.notifier).clearError();
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            currentQuantity > 0
+                                ? 'Quantité mise à jour: $expectedQuantity'
+                                : 'Ajouté au panier',
+                          ),
+                          backgroundColor: AppColors.success,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
@@ -252,7 +347,7 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                     ),
                   ),
                   icon: const Icon(Icons.shopping_cart_outlined, size: 20),
-                  label: Text(
+                  child: Text(
                     currentQuantity > 0
                         ? 'Mettre à jour ($currentQuantity)'
                         : 'Ajouter au panier',
@@ -262,6 +357,101 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                     ),
                   ),
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOutOfStockBar(ProductEntity product) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.inventory_2_outlined,
+                    color: AppColors.error,
+                    size: 18,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Produit en rupture de stock',
+                    style: TextStyle(
+                      color: AppColors.error,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: Consumer(
+                builder: (context, ref, child) {
+                  final isFavorite = ref.watch(isFavoriteProvider(product.id));
+                  return ElevatedButton.icon(
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      ref
+                          .read(favoritesProvider.notifier)
+                          .toggleFavorite(product);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            isFavorite
+                                ? 'Retiré des favoris'
+                                : 'Ajouté aux favoris — vous serez notifié de sa disponibilité',
+                          ),
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    icon: Icon(
+                      isFavorite ? Icons.favorite : Icons.favorite_border,
+                      size: 20,
+                    ),
+                    label: Text(
+                      isFavorite
+                          ? 'Retirer des favoris'
+                          : 'Ajouter aux favoris',
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ],
@@ -295,10 +485,12 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
   Widget _buildProductDetails(dynamic product) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black87;
-    final secondaryTextColor = isDark ? Colors.grey[400] : AppColors.textSecondary;
+    final secondaryTextColor = isDark
+        ? Colors.grey[400]
+        : AppColors.textSecondary;
     final cardColor = isDark ? const Color(0xFF2D2D2D) : Colors.white;
     final backgroundColor = isDark ? const Color(0xFF1E1E1E) : Colors.grey[50];
-    
+
     return CustomScrollView(
       slivers: [
         // App Bar with Image
@@ -319,7 +511,11 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                   )
                 : Container(
                     color: Colors.grey[200],
-                    child: const Icon(Icons.medication, size: 100, semanticLabel: 'Image du produit non disponible'),
+                    child: const Icon(
+                      Icons.medication,
+                      size: 100,
+                      semanticLabel: 'Image du produit non disponible',
+                    ),
                   ),
           ),
         ),
@@ -348,18 +544,46 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                   if (product.manufacturer != null)
                     Text(
                       product.manufacturer!,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: secondaryTextColor,
-                      ),
+                      style: TextStyle(fontSize: 16, color: secondaryTextColor),
                     ),
                   const SizedBox(height: 16),
 
-                  // Price
+                  // Rating stars
+                  if (product.hasRating) ...[
+                    Row(
+                      children: [
+                        ...List.generate(5, (i) {
+                          final rating = product.averageRating!;
+                          return Icon(
+                            i < rating.floor()
+                                ? Icons.star
+                                : (i < rating
+                                      ? Icons.star_half
+                                      : Icons.star_border),
+                            color: Colors.amber,
+                            size: 20,
+                          );
+                        }),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${product.averageRating!.toStringAsFixed(1)} (${product.reviewsCount ?? 0} avis)',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: secondaryTextColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Price with discount
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: isDark ? 0.2 : 0.1),
+                      color: AppColors.primary.withValues(
+                        alpha: isDark ? 0.2 : 0.1,
+                      ),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -373,16 +597,70 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                             color: textColor,
                           ),
                         ),
-                        Text(
-                          _currencyFormat.format(product.price),
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
+                        if (product.hasDiscount) ...[
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      '-${product.discountPercentage}%',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _currencyFormat.format(product.price),
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      decoration: TextDecoration.lineThrough,
+                                      color: secondaryTextColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _currencyFormat.format(product.finalPrice),
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
+                        ] else
+                          Text(
+                            _currencyFormat.format(product.price),
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Comparaison de prix avec d'autres pharmacies
+                  PriceComparisonSection(
+                    productId: product.id,
+                    currentPrice: product.finalPrice,
                   ),
                   const SizedBox(height: 16),
 
@@ -410,7 +688,9 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
 
                   // Description
                   if (product.description != null) ...[
-                    Divider(color: isDark ? Colors.grey[700] : Colors.grey[300]),
+                    Divider(
+                      color: isDark ? Colors.grey[700] : Colors.grey[300],
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       'Description',
@@ -431,10 +711,175 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                     ),
                   ],
 
+                  // Active Ingredient
+                  if (product.activeIngredient != null &&
+                      product.activeIngredient!.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.blue.withValues(alpha: 0.1)
+                            : Colors.blue[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.blue.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.science_outlined,
+                            color: Colors.blue[700],
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Principe actif',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.blue[700],
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  product.activeIngredient!,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    color: textColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // Usage Instructions
+                  if (product.usageInstructions != null &&
+                      product.usageInstructions!.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Divider(
+                      color: isDark ? Colors.grey[700] : Colors.grey[300],
+                    ),
+                    const SizedBox(height: 12),
+                    _buildExpandableSection(
+                      title: 'Mode d\'emploi',
+                      icon: Icons.menu_book_outlined,
+                      iconColor: AppColors.primary,
+                      content: product.usageInstructions!,
+                      isDark: isDark,
+                      textColor: textColor,
+                      secondaryTextColor: secondaryTextColor,
+                    ),
+                  ],
+
+                  // Side Effects
+                  if (product.sideEffects != null &&
+                      product.sideEffects!.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.orange.withValues(alpha: 0.1)
+                            : Colors.orange[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.orange.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.warning_amber_rounded,
+                                color: Colors.orange[700],
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Effets secondaires',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            product.sideEffects!,
+                            style: TextStyle(
+                              fontSize: 14,
+                              height: 1.5,
+                              color: secondaryTextColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // Tags
+                  if (product.tags != null && product.tags!.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: product.tags!
+                          .map(
+                            (tag) => Chip(
+                              label: Text(
+                                tag,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                              backgroundColor: AppColors.primary.withValues(
+                                alpha: isDark ? 0.15 : 0.08,
+                              ),
+                              side: BorderSide.none,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ],
+
                   // Pharmacy Info
                   const SizedBox(height: 24),
                   Divider(color: isDark ? Colors.grey[700] : Colors.grey[300]),
                   const SizedBox(height: 16),
+
+                  // Section de confiance
+                  const TrustBadgesSection(showTitle: true),
+
+                  // Avis vérifiés
+                  ProductReviewsSection(productId: product.id),
+
+                  const SizedBox(height: 24),
+                  Divider(color: isDark ? Colors.grey[700] : Colors.grey[300]),
+                  const SizedBox(height: 16),
+
                   Text(
                     'Pharmacie',
                     style: TextStyle(
@@ -444,7 +889,13 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _buildPharmacyCard(product.pharmacy, isDark, cardColor, textColor, secondaryTextColor),
+                  _buildPharmacyCard(
+                    product.pharmacy,
+                    isDark,
+                    cardColor,
+                    textColor,
+                    secondaryTextColor,
+                  ),
                   const SizedBox(height: 100), // Space for FAB
                 ],
               ),
@@ -460,10 +911,7 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: TextStyle(fontSize: 16, color: labelColor),
-        ),
+        Text(label, style: TextStyle(fontSize: 16, color: labelColor)),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
@@ -483,11 +931,51 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
     );
   }
 
+  Widget _buildExpandableSection({
+    required String title,
+    required IconData icon,
+    required Color iconColor,
+    required String content,
+    required bool isDark,
+    required Color textColor,
+    Color? secondaryTextColor,
+  }) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: const EdgeInsets.only(bottom: 8),
+        leading: Icon(icon, color: iconColor, size: 22),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: textColor,
+          ),
+        ),
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              content,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.6,
+                color: secondaryTextColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPharmacyCard(
-    dynamic pharmacy, 
-    bool isDark, 
-    Color cardColor, 
-    Color textColor, 
+    dynamic pharmacy,
+    bool isDark,
+    Color cardColor,
+    Color textColor,
     Color? secondaryTextColor,
   ) {
     return Card(
@@ -495,7 +983,7 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
       color: cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: isDark 
+        side: isDark
             ? BorderSide(color: Colors.grey[700]!, width: 1)
             : BorderSide.none,
       ),
@@ -523,11 +1011,7 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
             const SizedBox(height: 8),
             Row(
               children: [
-                Icon(
-                  Icons.location_on,
-                  size: 16,
-                  color: secondaryTextColor,
-                ),
+                Icon(Icons.location_on, size: 16, color: secondaryTextColor),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -540,11 +1024,7 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
             const SizedBox(height: 4),
             Row(
               children: [
-                Icon(
-                  Icons.phone,
-                  size: 16,
-                  color: secondaryTextColor,
-                ),
+                Icon(Icons.phone, size: 16, color: secondaryTextColor),
                 const SizedBox(width: 8),
                 Text(
                   pharmacy.phone,

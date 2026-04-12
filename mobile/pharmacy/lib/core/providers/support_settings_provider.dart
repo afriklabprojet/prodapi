@@ -37,15 +37,15 @@ class SupportSettings {
 
   factory SupportSettings.fromJson(Map<String, dynamic> json) {
     return SupportSettings(
-      supportPhone: json['support_phone'] ?? '+225 07 79 00 00 00',
-      supportEmail: json['support_email'] ?? 'support@drlpharma.com',
-      supportWhatsapp: json['support_whatsapp'] ?? '+225 07 79 00 00 00',
-      websiteUrl: json['website_url'] ?? 'https://drlpharma.com',
-      tutorialsUrl: json['tutorials_url'] ?? 'https://www.youtube.com/@drlpharma',
-      guideUrl: json['guide_url'] ?? 'https://drlpharma.com/guide',
-      faqUrl: json['faq_url'] ?? 'https://drlpharma.com/faq',
-      termsUrl: json['terms_url'] ?? 'https://drlpharma.com/terms',
-      privacyUrl: json['privacy_url'] ?? 'https://drlpharma.com/privacy',
+      supportPhone: json['support_phone'] ?? EnvConfig.supportPhone,
+      supportEmail: json['support_email'] ?? EnvConfig.supportEmail,
+      supportWhatsapp: json['support_whatsapp'] ?? EnvConfig.supportPhone,
+      websiteUrl: json['website_url'] ?? EnvConfig.websiteUrl,
+      tutorialsUrl: json['tutorials_url'] ?? EnvConfig.tutorialsUrl,
+      guideUrl: json['guide_url'] ?? EnvConfig.guideUrl,
+      faqUrl: json['faq_url'] ?? '${EnvConfig.websiteUrl}/faq',
+      termsUrl: json['terms_url'] ?? '${EnvConfig.websiteUrl}/terms',
+      privacyUrl: json['privacy_url'] ?? '${EnvConfig.websiteUrl}/privacy',
     );
   }
 

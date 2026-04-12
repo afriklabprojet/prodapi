@@ -67,7 +67,7 @@ class _HistoryFilterSheetState extends ConsumerState<HistoryFilterSheet> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          
+
           // Header
           Padding(
             padding: const EdgeInsets.all(16),
@@ -94,7 +94,7 @@ class _HistoryFilterSheetState extends ConsumerState<HistoryFilterSheet> {
               ],
             ),
           ),
-          
+
           // Content
           Flexible(
             child: SingleChildScrollView(
@@ -115,9 +115,9 @@ class _HistoryFilterSheetState extends ConsumerState<HistoryFilterSheet> {
                       _buildPresetChip('Tout', 'all'),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Plage de dates personnalisée
                   _buildSectionTitle('Période personnalisée'),
                   const SizedBox(height: 8),
@@ -141,9 +141,9 @@ class _HistoryFilterSheetState extends ConsumerState<HistoryFilterSheet> {
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Statut
                   _buildSectionTitle('Statut'),
                   const SizedBox(height: 8),
@@ -156,9 +156,9 @@ class _HistoryFilterSheetState extends ConsumerState<HistoryFilterSheet> {
                       _buildStatusChip('Annulées', 'cancelled', Colors.red),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Pharmacie
                   _buildSectionTitle('Pharmacie'),
                   const SizedBox(height: 8),
@@ -174,9 +174,9 @@ class _HistoryFilterSheetState extends ConsumerState<HistoryFilterSheet> {
                     ),
                     error: (_, _) => const Text('Erreur de chargement'),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Tri
                   _buildSectionTitle('Tri'),
                   const SizedBox(height: 8),
@@ -198,19 +198,19 @@ class _HistoryFilterSheetState extends ConsumerState<HistoryFilterSheet> {
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 32),
                 ],
               ),
             ),
           ),
-          
+
           // Actions
           Container(
             padding: EdgeInsets.fromLTRB(
-              16, 
-              16, 
-              16, 
+              16,
+              16,
+              16,
               16 + MediaQuery.of(context).padding.bottom,
             ),
             decoration: BoxDecoration(
@@ -260,13 +260,51 @@ class _HistoryFilterSheetState extends ConsumerState<HistoryFilterSheet> {
 
   Widget _buildPresetChip(String label, String preset) {
     final isSelected = _isPresetSelected(preset);
-    
-    return FilterChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (_) => _selectPreset(preset),
-      selectedColor: Colors.blue.shade100,
-      checkmarkColor: Colors.blue,
+    final isDark = context.isDark;
+    final primaryColor = Theme.of(context).primaryColor;
+
+    return GestureDetector(
+      onTap: () => _selectPreset(preset),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? primaryColor
+              : isDark
+              ? Colors.grey.shade800
+              : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? primaryColor
+                : isDark
+                ? Colors.grey.shade700
+                : Colors.grey.shade300,
+            width: 1.5,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: primaryColor.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected
+                ? Colors.white
+                : isDark
+                ? Colors.white70
+                : Colors.black87,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+      ),
     );
   }
 
@@ -274,19 +312,19 @@ class _HistoryFilterSheetState extends ConsumerState<HistoryFilterSheet> {
     if (preset == 'all') {
       return _dateFrom == null && _dateTo == null;
     }
-    
+
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
-    
+
     switch (preset) {
       case 'today':
         return _dateFrom?.day == startOfDay.day &&
-               _dateFrom?.month == startOfDay.month &&
-               _dateFrom?.year == startOfDay.year;
+            _dateFrom?.month == startOfDay.month &&
+            _dateFrom?.year == startOfDay.year;
       case 'week':
         final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
         return _dateFrom?.day == startOfWeek.day &&
-               _dateFrom?.month == startOfWeek.month;
+            _dateFrom?.month == startOfWeek.month;
       case 'month':
         return _dateFrom?.day == 1 && _dateFrom?.month == now.month;
       default:
@@ -298,7 +336,7 @@ class _HistoryFilterSheetState extends ConsumerState<HistoryFilterSheet> {
     setState(() {
       final now = DateTime.now();
       final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
-      
+
       switch (preset) {
         case 'today':
           _dateFrom = DateTime(now.year, now.month, now.day);
@@ -306,7 +344,11 @@ class _HistoryFilterSheetState extends ConsumerState<HistoryFilterSheet> {
           break;
         case 'week':
           final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-          _dateFrom = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+          _dateFrom = DateTime(
+            startOfWeek.year,
+            startOfWeek.month,
+            startOfWeek.day,
+          );
           _dateTo = now;
           break;
         case 'month':
@@ -323,20 +365,67 @@ class _HistoryFilterSheetState extends ConsumerState<HistoryFilterSheet> {
 
   Widget _buildStatusChip(String label, String? status, [Color? color]) {
     final isSelected = _status == status;
-    
-    return FilterChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (_) => setState(() => _status = status),
-      selectedColor: color?.withValues(alpha: 0.2) ?? Colors.grey.shade200,
-      avatar: color != null ? Container(
-        width: 8,
-        height: 8,
+    final isDark = context.isDark;
+    final chipColor = color ?? Theme.of(context).primaryColor;
+
+    return GestureDetector(
+      onTap: () => setState(() => _status = status),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
+          color: isSelected
+              ? chipColor
+              : isDark
+              ? Colors.grey.shade800
+              : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? chipColor
+                : isDark
+                ? Colors.grey.shade700
+                : Colors.grey.shade300,
+            width: 1.5,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: chipColor.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
-      ) : null,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (color != null) ...[
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: isSelected ? Colors.white : color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected
+                    ? Colors.white
+                    : isDark
+                    ? Colors.white70
+                    : Colors.black87,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -396,31 +485,34 @@ class _DatePickerField extends StatelessWidget {
                 children: [
                   Text(
                     label,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    value != null 
-                      ? DateFormat('dd/MM/yyyy').format(value!)
-                      : 'Sélectionner',
+                    value != null
+                        ? DateFormat('dd/MM/yyyy').format(value!)
+                        : 'Sélectionner',
                     style: TextStyle(
-                      fontWeight: value != null ? FontWeight.w500 : FontWeight.normal,
+                      fontWeight: value != null
+                          ? FontWeight.w500
+                          : FontWeight.normal,
                       color: value != null ? Colors.black : Colors.grey,
                     ),
                   ),
                 ],
               ),
             ),
-            if (value != null) 
+            if (value != null)
               GestureDetector(
                 onTap: () => onChanged(null),
                 child: Icon(Icons.close, size: 18, color: Colors.grey.shade600),
               )
             else
-              Icon(Icons.calendar_today_outlined, size: 18, color: Colors.grey.shade600),
+              Icon(
+                Icons.calendar_today_outlined,
+                size: 18,
+                color: Colors.grey.shade600,
+              ),
           ],
         ),
       ),
@@ -462,10 +554,12 @@ class _PharmacyDropdown extends StatelessWidget {
               value: null,
               child: Text('Toutes les pharmacies'),
             ),
-            ...pharmacies.map((p) => DropdownMenuItem<String?>(
-              value: p.name,
-              child: Text(p.name, overflow: TextOverflow.ellipsis),
-            )),
+            ...pharmacies.map(
+              (p) => DropdownMenuItem<String?>(
+                value: p.name,
+                child: Text(p.name, overflow: TextOverflow.ellipsis),
+              ),
+            ),
           ],
           onChanged: onChanged,
         ),
@@ -494,10 +588,9 @@ class _SortByDropdown extends StatelessWidget {
           isExpanded: true,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           borderRadius: BorderRadius.circular(12),
-          items: SortBy.values.map((s) => DropdownMenuItem(
-            value: s,
-            child: Text(s.label),
-          )).toList(),
+          items: SortBy.values
+              .map((s) => DropdownMenuItem(value: s, child: Text(s.label)))
+              .toList(),
           onChanged: (v) {
             if (v != null) onChanged(v);
           },
@@ -517,9 +610,8 @@ class _SortOrderToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => onChanged(
-        value == SortOrder.asc ? SortOrder.desc : SortOrder.asc,
-      ),
+      onTap: () =>
+          onChanged(value == SortOrder.asc ? SortOrder.desc : SortOrder.asc),
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -528,9 +620,7 @@ class _SortOrderToggle extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(
-          value == SortOrder.asc 
-            ? Icons.arrow_upward 
-            : Icons.arrow_downward,
+          value == SortOrder.asc ? Icons.arrow_upward : Icons.arrow_downward,
           color: Colors.blue,
         ),
       ),

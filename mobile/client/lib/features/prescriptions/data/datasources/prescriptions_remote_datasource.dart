@@ -1,5 +1,6 @@
 import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart'; // Keep for FormData
+import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
 
 abstract class PrescriptionsRemoteDataSource {
@@ -10,7 +11,10 @@ abstract class PrescriptionsRemoteDataSource {
 
   Future<List<Map<String, dynamic>>> getPrescriptions();
   Future<Map<String, dynamic>> getPrescriptionDetails(int prescriptionId);
-  Future<Map<String, dynamic>> payPrescription(int prescriptionId, String paymentMethod);
+  Future<Map<String, dynamic>> payPrescription(
+    int prescriptionId,
+    String paymentMethod,
+  );
 }
 
 class PrescriptionsRemoteDataSourceImpl
@@ -48,12 +52,13 @@ class PrescriptionsRemoteDataSourceImpl
 
       // Upload
       final response = await apiClient.post(
-        '/customer/prescriptions/upload',
+        ApiConstants.prescriptionUpload,
         data: formData,
         // FormData automatically sets the correct Content-Type with boundary
       );
 
-      return response.data['data'] as Map<String, dynamic>? ?? {};
+      // Return full response (includes is_duplicate, existing_prescription_id, existing_status)
+      return response.data as Map<String, dynamic>? ?? {};
     } catch (e) {
       rethrow;
     }
@@ -61,7 +66,7 @@ class PrescriptionsRemoteDataSourceImpl
 
   @override
   Future<List<Map<String, dynamic>>> getPrescriptions() async {
-    final response = await apiClient.get('/customer/prescriptions');
+    final response = await apiClient.get(ApiConstants.prescriptions);
     final rawData = response.data['data'];
     return rawData is List ? List<Map<String, dynamic>>.from(rawData) : [];
   }
@@ -70,14 +75,19 @@ class PrescriptionsRemoteDataSourceImpl
   Future<Map<String, dynamic>> getPrescriptionDetails(
     int prescriptionId,
   ) async {
-    final response = await apiClient.get('/customer/prescriptions/$prescriptionId');
+    final response = await apiClient.get(
+      ApiConstants.prescriptionDetails(prescriptionId),
+    );
     return response.data['data'] as Map<String, dynamic>;
   }
 
   @override
-  Future<Map<String, dynamic>> payPrescription(int prescriptionId, String paymentMethod) async {
+  Future<Map<String, dynamic>> payPrescription(
+    int prescriptionId,
+    String paymentMethod,
+  ) async {
     final response = await apiClient.post(
-      '/customer/prescriptions/$prescriptionId/pay',
+      ApiConstants.prescriptionPay(prescriptionId),
       data: {'payment_method': paymentMethod},
     );
     return response.data;

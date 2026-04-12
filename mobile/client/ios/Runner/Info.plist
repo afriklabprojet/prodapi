@@ -63,6 +63,10 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>DR-PHARMA a besoin d'accéder à vos photos pour choisir une photo de profil.</string>
 	
+	<!-- Face ID for biometric authentication -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>DR-PHARMA utilise Face ID pour une connexion rapide et sécurisée.</string>
+	
 	<!-- URL Launcher schemes -->
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
@@ -72,6 +76,20 @@
 		<string>https</string>
 		<string>comgooglemaps</string>
 		<string>whatsapp</string>
+	</array>
+	<!-- Deep link: drpharma:// pour les callbacks de paiement -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.drpharma.client</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>drpharma</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>

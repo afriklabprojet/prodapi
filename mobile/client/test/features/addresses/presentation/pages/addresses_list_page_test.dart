@@ -11,7 +11,7 @@ void main() {
   late SharedPreferences sharedPreferences;
 
   setUp(() async {
-  SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({});
     sharedPreferences = await SharedPreferences.getInstance();
   });
 
@@ -79,12 +79,12 @@ void main() {
 
     testWidgets('should navigate to add address on button tap', (tester) async {
       await tester.pumpWidget(createTestWidget());
-    
+
       final addButton = find.byType(AddressesListPage);
       if (addButton.evaluate().isNotEmpty) {
         await tester.tap(addButton.first);
       }
-    
+
       expect(find.byType(AddressesListPage), findsWidgets);
     });
   });

@@ -14,8 +14,12 @@ final inventoryRemoteDataSourceProvider = Provider<InventoryRemoteDataSource>((r
 final inventoryRepositoryProvider = Provider<InventoryRepository>((ref) {
   final remoteDataSource = ref.watch(inventoryRemoteDataSourceProvider);
   final networkInfo = ref.watch(networkInfoProvider);
+  final cacheService = ref.watch(cacheServiceProvider);
+  final offlineStorage = ref.watch(offlineStorageProvider);
   return InventoryRepositoryImpl(
     remoteDataSource: remoteDataSource,
     networkInfo: networkInfo,
+    cacheService: cacheService,
+    offlineStorage: offlineStorage,
   );
 });

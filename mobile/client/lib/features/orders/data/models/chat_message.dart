@@ -48,4 +48,19 @@ class ChatMessage {
       'is_read': isRead,
     };
   }
+
+  factory ChatMessage.fromFirestore(Map<String, dynamic> data, String docId) {
+    return ChatMessage(
+      id: docId,
+      senderId: data['sender_id']?.toString() ?? '',
+      senderType: data['sender_role'] == 'customer' ? 'customer' : 'courier',
+      content: data['content'] as String? ?? '',
+      timestamp: data['created_at'] != null
+          ? (data['created_at'] is DateTime
+              ? data['created_at'] as DateTime
+              : DateTime.tryParse(data['created_at'].toString()) ?? DateTime.now())
+          : DateTime.now(),
+      isRead: data['is_read'] as bool? ?? false,
+    );
+  }
 }

@@ -1,6 +1,8 @@
 import 'package:dartz/dartz.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import '../../../../core/services/app_logger.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/network/api_client.dart';
@@ -42,8 +44,9 @@ class AuthRepositoryImpl implements AuthRepository {
       // Authentifier auprès de Firebase avec le custom token (pour Firestore tracking)
       if (result.firebaseToken != null) {
         try {
-          await fb.FirebaseAuth.instance
-              .signInWithCustomToken(result.firebaseToken!);
+          await fb.FirebaseAuth.instance.signInWithCustomToken(
+            result.firebaseToken!,
+          );
           debugPrint('🔥 [Firebase Auth] Client connecté');
         } catch (e) {
           debugPrint('⚠️ [Firebase Auth] Erreur signIn: $e');
@@ -136,7 +139,12 @@ class AuthRepositoryImpl implements AuthRepository {
       // Déconnecter Firebase Auth
       try {
         await fb.FirebaseAuth.instance.signOut();
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.warning(
+          '[Auth] Firebase signOut failed (logout still complete)',
+          error: e,
+        );
+      }
 
       return const Right(null);
     } on ServerException catch (e) {
@@ -144,14 +152,28 @@ class AuthRepositoryImpl implements AuthRepository {
       await localDataSource.clearToken();
       await localDataSource.clearUser();
       apiClient.clearToken();
-      try { await fb.FirebaseAuth.instance.signOut(); } catch (_) {}
+      try {
+        await fb.FirebaseAuth.instance.signOut();
+      } catch (e) {
+        AppLogger.warning(
+          '[Auth] Firebase signOut failed (ServerException path)',
+          error: e,
+        );
+      }
       return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
     } catch (e) {
       // Always clear local data
       await localDataSource.clearToken();
       await localDataSource.clearUser();
       apiClient.clearToken();
-      try { await fb.FirebaseAuth.instance.signOut(); } catch (_) {}
+      try {
+        await fb.FirebaseAuth.instance.signOut();
+      } catch (e) {
+        AppLogger.warning(
+          '[Auth] Firebase signOut failed (catch-all path)',
+          error: e,
+        );
+      }
       return Left(ServerFailure(message: e.toString()));
     }
   }
@@ -288,11 +310,13 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Either<Failure, AuthResponseEntity>> verifyFirebaseOtp({
     required String phone,
     required String firebaseUid,
+    required String firebaseIdToken,
   }) async {
     try {
       final result = await remoteDataSource.verifyFirebaseOtp(
         phone: phone,
         firebaseUid: firebaseUid,
+        firebaseIdToken: firebaseIdToken,
       );
 
       // Update cached token and user
@@ -339,13 +363,14 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<Either<Failure, void>> forgotPassword({
-    required String email,
+    String? email,
+    String? phone,
   }) async {
     try {
-      await remoteDataSource.forgotPassword(email: email);
+      await remoteDataSource.forgotPassword(email: email, phone: phone);
       return const Right(null);
     } on ValidationException catch (e) {
-      String errorMessage = 'Email non trouvé';
+      String errorMessage = 'Compte non trouvé';
       if (e.errors.isNotEmpty) {
         final firstKey = e.errors.keys.first;
         if (e.errors[firstKey]!.isNotEmpty) {
@@ -364,11 +389,16 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<Either<Failure, void>> verifyResetOtp({
-    required String email,
+    String? email,
+    String? phone,
     required String otp,
   }) async {
     try {
-      await remoteDataSource.verifyResetOtp(email: email, otp: otp);
+      await remoteDataSource.verifyResetOtp(
+        email: email,
+        phone: phone,
+        otp: otp,
+      );
       return const Right(null);
     } on ValidationException catch (e) {
       String errorMessage = 'Code invalide';
@@ -390,7 +420,8 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<Either<Failure, void>> resetPassword({
-    required String email,
+    String? email,
+    String? phone,
     required String otp,
     required String password,
     required String passwordConfirmation,
@@ -398,6 +429,7 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       await remoteDataSource.resetPassword(
         email: email,
+        phone: phone,
         otp: otp,
         password: password,
         passwordConfirmation: passwordConfirmation,
@@ -417,6 +449,80 @@ class AuthRepositoryImpl implements AuthRepository {
     } on NetworkException catch (e) {
       return Left(NetworkFailure(message: e.message));
     } catch (e) {
+      return Left(ServerFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, AuthResponseEntity>> loginWithGoogle() async {
+    final googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
+
+    try {
+      // ── 1. Trigger the Google sign-in flow ──────────────────────────────
+      final googleUser = await googleSignIn.signIn();
+      if (googleUser == null) {
+        // User cancelled the sign-in dialog
+        return const Left(ServerFailure(message: 'Connexion Google annulée'));
+      }
+
+      // ── 2. Get Google auth tokens and sign into Firebase ─────────────────
+      final googleAuth = await googleUser.authentication;
+      final credential = fb.GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final firebaseUser = await fb.FirebaseAuth.instance.signInWithCredential(
+        credential,
+      );
+      final firebaseIdToken = await firebaseUser.user?.getIdToken();
+
+      if (firebaseIdToken == null) {
+        await googleSignIn.signOut();
+        return const Left(
+          ServerFailure(message: 'Impossible d\'obtenir le token Firebase'),
+        );
+      }
+
+      // ── 3. Authenticate on the backend ───────────────────────────────────
+      final result = await remoteDataSource.loginWithGoogle(
+        firebaseIdToken: firebaseIdToken,
+      );
+
+      // Cache token and user
+      await localDataSource.cacheToken(result.token);
+      await localDataSource.cacheUser(result.user);
+      apiClient.setToken(result.token);
+
+      return Right(result.toEntity());
+    } on fb.FirebaseAuthException catch (e) {
+      AppLogger.warning('[Auth] Google Firebase sign-in failed', error: e);
+      try {
+        await googleSignIn.signOut();
+      } catch (signOutError) {
+        AppLogger.debug('[Auth] Cleanup signOut failed: $signOutError');
+      }
+      return Left(ServerFailure(message: e.message ?? 'Erreur Firebase'));
+    } on ServerException catch (e) {
+      try {
+        await googleSignIn.signOut();
+      } catch (signOutError) {
+        AppLogger.debug('[Auth] Cleanup signOut failed: $signOutError');
+      }
+      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
+    } on NetworkException catch (e) {
+      try {
+        await googleSignIn.signOut();
+      } catch (signOutError) {
+        AppLogger.debug('[Auth] Cleanup signOut failed: $signOutError');
+      }
+      return Left(NetworkFailure(message: e.message));
+    } catch (e) {
+      try {
+        await googleSignIn.signOut();
+      } catch (signOutError) {
+        AppLogger.debug('[Auth] Cleanup signOut failed: $signOutError');
+      }
       return Left(ServerFailure(message: e.toString()));
     }
   }

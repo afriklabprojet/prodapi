@@ -9,7 +9,9 @@ import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_local_datasource.dart';
 import '../datasources/auth_remote_datasource.dart';
+import '../models/auth_response_model.dart';
 
+/// Implémentation du repository d'authentification.
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource remoteDataSource;
   final AuthLocalDataSource localDataSource;
@@ -23,55 +25,108 @@ class AuthRepositoryImpl implements AuthRepository {
     required this.apiClient,
   });
 
+  // ============================================================
+  // HELPERS
+  // ============================================================
+
+  void _log(String message) {
+    if (kDebugMode) debugPrint('[AuthRepo] $message');
+  }
+
+  /// Vérifie la connexion réseau et retourne une Failure si non connecté.
+  Future<Failure?> _checkNetwork() async {
+    final isConnected = await networkInfo.isConnected;
+    if (!isConnected) return NetworkFailure('No internet connection');
+    return null;
+  }
+
+  /// Sauvegarde les données d'authentification localement et met à jour l'ApiClient.
+  Future<void> _saveAuth(AuthResponseModel auth) async {
+    await localDataSource.cacheToken(auth.token);
+    await localDataSource.cacheUser(auth.user);
+    _log('✅ Token et user mis en cache');
+  }
+
+  /// Mappe les exceptions vers les Failures appropriées.
+  Failure _mapException(Object error) {
+    return switch (error) {
+      ServerException e => ServerFailure(e.message),
+      UnauthorizedException e => UnauthorizedFailure(e.message),
+      ForbiddenException e => ForbiddenFailure(
+        e.message,
+        errorCode: e.errorCode,
+      ),
+      ValidationException e => ValidationFailure(e.errors),
+      _ => ServerFailure(error.toString()),
+    };
+  }
+
+  // ============================================================
+  // LOGIN
+  // ============================================================
+
   @override
   Future<Either<Failure, AuthResponseEntity>> login({
     required String email,
     required String password,
   }) async {
-    if (kDebugMode) debugPrint('📡 [AuthRepository] login() appelé - email: $email');
-    
-    final isConnected = await networkInfo.isConnected;
-    if (kDebugMode) debugPrint('📡 [AuthRepository] Connexion réseau: $isConnected');
-    
-    if (isConnected) {
-      try {
-        if (kDebugMode) debugPrint('📡 [AuthRepository] Appel remoteDataSource.login()...');
-        final remoteAuth = await remoteDataSource.login(
-          email: email,
-          password: password,
-        );
-        if (kDebugMode) debugPrint('📡 [AuthRepository] Réponse reçue - hasToken: ${remoteAuth.token.isNotEmpty}');
-        
-        await localDataSource.cacheToken(remoteAuth.token);
-        await localDataSource.cacheUser(remoteAuth.user);
-        if (kDebugMode) debugPrint('📡 [AuthRepository] Token et user mis en cache');
-        
-        apiClient.setToken(remoteAuth.token);
-        if (kDebugMode) debugPrint('📡 [AuthRepository] Token défini dans ApiClient');
+    _log('🔑 login($email)');
 
-        return Right(remoteAuth.toEntity());
-      } on ServerException catch (e) {
-        if (kDebugMode) debugPrint('❌ [AuthRepository] ServerException: ${e.message}');
-        return Left(ServerFailure(e.message));
-      } on UnauthorizedException catch (e) {
-        if (kDebugMode) debugPrint('❌ [AuthRepository] UnauthorizedException: ${e.message}');
-        return Left(UnauthorizedFailure(e.message));
-      } on ForbiddenException catch (e) {
-        if (kDebugMode) debugPrint('❌ [AuthRepository] ForbiddenException: ${e.message} (code: ${e.errorCode})');
-        return Left(ForbiddenFailure(e.message, errorCode: e.errorCode));
-      } on ValidationException catch (e) {
-        if (kDebugMode) debugPrint('❌ [AuthRepository] ValidationException: ${e.errors}');
-        return Left(ValidationFailure(e.errors));
-      } catch (e, stackTrace) {
-        if (kDebugMode) debugPrint('💥 [AuthRepository] Exception inattendue: $e');
-        if (kDebugMode) debugPrint('💥 [AuthRepository] StackTrace: $stackTrace');
-        return Left(ServerFailure(e.toString()));
-      }
-    } else {
-      if (kDebugMode) debugPrint('❌ [AuthRepository] Pas de connexion réseau');
-      return Left(NetworkFailure('No internet connection'));
+    final networkError = await _checkNetwork();
+    if (networkError != null) return Left(networkError);
+
+    try {
+      final auth = await remoteDataSource.login(
+        email: email,
+        password: password,
+      );
+      await _saveAuth(auth);
+      return Right(auth.toEntity());
+    } catch (e, stack) {
+      _log('❌ login error: $e');
+      if (kDebugMode) debugPrint('$stack');
+      return Left(_mapException(e));
     }
   }
+
+  @override
+  Future<Either<Failure, AuthResponseEntity>> loginWithBiometric({
+    required String email,
+  }) async {
+    _log('🔐 loginWithBiometric($email)');
+
+    final networkError = await _checkNetwork();
+    if (networkError != null) return Left(networkError);
+
+    try {
+      final cachedToken = await localDataSource.getToken();
+      if (cachedToken == null || cachedToken.isEmpty) {
+        return Left(
+          UnauthorizedFailure(
+            'Veuillez vous connecter d\'abord avec email et mot de passe',
+          ),
+        );
+      }
+
+      final auth = await remoteDataSource.refreshSession(token: cachedToken);
+      await _saveAuth(auth);
+      _log('✅ Biometric login OK');
+      return Right(auth.toEntity());
+    } on UnauthorizedException {
+      return Left(
+        UnauthorizedFailure(
+          'Session expirée. Veuillez vous reconnecter avec votre mot de passe.',
+        ),
+      );
+    } catch (e) {
+      _log('❌ Biometric error: $e');
+      return Left(ServerFailure('Erreur de connexion biométrique'));
+    }
+  }
+
+  // ============================================================
+  // REGISTER
+  // ============================================================
 
   @override
   Future<Either<Failure, AuthResponseEntity>> register({
@@ -86,104 +141,85 @@ class AuthRepositoryImpl implements AuthRepository {
     required double latitude,
     required double longitude,
   }) async {
-    if (await networkInfo.isConnected) {
-      try {
-        final remoteAuth = await remoteDataSource.register(
-          name: name,
-          pName: pName,
-          email: email,
-          phone: phone,
-          password: password,
-          licenseNumber: licenseNumber,
-          city: city,
-          address: address,
-          latitude: latitude,
-          longitude: longitude,
-        );
+    _log('📝 register($email)');
 
-        // NE PAS stocker le token après inscription
-        // Le compte doit être approuvé par l'admin avant la connexion
-        // await localDataSource.cacheToken(remoteAuth.token);
-        // await localDataSource.cacheUser(remoteAuth.user);
-        // apiClient.setToken(remoteAuth.token);
+    final networkError = await _checkNetwork();
+    if (networkError != null) return Left(networkError);
 
-        return Right(remoteAuth.toEntity());
-      } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
-      } on ValidationException catch (e) {
-        return Left(ValidationFailure(e.errors));
-      } catch (e) {
-        return Left(ServerFailure(e.toString()));
-      }
-    } else {
-      return Left(NetworkFailure('No internet connection'));
+    try {
+      final auth = await remoteDataSource.register(
+        name: name,
+        pName: pName,
+        email: email,
+        phone: phone,
+        password: password,
+        licenseNumber: licenseNumber,
+        city: city,
+        address: address,
+        latitude: latitude,
+        longitude: longitude,
+      );
+      // NE PAS stocker le token - le compte doit être approuvé par l'admin
+      return Right(auth.toEntity());
+    } catch (e) {
+      return Left(_mapException(e));
     }
   }
 
+  // ============================================================
+  // LOGOUT
+  // ============================================================
+
   @override
   Future<Either<Failure, void>> logout() async {
-    if (await networkInfo.isConnected) {
-      try {
+    _log('🚪 logout()');
+    try {
+      if (await networkInfo.isConnected) {
         final token = await localDataSource.getToken();
         if (token != null) {
           await remoteDataSource.logout(token);
         }
-        await localDataSource.clearAuthData();
-        apiClient.clearToken();
-        return const Right(null);
-      } catch (e) {
-        // Even if logout fails on server, clear local data
-        await localDataSource.clearAuthData();
-        apiClient.clearToken();
-        return const Right(null);
       }
-    } else {
-      // Offline logout - just clear local data
-      await localDataSource.clearAuthData();
-      apiClient.clearToken();
-      return const Right(null);
+    } catch (_) {
+      // Ignore server errors - always clear local data
     }
+    await localDataSource.clearAuthData();
+    return const Right(null);
   }
+
+  // ============================================================
+  // USER
+  // ============================================================
 
   @override
   Future<Either<Failure, UserEntity>> getCurrentUser() async {
-    if (kDebugMode) debugPrint('👤 [AuthRepository] getCurrentUser() appelé');
+    _log('👤 getCurrentUser()');
     try {
       final token = await localDataSource.getToken();
-      if (kDebugMode) debugPrint('👤 [AuthRepository] Token local: ${token != null ? "present" : "null"}');
-      
-      if (token != null) {
-        apiClient.setToken(token);
-      }
 
+      // 1. Try local cache first
       final localUser = await localDataSource.getUser();
-      if (kDebugMode) debugPrint('👤 [AuthRepository] User local: ${localUser?.email ?? "null"}');
-      
       if (localUser != null) {
-        if (kDebugMode) debugPrint('👤 [AuthRepository] Retour user depuis cache local');
+        _log('👤 User from cache: ${localUser.email}');
         return Right(localUser.toEntity());
       }
-      
-      // If no local user but has token, try fetch from remote
-      if (token != null) {
-        if (kDebugMode) debugPrint('👤 [AuthRepository] Pas de user local, tentative fetch remote...');
-        if (await networkInfo.isConnected) {
-          try {
-            final remoteUser = await remoteDataSource.getCurrentUser(token);
-            await localDataSource.cacheUser(remoteUser);
-            if (kDebugMode) debugPrint('👤 [AuthRepository] User récupéré du serveur: ${remoteUser.email}');
-            return Right(remoteUser.toEntity());
-          } catch (e) {
-            if (kDebugMode) debugPrint('❌ [AuthRepository] Échec fetch user remote: $e');
-             return Left(ServerFailure('Failed to fetch user profile'));
-          }
+
+      // 2. If token exists, try remote
+      if (token != null && await networkInfo.isConnected) {
+        try {
+          final remoteUser = await remoteDataSource.getCurrentUser(token);
+          await localDataSource.cacheUser(remoteUser);
+          _log('👤 User from server: ${remoteUser.email}');
+          return Right(remoteUser.toEntity());
+        } catch (e) {
+          _log('❌ Remote user fetch failed: $e');
+          return Left(ServerFailure('Failed to fetch user profile'));
         }
       }
 
-      if (kDebugMode) debugPrint('👤 [AuthRepository] Pas d\'utilisateur connecté');
       return Left(CacheFailure('No user logged in'));
     } catch (e) {
-      if (kDebugMode) debugPrint('💥 [AuthRepository] Exception getCurrentUser: $e');
+      _log('❌ getCurrentUser error: $e');
       return Left(CacheFailure(e.toString()));
     }
   }
@@ -192,45 +228,43 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Either<Failure, bool>> checkAuthStatus() async {
     try {
       final hasToken = await localDataSource.hasToken();
-      
-      if (!hasToken) {
-        return const Right(false);
-      }
+      if (!hasToken) return const Right(false);
 
-      // Récupérer et définir le token sur l'ApiClient
       final token = await localDataSource.getToken();
       if (token != null) {
-        apiClient.setToken(token);
-        if (kDebugMode) debugPrint('🔑 [AuthRepository] Token restauré sur ApiClient');
+        _log('🔑 Token restauré');
       }
 
-      // Optional: Verify token validity with server if online
-      if (await networkInfo.isConnected) {
-         try {
-           if(token != null){
-              await remoteDataSource.getCurrentUser(token);
-              return const Right(true);
-           }
-         } catch(e) {
-           // Token invalid
-           await localDataSource.clearAuthData();
-           apiClient.clearToken();
-           return const Right(false);
-         }
+      // Verify token with server if online
+      if (await networkInfo.isConnected && token != null) {
+        try {
+          await remoteDataSource.getCurrentUser(token);
+          return const Right(true);
+        } catch (_) {
+          // Token invalid - clear
+          await localDataSource.clearAuthData();
+          return const Right(false);
+        }
       }
 
       return const Right(true);
-    } catch (e) {
+    } catch (_) {
       return const Right(false);
     }
   }
 
+  // ============================================================
+  // PROFILE
+  // ============================================================
+
   @override
   Future<Either<Failure, void>> forgotPassword({required String email}) async {
+    _log('🔑 forgotPassword($email)');
+
+    final networkError = await _checkNetwork();
+    if (networkError != null) return Left(networkError);
+
     try {
-      if (!await networkInfo.isConnected) {
-        return Left(NetworkFailure('Pas de connexion internet'));
-      }
       await remoteDataSource.forgotPassword(email: email);
       return const Right(null);
     } catch (e) {
@@ -244,14 +278,17 @@ class AuthRepositoryImpl implements AuthRepository {
     String? email,
     String? phone,
   }) async {
+    _log('✏️ updateProfile()');
+
+    final networkError = await _checkNetwork();
+    if (networkError != null) return Left(networkError);
+
     try {
-      if (!await networkInfo.isConnected) {
-        return Left(NetworkFailure('Pas de connexion internet'));
-      }
-      final data = <String, dynamic>{};
-      if (name != null) data['name'] = name;
-      if (email != null) data['email'] = email;
-      if (phone != null) data['phone'] = phone;
+      final data = <String, dynamic>{
+        if (name != null) 'name': name,
+        if (email != null) 'email': email,
+        if (phone != null) 'phone': phone,
+      };
       await apiClient.put('/pharmacy/profile', data: data);
       return const Right(null);
     } catch (e) {
