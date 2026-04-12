@@ -124,20 +124,23 @@ class DeliveryOfferResource extends Resource
                     ->limit(20)
                     ->searchable(),
                     
-                Tables\Columns\BadgeColumn::make('status')
+                Tables\Columns\TextColumn::make('status')
                     ->label('Statut')
-                    ->colors([
-                        'warning' => DeliveryOffer::STATUS_PENDING,
-                        'success' => DeliveryOffer::STATUS_ACCEPTED,
-                        'gray' => DeliveryOffer::STATUS_EXPIRED,
-                        'danger' => DeliveryOffer::STATUS_NO_COURIER,
-                        'secondary' => DeliveryOffer::STATUS_CANCELLED,
-                    ])
-                    ->icons([
-                        'heroicon-o-clock' => DeliveryOffer::STATUS_PENDING,
-                        'heroicon-o-check' => DeliveryOffer::STATUS_ACCEPTED,
-                        'heroicon-o-x-circle' => [DeliveryOffer::STATUS_EXPIRED, DeliveryOffer::STATUS_NO_COURIER],
-                    ])
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        DeliveryOffer::STATUS_PENDING => 'warning',
+                        DeliveryOffer::STATUS_ACCEPTED => 'success',
+                        DeliveryOffer::STATUS_EXPIRED => 'gray',
+                        DeliveryOffer::STATUS_NO_COURIER => 'danger',
+                        DeliveryOffer::STATUS_CANCELLED => 'gray',
+                        default => 'gray',
+                    })
+                    ->icon(fn (string $state): ?string => match ($state) {
+                        DeliveryOffer::STATUS_PENDING => 'heroicon-o-clock',
+                        DeliveryOffer::STATUS_ACCEPTED => 'heroicon-o-check',
+                        DeliveryOffer::STATUS_EXPIRED, DeliveryOffer::STATUS_NO_COURIER => 'heroicon-o-x-circle',
+                        default => null,
+                    })
                     ->formatStateUsing(fn ($state) => match($state) {
                         DeliveryOffer::STATUS_PENDING => 'En attente',
                         DeliveryOffer::STATUS_ACCEPTED => 'Acceptée',

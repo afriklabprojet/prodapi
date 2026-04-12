@@ -141,22 +141,25 @@ class CourierShiftResource extends Resource
                         $record->start_time?->format('H:i') . ' - ' . $record->end_time?->format('H:i')
                     ),
                     
-                Tables\Columns\BadgeColumn::make('status')
+                Tables\Columns\TextColumn::make('status')
                     ->label('Statut')
-                    ->colors([
-                        'info' => CourierShift::STATUS_CONFIRMED,
-                        'success' => CourierShift::STATUS_IN_PROGRESS,
-                        'gray' => CourierShift::STATUS_COMPLETED,
-                        'danger' => CourierShift::STATUS_CANCELLED,
-                        'warning' => CourierShift::STATUS_NO_SHOW,
-                    ])
-                    ->icons([
-                        'heroicon-o-check-circle' => CourierShift::STATUS_CONFIRMED,
-                        'heroicon-o-play' => CourierShift::STATUS_IN_PROGRESS,
-                        'heroicon-o-check-badge' => CourierShift::STATUS_COMPLETED,
-                        'heroicon-o-x-circle' => CourierShift::STATUS_CANCELLED,
-                        'heroicon-o-exclamation-triangle' => CourierShift::STATUS_NO_SHOW,
-                    ])
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        CourierShift::STATUS_CONFIRMED => 'info',
+                        CourierShift::STATUS_IN_PROGRESS => 'success',
+                        CourierShift::STATUS_COMPLETED => 'gray',
+                        CourierShift::STATUS_CANCELLED => 'danger',
+                        CourierShift::STATUS_NO_SHOW => 'warning',
+                        default => 'gray',
+                    })
+                    ->icon(fn (string $state): ?string => match ($state) {
+                        CourierShift::STATUS_CONFIRMED => 'heroicon-o-check-circle',
+                        CourierShift::STATUS_IN_PROGRESS => 'heroicon-o-play',
+                        CourierShift::STATUS_COMPLETED => 'heroicon-o-check-badge',
+                        CourierShift::STATUS_CANCELLED => 'heroicon-o-x-circle',
+                        CourierShift::STATUS_NO_SHOW => 'heroicon-o-exclamation-triangle',
+                        default => null,
+                    })
                     ->formatStateUsing(fn ($state) => match($state) {
                         CourierShift::STATUS_CONFIRMED => 'Confirmé',
                         CourierShift::STATUS_IN_PROGRESS => 'En cours',

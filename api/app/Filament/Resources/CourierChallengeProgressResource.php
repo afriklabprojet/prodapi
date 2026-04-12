@@ -38,11 +38,11 @@ class CourierChallengeProgressResource extends Resource
 
             Forms\Components\Select::make('challenge_type')
                 ->options([
-                    CourierChallengeProgress::DAILY_STREAK => 'Série quotidienne',
-                    CourierChallengeProgress::PEAK_HOUR_HERO => 'Héros heures de pointe',
-                    CourierChallengeProgress::PERFECT_RATING => 'Note parfaite',
-                    CourierChallengeProgress::SPEED_DEMON => 'Rapide comme l\'éclair',
-                    CourierChallengeProgress::ZONE_EXPLORER => 'Explorateur de zones',
+                    CourierChallengeProgress::CHALLENGE_DAILY_STREAK => 'Série quotidienne',
+                    CourierChallengeProgress::CHALLENGE_PEAK_HOUR_HERO => 'Héros heures de pointe',
+                    CourierChallengeProgress::CHALLENGE_PERFECT_RATING => 'Note parfaite',
+                    CourierChallengeProgress::CHALLENGE_SPEED_DEMON => 'Rapide comme l\'éclair',
+                    CourierChallengeProgress::CHALLENGE_ZONE_EXPLORER => 'Explorateur de zones',
                 ])
                 ->label('Type de défi')
                 ->required(),
@@ -86,19 +86,19 @@ class CourierChallengeProgressResource extends Resource
                     ->label('Défi')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
-                        CourierChallengeProgress::DAILY_STREAK => 'primary',
-                        CourierChallengeProgress::PEAK_HOUR_HERO => 'warning',
-                        CourierChallengeProgress::PERFECT_RATING => 'success',
-                        CourierChallengeProgress::SPEED_DEMON => 'danger',
-                        CourierChallengeProgress::ZONE_EXPLORER => 'info',
+                        CourierChallengeProgress::CHALLENGE_DAILY_STREAK => 'primary',
+                        CourierChallengeProgress::CHALLENGE_PEAK_HOUR_HERO => 'warning',
+                        CourierChallengeProgress::CHALLENGE_PERFECT_RATING => 'success',
+                        CourierChallengeProgress::CHALLENGE_SPEED_DEMON => 'danger',
+                        CourierChallengeProgress::CHALLENGE_ZONE_EXPLORER => 'info',
                         default => 'gray',
                     })
                     ->formatStateUsing(fn (string $state): string => match ($state) {
-                        CourierChallengeProgress::DAILY_STREAK => 'Série quotidienne',
-                        CourierChallengeProgress::PEAK_HOUR_HERO => 'Heures de pointe',
-                        CourierChallengeProgress::PERFECT_RATING => 'Note parfaite',
-                        CourierChallengeProgress::SPEED_DEMON => 'Rapide',
-                        CourierChallengeProgress::ZONE_EXPLORER => 'Explorateur',
+                        CourierChallengeProgress::CHALLENGE_DAILY_STREAK => 'Série quotidienne',
+                        CourierChallengeProgress::CHALLENGE_PEAK_HOUR_HERO => 'Heures de pointe',
+                        CourierChallengeProgress::CHALLENGE_PERFECT_RATING => 'Note parfaite',
+                        CourierChallengeProgress::CHALLENGE_SPEED_DEMON => 'Rapide',
+                        CourierChallengeProgress::CHALLENGE_ZONE_EXPLORER => 'Explorateur',
                         default => $state,
                     }),
 
@@ -151,11 +151,11 @@ class CourierChallengeProgressResource extends Resource
                 Tables\Filters\SelectFilter::make('challenge_type')
                     ->label('Type de défi')
                     ->options([
-                        CourierChallengeProgress::DAILY_STREAK => 'Série quotidienne',
-                        CourierChallengeProgress::PEAK_HOUR_HERO => 'Heures de pointe',
-                        CourierChallengeProgress::PERFECT_RATING => 'Note parfaite',
-                        CourierChallengeProgress::SPEED_DEMON => 'Rapide',
-                        CourierChallengeProgress::ZONE_EXPLORER => 'Explorateur',
+                        CourierChallengeProgress::CHALLENGE_DAILY_STREAK => 'Série quotidienne',
+                        CourierChallengeProgress::CHALLENGE_PEAK_HOUR_HERO => 'Heures de pointe',
+                        CourierChallengeProgress::CHALLENGE_PERFECT_RATING => 'Note parfaite',
+                        CourierChallengeProgress::CHALLENGE_SPEED_DEMON => 'Rapide',
+                        CourierChallengeProgress::CHALLENGE_ZONE_EXPLORER => 'Explorateur',
                     ]),
 
                 Tables\Filters\Filter::make('today')
