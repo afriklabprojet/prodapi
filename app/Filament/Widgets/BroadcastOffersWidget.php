@@ -19,7 +19,7 @@ class BroadcastOffersWidget extends BaseWidget
     
     protected static ?string $heading = '📢 Offres Broadcast en attente';
     
-    protected static ?string $pollingInterval = '5s';
+    protected static ?string $pollingInterval = '15s';
 
     public function table(Table $table): Table
     {

@@ -8,7 +8,6 @@ use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Filament\Forms;
 use Filament\Notifications\Notification;
-use Illuminate\Support\HtmlString;
 
 class PendingPrescriptionsWidget extends BaseWidget
 {
@@ -63,40 +62,11 @@ class PendingPrescriptionsWidget extends BaseWidget
                     ->color('info')
                     ->modalHeading(fn ($record) => 'Ordonnance #' . $record->id)
                     ->modalContent(function ($record) {
-                        $images = $record->getRawImages();
-                        $customer = $record->customer;
-                        
-                        $html = '<div style="padding: 10px;">';
-                        
-                        // Info client
-                        $html .= '<div style="background: #f3f4f6; padding: 12px; border-radius: 8px; margin-bottom: 16px;">';
-                        $html .= '<strong>Client:</strong> ' . ($customer?->name ?? 'Inconnu') . '<br>';
-                        $html .= '<strong>Téléphone:</strong> ' . ($customer?->phone ?? 'N/A') . '<br>';
-                        $html .= '<strong>Email:</strong> ' . ($customer?->email ?? 'N/A') . '<br>';
-                        if ($record->notes) {
-                            $html .= '<strong>Notes:</strong> ' . e($record->notes);
-                        }
-                        $html .= '</div>';
-                        
-                        // Images
-                        if (empty($images)) {
-                            $html .= '<p style="text-align: center; color: #666;">Aucune image</p>';
-                        } else {
-                            $html .= '<div style="display: flex; flex-direction: column; gap: 16px; align-items: center;">';
-                            foreach ($images as $index => $image) {
-                                $url = route('admin.documents.view', ['path' => $image]);
-                                $html .= '<div style="text-align: center;">';
-                                $html .= '<a href="' . $url . '" target="_blank" title="Cliquer pour ouvrir dans un nouvel onglet">';
-                                $html .= '<img src="' . $url . '" style="max-width: 100%; max-height: 500px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.15);" />';
-                                $html .= '</a>';
-                                $html .= '</div>';
-                            }
-                            $html .= '</div>';
-                        }
-                        
-                        $html .= '</div>';
-                        
-                        return new HtmlString($html);
+                        return view('filament.modals.prescription-view', [
+                            'prescription' => $record,
+                            'customer' => $record->customer,
+                            'images' => $record->getRawImages(),
+                        ]);
                     })
                     ->modalWidth('4xl')
                     ->modalSubmitAction(false)
