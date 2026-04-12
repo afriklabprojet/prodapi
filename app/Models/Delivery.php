@@ -39,6 +39,12 @@ class Delivery extends Model
         'waiting_fee',
         'auto_cancelled_at',
         'cancellation_reason',
+        'customer_rating',
+        'customer_rating_comment',
+        'customer_rating_tags',
+        'customer_rated_at',
+        'metadata',
+        'location_history',
     ];
 
     protected $casts = [
@@ -59,6 +65,9 @@ class Delivery extends Model
         'waiting_ended_at' => 'datetime',
         'auto_cancelled_at' => 'datetime',
         'waiting_fee' => 'integer',
+        'metadata' => 'array',
+        'location_history' => 'array',
+        'customer_rated_at' => 'datetime',
     ];
 
     /**
@@ -84,6 +93,14 @@ class Delivery extends Model
     {
         return $this->belongsToMany(Courier::class, 'delivery_rejections')
             ->withPivot('reason', 'rejected_at');
+    }
+
+    /**
+     * Points de tracking GPS
+     */
+    public function trackingPoints(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(DeliveryTrackingPoint::class);
     }
 
     /**
