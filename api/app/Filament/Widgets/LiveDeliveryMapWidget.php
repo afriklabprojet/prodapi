@@ -42,6 +42,14 @@ class LiveDeliveryMapWidget extends Widget
             ->toArray();
     }
 
+    public function getMapData(): array
+    {
+        return [
+            'deliveries' => $this->getActiveDeliveries(),
+            'couriers' => $this->getAvailableCouriers(),
+        ];
+    }
+
     public function getMapStats(): array
     {
         return [
