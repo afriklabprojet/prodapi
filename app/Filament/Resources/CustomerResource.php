@@ -30,8 +30,10 @@ class CustomerResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->where('role', 'customer')
-            ->orWhereNull('role');
+            ->where(function (Builder $query) {
+                $query->where('role', 'customer')
+                      ->orWhereNull('role');
+            });
     }
 
     public static function form(Form $form): Form
