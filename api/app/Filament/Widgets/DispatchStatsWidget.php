@@ -7,7 +7,6 @@ use App\Models\DeliveryOffer;
 use App\Models\CourierShift;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use Illuminate\Support\Facades\Cache;
 
 /**
  * Widget affichant les statistiques du dispatch en temps réel.
@@ -20,10 +19,7 @@ class DispatchStatsWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        // Cache de 20 secondes pour éviter les requêtes redondantes
-        return Cache::remember('dispatch_stats_overview', 20, function () {
-            return $this->computeStats();
-        });
+        return $this->computeStats();
     }
 
     protected function computeStats(): array
