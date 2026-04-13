@@ -31,9 +31,9 @@
         </div>
 
         {{-- Map + Sidebar --}}
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-0">
-            {{-- Leaflet Map --}}
-            <div class="lg:col-span-2 relative" style="min-height: 500px;" wire:ignore>
+        <div class="relative">
+            {{-- Leaflet Map — full width --}}
+            <div class="relative w-full" style="min-height: 500px;" wire:ignore>
                 <div id="live-delivery-map" class="absolute inset-0 z-0"></div>
 
                 {{-- Legend overlay --}}
@@ -53,8 +53,9 @@
                 </div>
             </div>
 
-            {{-- Sidebar: deliveries + couriers --}}
-            <div class="border-l dark:border-gray-700 overflow-y-auto max-h-[500px]">
+            {{-- Sidebar: overlay on right when content exists --}}
+            @if(count($deliveries) > 0 || count($couriers) > 0)
+            <div class="absolute top-0 right-0 bottom-0 z-[900] w-80 bg-white/95 dark:bg-gray-800/95 backdrop-blur border-l dark:border-gray-700 overflow-y-auto">
                 <div class="p-3 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                     <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300">Livraisons actives</h4>
                 </div>
@@ -119,6 +120,7 @@
                 @endforelse
             </div>
         </div>
+    @endif
     </div>
 </div>
 
