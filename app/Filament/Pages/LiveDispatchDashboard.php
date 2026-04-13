@@ -53,7 +53,7 @@ class LiveDispatchDashboard extends Page
     
     public function getHeaderWidgetsColumns(): int|array
     {
-        return 6;
+        return 1;
     }
     
     public function getFooterWidgetsColumns(): int|array
