@@ -1,13 +1,45 @@
 <?php
 
 use App\Models\Setting;
+use App\Models\Pharmacy;
+use App\Models\Order;
+use App\Models\Product;
+use App\Models\Delivery;
+use App\Models\Customer;
+use App\Models\Courier;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Admin\PrivateDocumentController;
 
 Route::get('/', function () {
+    // Stats dynamiques — cache 10 min pour éviter les requêtes à chaque visite
+    $stats = Cache::remember('landing_stats_live', 600, function () {
+        $pharmacyCount = Pharmacy::count();
+        $orderCount = Order::where('status', 'delivered')->count();
+        $productCount = Product::count();
+        $customerCount = Customer::count();
+        $courierCount = Courier::count();
+
+        // Délai moyen de livraison (en minutes)
+        $avgDelivery = Delivery::where('status', 'delivered')
+            ->whereNotNull('assigned_at')
+            ->whereNotNull('delivered_at')
+            ->select(DB::raw('AVG(TIMESTAMPDIFF(MINUTE, assigned_at, delivered_at)) as avg_min'))
+            ->value('avg_min');
+        $avgMin = $avgDelivery ? round($avgDelivery) : 30;
+
+        return [
+            ['value' => (string) $pharmacyCount, 'suffix' => '', 'label' => 'Pharmacies partenaires'],
+            ['value' => (string) ($orderCount ?: $customerCount), 'suffix' => '', 'label' => $orderCount ? 'Commandes livrées' : 'Utilisateurs inscrits'],
+            ['value' => (string) ($productCount ?: $courierCount), 'suffix' => '', 'label' => $productCount ? 'Médicaments disponibles' : 'Coursiers actifs'],
+            ['value' => (string) $avgMin, 'suffix' => ' min', 'label' => 'Délai moyen de livraison'],
+        ];
+    });
+
     $landing = [
         // SEO
         'seo_title' => Setting::get('landing_seo_title', 'DR-PHARMA — Pharmacie en ligne, livraison à Abidjan'),
@@ -26,13 +58,8 @@ Route::get('/', function () {
         'hero_phone_title' => Setting::get('landing_hero_phone_title', 'DR-PHARMA'),
         'hero_phone_subtitle' => Setting::get('landing_hero_phone_subtitle', 'Commandez en quelques clics'),
 
-        // Stats
-        'stats' => Setting::get('landing_stats', [
-            ['value' => '50', 'suffix' => '+', 'label' => 'Pharmacies inscrites'],
-            ['value' => '1200', 'suffix' => '+', 'label' => 'Commandes livrées'],
-            ['value' => '850', 'suffix' => '+', 'label' => 'Médicaments disponibles'],
-            ['value' => '42', 'suffix' => ' min', 'label' => 'Délai moyen de livraison'],
-        ]),
+        // Stats — données réelles
+        'stats' => $stats,
 
         // Features
         'features_badge' => Setting::get('landing_features_badge', 'L\'app en bref'),
