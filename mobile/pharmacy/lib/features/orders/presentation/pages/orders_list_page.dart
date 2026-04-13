@@ -442,50 +442,55 @@ class _FilterChip extends StatelessWidget {
       button: true,
       selected: isActive,
       label: '$label${isActive ? ", sélectionné" : ""}',
-      child: Material(
-        color: isActive ? Theme.of(context).colorScheme.primary : Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        child: InkWell(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            onTap();
-          },
+      child: AnimatedScale(
+        scale: isActive ? 1.05 : 1.0,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutBack,
+        child: Material(
+          color: isActive ? Theme.of(context).colorScheme.primary : Colors.white,
           borderRadius: BorderRadius.circular(30),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(30),
-              border: isActive
-                  ? Border.all(color: Colors.transparent)
-                  : Border.all(
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.grey.shade800
-                          : Colors.grey.shade200,
-                      width: 1.5,
-                    ),
-              boxShadow: isActive
-                  ? [
-                      BoxShadow(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.primary.withValues(alpha: 0.25),
-                        blurRadius: 16,
-                        offset: const Offset(0, 8),
+          child: InkWell(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              onTap();
+            },
+            borderRadius: BorderRadius.circular(30),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30),
+                border: isActive
+                    ? Border.all(color: Colors.transparent)
+                    : Border.all(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.grey.shade800
+                            : Colors.grey.shade200,
+                        width: 1.5,
                       ),
-                    ]
-                  : [],
-            ),
-            child: Text(
-              label,
-              style: TextStyle(
-                color: isActive
-                    ? Colors.white
-                    : Theme.of(context).brightness == Brightness.dark
-                    ? Colors.grey.shade400
-                    : Colors.grey.shade600,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                fontSize: 15,
+                boxShadow: isActive
+                    ? [
+                        BoxShadow(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.25),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
+                        ),
+                      ]
+                    : [],
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: isActive
+                      ? Colors.white
+                      : Theme.of(context).brightness == Brightness.dark
+                      ? Colors.grey.shade400
+                      : Colors.grey.shade600,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                  fontSize: 15,
+                ),
               ),
             ),
           ),

@@ -66,7 +66,7 @@ void main() {
   });
 
   group('ErrorHandler.getErrorMessage — DioException', () {
-    DioException _makeDio(
+    DioException makeDio(
       DioExceptionType type, {
       int? statusCode,
       dynamic data,
@@ -85,47 +85,47 @@ void main() {
     }
 
     test('connectionTimeout → délai de connexion', () {
-      final e = _makeDio(DioExceptionType.connectionTimeout);
+      final e = makeDio(DioExceptionType.connectionTimeout);
       expect(ErrorHandler.getErrorMessage(e), contains('Délai'));
     });
 
     test('sendTimeout → délai de connexion', () {
-      final e = _makeDio(DioExceptionType.sendTimeout);
+      final e = makeDio(DioExceptionType.sendTimeout);
       expect(ErrorHandler.getErrorMessage(e), contains('Délai'));
     });
 
     test('receiveTimeout → délai de connexion', () {
-      final e = _makeDio(DioExceptionType.receiveTimeout);
+      final e = makeDio(DioExceptionType.receiveTimeout);
       expect(ErrorHandler.getErrorMessage(e), contains('Délai'));
     });
 
     test('cancel → requête annulée', () {
-      final e = _makeDio(DioExceptionType.cancel);
+      final e = makeDio(DioExceptionType.cancel);
       expect(ErrorHandler.getErrorMessage(e), 'Requête annulée');
     });
 
     test('badCertificate → certificat invalide', () {
-      final e = _makeDio(DioExceptionType.badCertificate);
+      final e = makeDio(DioExceptionType.badCertificate);
       expect(ErrorHandler.getErrorMessage(e), contains('Certificat'));
     });
 
     test('unknown → erreur connexion', () {
-      final e = _makeDio(DioExceptionType.unknown);
+      final e = makeDio(DioExceptionType.unknown);
       expect(ErrorHandler.getErrorMessage(e), 'Erreur de connexion');
     });
 
     test('connectionError → impossible se connecter', () {
-      final e = _makeDio(DioExceptionType.connectionError);
+      final e = makeDio(DioExceptionType.connectionError);
       expect(ErrorHandler.getErrorMessage(e), contains('connecter'));
     });
 
     test('badResponse 400 → requête invalide', () {
-      final e = _makeDio(DioExceptionType.badResponse, statusCode: 400);
+      final e = makeDio(DioExceptionType.badResponse, statusCode: 400);
       expect(ErrorHandler.getErrorMessage(e), 'Requête invalide');
     });
 
     test('badResponse 400 with message → uses server message', () {
-      final e = _makeDio(
+      final e = makeDio(
         DioExceptionType.badResponse,
         statusCode: 400,
         data: {'message': 'Champ manquant'},
@@ -134,52 +134,52 @@ void main() {
     });
 
     test('badResponse 401 → session expirée', () {
-      final e = _makeDio(DioExceptionType.badResponse, statusCode: 401);
+      final e = makeDio(DioExceptionType.badResponse, statusCode: 401);
       expect(ErrorHandler.getErrorMessage(e), contains('Session expirée'));
     });
 
     test('badResponse 403 → accès non autorisé', () {
-      final e = _makeDio(DioExceptionType.badResponse, statusCode: 403);
+      final e = makeDio(DioExceptionType.badResponse, statusCode: 403);
       expect(ErrorHandler.getErrorMessage(e), contains('Accès non autorisé'));
     });
 
     test('badResponse 404 → ressource non trouvée', () {
-      final e = _makeDio(DioExceptionType.badResponse, statusCode: 404);
+      final e = makeDio(DioExceptionType.badResponse, statusCode: 404);
       expect(ErrorHandler.getErrorMessage(e), contains('non trouvée'));
     });
 
     test('badResponse 409 → conflit de données', () {
-      final e = _makeDio(DioExceptionType.badResponse, statusCode: 409);
+      final e = makeDio(DioExceptionType.badResponse, statusCode: 409);
       expect(ErrorHandler.getErrorMessage(e), contains('Conflit'));
     });
 
     test('badResponse 422 → données invalides', () {
-      final e = _makeDio(DioExceptionType.badResponse, statusCode: 422);
+      final e = makeDio(DioExceptionType.badResponse, statusCode: 422);
       expect(ErrorHandler.getErrorMessage(e), contains('invalides'));
     });
 
     test('badResponse 429 → trop de requêtes', () {
-      final e = _makeDio(DioExceptionType.badResponse, statusCode: 429);
+      final e = makeDio(DioExceptionType.badResponse, statusCode: 429);
       expect(ErrorHandler.getErrorMessage(e), contains('Trop de requêtes'));
     });
 
     test('badResponse 500 → erreur serveur', () {
-      final e = _makeDio(DioExceptionType.badResponse, statusCode: 500);
+      final e = makeDio(DioExceptionType.badResponse, statusCode: 500);
       expect(ErrorHandler.getErrorMessage(e), contains('serveur'));
     });
 
     test('badResponse 502 → service indisponible', () {
-      final e = _makeDio(DioExceptionType.badResponse, statusCode: 502);
+      final e = makeDio(DioExceptionType.badResponse, statusCode: 502);
       expect(ErrorHandler.getErrorMessage(e), contains('indisponible'));
     });
 
     test('badResponse 503 → service indisponible', () {
-      final e = _makeDio(DioExceptionType.badResponse, statusCode: 503);
+      final e = makeDio(DioExceptionType.badResponse, statusCode: 503);
       expect(ErrorHandler.getErrorMessage(e), contains('indisponible'));
     });
 
     test('badResponse unknown code → uses error field', () {
-      final e = _makeDio(
+      final e = makeDio(
         DioExceptionType.badResponse,
         statusCode: 418,
         data: {'error': 'Je suis une théière'},
@@ -188,12 +188,12 @@ void main() {
     });
 
     test('badResponse unknown code without message → Erreur XXX', () {
-      final e = _makeDio(DioExceptionType.badResponse, statusCode: 418);
+      final e = makeDio(DioExceptionType.badResponse, statusCode: 418);
       expect(ErrorHandler.getErrorMessage(e), contains('418'));
     });
 
     test('badResponse with errors map → first error value', () {
-      final e = _makeDio(
+      final e = makeDio(
         DioExceptionType.badResponse,
         statusCode: 422,
         data: {

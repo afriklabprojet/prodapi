@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/widgets/cached_image.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../../products/presentation/providers/favorites_provider.dart';
 import '../../../products/domain/entities/product_entity.dart';
 import '../../../orders/presentation/providers/cart_provider.dart';
@@ -66,16 +67,11 @@ class FavoriteProductsSection extends ConsumerWidget {
                 onTap: () => context.goToProductDetails(product.id),
                 onAddToCart: () {
                   ref.read(cartProvider.notifier).addItem(product);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('${product.name} ajouté au panier'),
-                      duration: const Duration(seconds: 1),
-                      behavior: SnackBarBehavior.floating,
-                      action: SnackBarAction(
-                        label: 'Voir',
-                        onPressed: () => context.goToCart(),
-                      ),
-                    ),
+                  AppSnackbar.success(
+                    context,
+                    '${product.name} ajouté au panier',
+                    actionLabel: 'Voir',
+                    onAction: () => context.goToCart(),
                   );
                 },
               );
@@ -108,23 +104,26 @@ class _FavoriteProductCard extends StatelessWidget {
       decimalDigits: 0,
     );
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 140,
-        margin: const EdgeInsets.only(right: 12),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
+    return Container(
+      width: 140,
+      margin: const EdgeInsets.only(right: 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Image
@@ -180,22 +179,26 @@ class _FavoriteProductCard extends StatelessWidget {
                           ),
                         ),
                         // Bouton ajout rapide
-                        GestureDetector(
-                          onTap: product.isAvailable ? onAddToCart : null,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: product.isAvailable
-                                  ? AppColors.primary.withValues(alpha: 0.1)
-                                  : Colors.grey.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Icon(
-                              Icons.add_shopping_cart,
-                              size: 16,
-                              color: product.isAvailable
-                                  ? AppColors.primary
-                                  : Colors.grey,
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: product.isAvailable ? onAddToCart : null,
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: product.isAvailable
+                                    ? AppColors.primary.withValues(alpha: 0.1)
+                                    : Colors.grey.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Icon(
+                                Icons.add_shopping_cart,
+                                size: 16,
+                                color: product.isAvailable
+                                    ? AppColors.primary
+                                    : Colors.grey,
+                              ),
                             ),
                           ),
                         ),
@@ -207,6 +210,7 @@ class _FavoriteProductCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

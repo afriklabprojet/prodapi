@@ -45,7 +45,7 @@ void main() {
   );
 
   // CRITICAL: stub before construction (constructor calls _checkAuthStatus())
-  AuthNotifier _buildNotifier({bool checkAuthReturnsUser = false}) {
+  AuthNotifier buildNotifier({bool checkAuthReturnsUser = false}) {
     when(() => mockGetCurrentUser()).thenAnswer(
       (_) async => checkAuthReturnsUser
           ? Right(testUser)
@@ -74,14 +74,14 @@ void main() {
 
   group('AuthNotifier — initial state & _checkAuthStatus', () {
     test('initial state is AuthStatus.initial before async check finishes', () {
-      notifier = _buildNotifier();
+      notifier = buildNotifier();
       expect(notifier.state.status, AuthStatus.initial);
     });
 
     test(
       '_checkAuthStatus sets unauthenticated when getCurrentUser fails',
       () async {
-        notifier = _buildNotifier(checkAuthReturnsUser: false);
+        notifier = buildNotifier(checkAuthReturnsUser: false);
         await Future.microtask(() {});
         expect(notifier.state.status, AuthStatus.unauthenticated);
       },
@@ -90,7 +90,7 @@ void main() {
     test(
       '_checkAuthStatus sets authenticated when getCurrentUser succeeds',
       () async {
-        notifier = _buildNotifier(checkAuthReturnsUser: true);
+        notifier = buildNotifier(checkAuthReturnsUser: true);
         await Future.microtask(() {});
         expect(notifier.state.status, AuthStatus.authenticated);
         expect(notifier.state.user, testUser);
@@ -100,7 +100,7 @@ void main() {
 
   group('AuthNotifier — login', () {
     setUp(() {
-      notifier = _buildNotifier();
+      notifier = buildNotifier();
     });
 
     test('login success sets authenticated state with user', () async {
@@ -205,7 +205,7 @@ void main() {
 
   group('AuthNotifier — register', () {
     setUp(() {
-      notifier = _buildNotifier();
+      notifier = buildNotifier();
     });
 
     test('register success sets authenticated state', () async {
@@ -296,7 +296,7 @@ void main() {
 
   group('AuthNotifier — logout', () {
     setUp(() {
-      notifier = _buildNotifier();
+      notifier = buildNotifier();
     });
 
     test('logout success sets unauthenticated', () async {
@@ -323,7 +323,7 @@ void main() {
 
   group('AuthNotifier — clearAuthStateSync', () {
     setUp(() {
-      notifier = _buildNotifier();
+      notifier = buildNotifier();
     });
 
     test('clearAuthStateSync immediately sets unauthenticated', () {
@@ -338,7 +338,7 @@ void main() {
 
   group('AuthNotifier — clearError', () {
     setUp(() {
-      notifier = _buildNotifier();
+      notifier = buildNotifier();
     });
 
     test('clearError when in error state sets unauthenticated', () async {

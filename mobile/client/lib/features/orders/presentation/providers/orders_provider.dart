@@ -18,3 +18,8 @@ final ordersProvider =
     cancelOrderUseCase: CancelOrderUseCase(repository),
   );
 });
+
+final activeOrdersCountProvider = Provider<int>((ref) {
+  final orders = ref.watch(ordersProvider.select((state) => state.orders));
+  return orders.where((order) => order.isActive).length;
+});

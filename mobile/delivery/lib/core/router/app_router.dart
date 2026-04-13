@@ -35,6 +35,7 @@ import '../../presentation/screens/payment_status_screen.dart';
 import '../../presentation/screens/payment_callback_screen.dart';
 import '../../presentation/screens/settings/accessibility_settings_screen.dart';
 import '../../presentation/screens/settings/home_widget_settings_screen.dart';
+import '../../presentation/screens/shifts_screen.dart';
 import '../../presentation/widgets/notifications/notification_widgets.dart';
 import '../../data/repositories/jeko_payment_repository.dart';
 import 'route_names.dart';
@@ -328,6 +329,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.notificationCenter,
         builder: (context, state) => const NotificationCenterScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.shifts,
+        builder: (context, state) => const ShiftsScreen(),
       ),
     ],
   );

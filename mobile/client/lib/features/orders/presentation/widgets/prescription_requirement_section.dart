@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../providers/checkout_prescription_provider.dart';
 
 /// Widget pour afficher et gérer l'ordonnance dans le checkout
@@ -65,12 +66,7 @@ class _PrescriptionRequirementSectionState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors de la sélection: ${e.toString()}'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppSnackbar.error(context, 'Erreur lors de la sélection: ${e.toString()}');
       }
     }
   }
@@ -365,18 +361,24 @@ class _PrescriptionRequirementSectionState
           Positioned(
             top: 4,
             right: 4,
-            child: GestureDetector(
-              onTap: () => _removeImage(index),
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 14,
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => _removeImage(index),
+                  customBorder: const CircleBorder(),
+                  child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 14,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -387,9 +389,7 @@ class _PrescriptionRequirementSectionState
   }
 
   Widget _buildAddMoreButton() {
-    return GestureDetector(
-      onTap: _showImageSourceDialog,
-      child: Container(
+    return Container(
         width: 100,
         height: 100,
         decoration: BoxDecoration(
@@ -400,7 +400,12 @@ class _PrescriptionRequirementSectionState
           ),
           color: AppColors.primary.withValues(alpha: 0.05),
         ),
-        child: Column(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _showImageSourceDialog,
+            borderRadius: BorderRadius.circular(8),
+            child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
@@ -419,7 +424,8 @@ class _PrescriptionRequirementSectionState
             ),
           ],
         ),
-      ),
+          ),
+        ),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 
 /// Suggestions rapides pour le label d'adresse
 const List<String> _labelSuggestions = ['Maison', 'Bureau', 'Famille', 'Autre'];
@@ -15,6 +16,7 @@ class DeliveryAddressForm extends StatefulWidget {
   final bool saveAddress;
   final ValueChanged<bool> onSaveAddressChanged;
   final bool isDark;
+
   /// Callback quand les coordonnées GPS sont obtenues
   final void Function(double latitude, double longitude)? onLocationDetected;
 
@@ -74,8 +76,8 @@ class _DeliveryAddressFormState extends State<DeliveryAddressForm> {
           _isLoadingLocation
               ? 'Localisation en cours...'
               : _hasLocation
-                  ? 'Position détectée ✓'
-                  : 'Utiliser ma position actuelle',
+              ? 'Position détectée ✓'
+              : 'Utiliser ma position actuelle',
         ),
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -95,9 +97,7 @@ class _DeliveryAddressFormState extends State<DeliveryAddressForm> {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Veuillez activer la localisation')),
-          );
+          AppSnackbar.warning(context, 'Veuillez activer la localisation');
         }
         return;
       }
@@ -107,9 +107,7 @@ class _DeliveryAddressFormState extends State<DeliveryAddressForm> {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Permission de localisation refusée')),
-            );
+            AppSnackbar.warning(context, 'Permission de localisation refusée');
           }
           return;
         }
@@ -117,10 +115,9 @@ class _DeliveryAddressFormState extends State<DeliveryAddressForm> {
 
       if (permission == LocationPermission.deniedForever) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('La localisation est désactivée. Activez-la dans les paramètres.'),
-            ),
+          AppSnackbar.warning(
+            context,
+            'La localisation est désactivée. Activez-la dans les paramètres.',
           );
         }
         return;
@@ -175,25 +172,16 @@ class _DeliveryAddressFormState extends State<DeliveryAddressForm> {
 
       if (mounted) {
         setState(() => _hasLocation = true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              widget.addressController.text.isNotEmpty
-                  ? 'Position et adresse détectées'
-                  : 'Position GPS détectée',
-            ),
-            backgroundColor: AppColors.success,
-          ),
+        AppSnackbar.success(
+          context,
+          widget.addressController.text.isNotEmpty
+              ? 'Position et adresse détectées'
+              : 'Position GPS détectée',
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur de localisation: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppSnackbar.error(context, 'Erreur de localisation: $e');
       }
     } finally {
       if (mounted) {
@@ -272,12 +260,16 @@ class _DeliveryAddressFormState extends State<DeliveryAddressForm> {
       decoration: BoxDecoration(
         color: widget.saveAddress
             ? AppColors.primary.withValues(alpha: 0.1)
-            : (widget.isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade50),
+            : (widget.isDark
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Colors.grey.shade50),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: widget.saveAddress
               ? AppColors.primary.withValues(alpha: 0.3)
-              : (widget.isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade200),
+              : (widget.isDark
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : Colors.grey.shade200),
         ),
       ),
       child: Column(
@@ -292,7 +284,8 @@ class _DeliveryAddressFormState extends State<DeliveryAddressForm> {
                   height: 24,
                   child: Checkbox(
                     value: widget.saveAddress,
-                    onChanged: (value) => widget.onSaveAddressChanged(value ?? false),
+                    onChanged: (value) =>
+                        widget.onSaveAddressChanged(value ?? false),
                     activeColor: AppColors.primary,
                     side: BorderSide(
                       color: widget.isDark ? Colors.white60 : Colors.grey,
@@ -312,14 +305,16 @@ class _DeliveryAddressFormState extends State<DeliveryAddressForm> {
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
-                        color: widget.isDark ? Colors.white : Colors.black,
+                          color: widget.isDark ? Colors.white : Colors.black,
                         ),
                       ),
                       Text(
                         'Pour vos prochaines commandes',
                         style: TextStyle(
                           fontSize: 12,
-                        color: widget.isDark ? Colors.white60 : AppColors.textHint,
+                          color: widget.isDark
+                              ? Colors.white60
+                              : AppColors.textHint,
                         ),
                       ),
                     ],
@@ -352,7 +347,8 @@ class _DeliveryAddressFormState extends State<DeliveryAddressForm> {
                 isDense: true,
               ),
               validator: (value) {
-                if (widget.saveAddress && (value == null || value.trim().isEmpty)) {
+                if (widget.saveAddress &&
+                    (value == null || value.trim().isEmpty)) {
                   return 'Donnez un nom à cette adresse';
                 }
                 return null;
@@ -371,7 +367,9 @@ class _DeliveryAddressFormState extends State<DeliveryAddressForm> {
                       Icon(
                         _getLabelIcon(suggestion),
                         size: 16,
-                        color: isSelected ? Colors.white : AppColors.textSecondary,
+                        color: isSelected
+                            ? Colors.white
+                            : AppColors.textSecondary,
                       ),
                       const SizedBox(width: 4),
                       Text(suggestion),

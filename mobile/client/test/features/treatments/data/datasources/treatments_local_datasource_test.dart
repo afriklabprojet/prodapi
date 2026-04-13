@@ -82,8 +82,8 @@ void main() {
     });
 
     test('returns only active treatments', () async {
-      await datasource.datasource_put(_makeTreatment(id: 'a1', isActive: true));
-      await datasource.datasource_put(
+      await datasource.datasourcePut(_makeTreatment(id: 'a1', isActive: true));
+      await datasource.datasourcePut(
         _makeTreatment(id: 'a2', isActive: false),
       );
 
@@ -95,10 +95,10 @@ void main() {
     test('sorts by nextRenewalDate ascending', () async {
       final soon = DateTime.now().add(const Duration(days: 5));
       final later = DateTime.now().add(const Duration(days: 20));
-      await datasource.datasource_put(
+      await datasource.datasourcePut(
         _makeTreatment(id: 'b1', nextRenewalDate: later),
       );
-      await datasource.datasource_put(
+      await datasource.datasourcePut(
         _makeTreatment(id: 'b2', nextRenewalDate: soon),
       );
 
@@ -118,7 +118,7 @@ void main() {
       final inWindow = DateTime.now().add(
         const Duration(days: 2),
       ); // within 3 days
-      await datasource.datasource_put(
+      await datasource.datasourcePut(
         _makeTreatment(
           id: 'c1',
           nextRenewalDate: inWindow,
@@ -131,7 +131,7 @@ void main() {
 
     test('excludes treatment outside reminder window', () async {
       final farOut = DateTime.now().add(const Duration(days: 10));
-      await datasource.datasource_put(
+      await datasource.datasourcePut(
         _makeTreatment(
           id: 'c2',
           nextRenewalDate: farOut,
@@ -144,7 +144,7 @@ void main() {
 
     test('excludes inactive treatments', () async {
       final inWindow = DateTime.now().add(const Duration(days: 1));
-      await datasource.datasource_put(
+      await datasource.datasourcePut(
         _makeTreatment(
           id: 'c3',
           isActive: false,
@@ -165,7 +165,7 @@ void main() {
     });
 
     test('returns treatment by id', () async {
-      await datasource.datasource_put(_makeTreatment(id: 'd1'));
+      await datasource.datasourcePut(_makeTreatment(id: 'd1'));
       final result = await datasource.getTreatmentById('d1');
       expect(result?.id, 'd1');
     });
@@ -209,7 +209,7 @@ void main() {
   // ── updateTreatment ───────────────────────────────────
   group('updateTreatment', () {
     test('updates and returns the updated treatment', () async {
-      await datasource.datasource_put(_makeTreatment(id: 'f1'));
+      await datasource.datasourcePut(_makeTreatment(id: 'f1'));
 
       final updated = TreatmentModel(
         id: 'f1',
@@ -227,7 +227,7 @@ void main() {
   // ── deleteTreatment (soft delete) ─────────────────────
   group('deleteTreatment', () {
     test('marks treatment as inactive', () async {
-      await datasource.datasource_put(_makeTreatment(id: 'g1'));
+      await datasource.datasourcePut(_makeTreatment(id: 'g1'));
       await datasource.deleteTreatment('g1');
 
       final stored = await datasource.getTreatmentById('g1');
@@ -243,7 +243,7 @@ void main() {
   // ── hardDeleteTreatment ───────────────────────────────
   group('hardDeleteTreatment', () {
     test('removes treatment from box', () async {
-      await datasource.datasource_put(_makeTreatment(id: 'h1'));
+      await datasource.datasourcePut(_makeTreatment(id: 'h1'));
       await datasource.hardDeleteTreatment('h1');
 
       final stored = await datasource.getTreatmentById('h1');
@@ -254,7 +254,7 @@ void main() {
   // ── markAsOrdered ─────────────────────────────────────
   group('markAsOrdered', () {
     test('updates lastOrderedAt and nextRenewalDate', () async {
-      await datasource.datasource_put(
+      await datasource.datasourcePut(
         _makeTreatment(id: 'i1', renewalPeriodDays: 30),
       );
 
@@ -282,13 +282,13 @@ void main() {
         reminderEnabled: false,
         createdAt: DateTime(2024, 1, 1),
       );
-      await datasource.datasource_put(t);
+      await datasource.datasourcePut(t);
       final result = await datasource.toggleReminder('j1', true);
       expect(result.reminderEnabled, true);
     });
 
     test('disables reminder', () async {
-      await datasource.datasource_put(_makeTreatment(id: 'j2'));
+      await datasource.datasourcePut(_makeTreatment(id: 'j2'));
       final result = await datasource.toggleReminder('j2', false);
       expect(result.reminderEnabled, false);
     });
@@ -304,6 +304,6 @@ void main() {
 
 // Extension helper to put a TreatmentModel directly in the box
 extension _DatasourceHelper on TreatmentsLocalDatasource {
-  Future<void> datasource_put(TreatmentModel t) async =>
+  Future<void> datasourcePut(TreatmentModel t) async =>
       (await box).put(t.id, t);
 }

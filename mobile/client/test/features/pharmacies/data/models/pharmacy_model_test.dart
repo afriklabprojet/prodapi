@@ -295,7 +295,7 @@ void main() {
   // PharmacyEntity computed properties
   // ────────────────────────────────────────────────────────────────────────────
   group('PharmacyEntity', () {
-    PharmacyEntity _make({double? lat, double? lng, double? distance}) =>
+    PharmacyEntity make({double? lat, double? lng, double? distance}) =>
         PharmacyEntity(
           id: 1,
           name: 'Test Pharmacie',
@@ -309,28 +309,28 @@ void main() {
         );
 
     test('hasCoordinates true when lat and lng set', () {
-      expect(_make(lat: 5.36, lng: -4.01).hasCoordinates, isTrue);
+      expect(make(lat: 5.36, lng: -4.01).hasCoordinates, isTrue);
     });
 
     test('hasCoordinates false when lat is null', () {
-      expect(_make(lng: -4.01).hasCoordinates, isFalse);
+      expect(make(lng: -4.01).hasCoordinates, isFalse);
     });
 
     test('hasCoordinates false when lng is null', () {
-      expect(_make(lat: 5.36).hasCoordinates, isFalse);
+      expect(make(lat: 5.36).hasCoordinates, isFalse);
     });
 
     test('distanceText formats to 1 decimal when set', () {
       // 3.0.toStringAsFixed(1) = '3.0'
-      expect(_make(distance: 3.0).distanceText, '3.0 km');
+      expect(make(distance: 3.0).distanceText, '3.0 km');
     });
 
     test('distanceText is empty when null', () {
-      expect(_make().distanceText, '');
+      expect(make().distanceText, '');
     });
 
     test('distanceLabel equals distanceText', () {
-      final entity = _make(distance: 3.0);
+      final entity = make(distance: 3.0);
       expect(entity.distanceLabel, entity.distanceText);
     });
   });

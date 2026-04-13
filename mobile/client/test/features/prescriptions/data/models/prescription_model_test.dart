@@ -229,7 +229,7 @@ void main() {
   // PrescriptionEntity computed properties
   // ────────────────────────────────────────────────────────────────────────────
   group('PrescriptionEntity', () {
-    PrescriptionEntity _make({
+    PrescriptionEntity make({
       String status = 'pending',
       String fulfillmentStatus = 'none',
       double? quoteAmount,
@@ -243,23 +243,23 @@ void main() {
     );
 
     test('isPending is true for pending status', () {
-      expect(_make(status: 'pending').isPending, isTrue);
+      expect(make(status: 'pending').isPending, isTrue);
     });
 
     test('isValidated is true for validated status', () {
-      expect(_make(status: 'validated').isValidated, isTrue);
+      expect(make(status: 'validated').isValidated, isTrue);
     });
 
     test('isRejected is true for rejected status', () {
-      expect(_make(status: 'rejected').isRejected, isTrue);
+      expect(make(status: 'rejected').isRejected, isTrue);
     });
 
     test('hasQuote is true when quoteAmount > 0', () {
-      expect(_make(quoteAmount: 5000.0).hasQuote, isTrue);
+      expect(make(quoteAmount: 5000.0).hasQuote, isTrue);
     });
 
     test('hasQuote is false when quoteAmount is null', () {
-      expect(_make().hasQuote, isFalse);
+      expect(make().hasQuote, isFalse);
     });
 
     test('isLinkedToOrder requires orderId', () {
@@ -281,19 +281,19 @@ void main() {
     });
 
     test('isFullyDispensed', () {
-      expect(_make(fulfillmentStatus: 'full').isFullyDispensed, isTrue);
+      expect(make(fulfillmentStatus: 'full').isFullyDispensed, isTrue);
     });
 
     test('isPartiallyDispensed', () {
-      expect(_make(fulfillmentStatus: 'partial').isPartiallyDispensed, isTrue);
+      expect(make(fulfillmentStatus: 'partial').isPartiallyDispensed, isTrue);
     });
 
     test('statusLabel — all values', () {
-      expect(_make(status: 'pending').statusLabel, 'En attente');
-      expect(_make(status: 'validated').statusLabel, 'Validée');
-      expect(_make(status: 'rejected').statusLabel, 'Rejetée');
-      expect(_make(status: 'quoted').statusLabel, 'Devis envoyé');
-      expect(_make(status: 'custom_xyz').statusLabel, 'custom_xyz');
+      expect(make(status: 'pending').statusLabel, 'En attente');
+      expect(make(status: 'validated').statusLabel, 'Validée');
+      expect(make(status: 'rejected').statusLabel, 'Rejetée');
+      expect(make(status: 'quoted').statusLabel, 'Devis envoyé');
+      expect(make(status: 'custom_xyz').statusLabel, 'custom_xyz');
     });
   });
 }

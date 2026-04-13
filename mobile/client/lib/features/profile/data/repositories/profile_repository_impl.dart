@@ -45,8 +45,9 @@ class ProfileRepositoryImpl implements ProfileRepository {
       if (updateProfile.name != null) data['name'] = updateProfile.name;
       if (updateProfile.email != null) data['email'] = updateProfile.email;
       if (updateProfile.phone != null) data['phone'] = updateProfile.phone;
-      if (updateProfile.address != null)
+      if (updateProfile.address != null) {
         data['address'] = updateProfile.address;
+      }
 
       final model = await remoteDataSource.updateProfile(data);
       await localDataSource.cacheProfile(model);

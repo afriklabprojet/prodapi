@@ -94,4 +94,22 @@ class ApiConstants {
       '/support/tickets/$id/messages';
   static String supportTicketResolve(int id) => '/support/tickets/$id/resolve';
   static String supportTicketClose(int id) => '/support/tickets/$id/close';
+
+  // Broadcast Delivery Offers
+  static const String deliveryOffers = '/courier/offers';
+  static String acceptOffer(int offerId) => '/courier/offers/$offerId/accept';
+  static String rejectOffer(int offerId) => '/courier/offers/$offerId/reject';
+  static String viewOffer(int offerId) => '/courier/offers/$offerId/view';
+
+  // Heatmap / opportunites zones chaudes
+  static const String heatmapOpportunities = '/courier/heatmap/opportunities';
+
+  // Shifts / Créneaux de travail
+  static const String shifts = '/courier/shifts';
+  static const String activeShift = '/courier/shifts/active';
+  static const String shiftSlots = '/courier/shifts/slots';
+  static const String bookShift = '/courier/shifts/book';
+  static String cancelShift(int id) => '/courier/shifts/$id/cancel';
+  static String startShift(int id) => '/courier/shifts/$id/start';
+  static String endShift(int id) => '/courier/shifts/$id/end';
 }

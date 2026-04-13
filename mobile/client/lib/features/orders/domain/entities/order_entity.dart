@@ -112,9 +112,13 @@ class OrderEntity extends Equatable {
   bool get isPending => status == OrderStatus.pending;
   bool get isConfirmed => status == OrderStatus.confirmed;
   bool get isPreparing => status == OrderStatus.preparing;
+  bool get isReady => status == OrderStatus.ready;
   bool get isDelivering => status == OrderStatus.delivering;
   bool get isDelivered => status == OrderStatus.delivered;
   bool get isCancelled => status == OrderStatus.cancelled;
+  bool get isFailed => status == OrderStatus.failed;
+  bool get isActive =>
+      isPending || isConfirmed || isPreparing || isReady || isDelivering;
   bool get isPaid => paymentStatus == 'paid';
   bool get canCancel => isPending || isConfirmed || isPreparing;
   bool get canBeCancelled => canCancel;

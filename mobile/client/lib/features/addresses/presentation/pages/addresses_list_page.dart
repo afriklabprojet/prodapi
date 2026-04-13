@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../providers/addresses_provider.dart';
 import '../../domain/entities/address_entity.dart';
 import '../../../../core/widgets/shimmer_loading.dart';
@@ -304,19 +305,7 @@ class _AddressesListPageState extends ConsumerState<AddressesListPage>
   Future<void> _handleSetDefault(int addressId) async {
     await ref.read(addressesProvider.notifier).setDefaultAddress(addressId);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 12),
-              Text('Adresse définie par défaut'),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppSnackbar.success(context, 'Adresse définie par défaut');
     }
   }
 
@@ -345,19 +334,7 @@ class _AddressesListPageState extends ConsumerState<AddressesListPage>
 
     await ref.read(addressesProvider.notifier).deleteAddress(addressId);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.delete_outline, color: Colors.white),
-              SizedBox(width: 12),
-              Text('Adresse supprimée'),
-            ],
-          ),
-          backgroundColor: Colors.red[700],
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppSnackbar.info(context, 'Adresse supprimée');
     }
   }
 }

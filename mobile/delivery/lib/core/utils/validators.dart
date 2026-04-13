@@ -468,6 +468,366 @@ class Validators {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
+// PHONE VALIDATION MULTI-PAYS
+// ══════════════════════════════════════════════════════════════════════════
+
+/// Configuration de validation téléphone par pays.
+class PhoneCountryConfig {
+  final String code;
+  final String name;
+  final String dialCode;
+  final int minLength;
+  final int maxLength;
+  final List<String> mobilePrefixes;
+  final String? formatHint;
+
+  const PhoneCountryConfig({
+    required this.code,
+    required this.name,
+    required this.dialCode,
+    required this.minLength,
+    required this.maxLength,
+    this.mobilePrefixes = const [],
+    this.formatHint,
+  });
+
+  /// Côte d'Ivoire
+  static const ci = PhoneCountryConfig(
+    code: 'CI',
+    name: 'Côte d\'Ivoire',
+    dialCode: '+225',
+    minLength: 10,
+    maxLength: 10,
+    mobilePrefixes: ['01', '05', '07', '08'],
+    formatHint: '07 XX XX XX XX',
+  );
+
+  /// Sénégal
+  static const sn = PhoneCountryConfig(
+    code: 'SN',
+    name: 'Sénégal',
+    dialCode: '+221',
+    minLength: 9,
+    maxLength: 9,
+    mobilePrefixes: ['70', '76', '77', '78'],
+    formatHint: '7X XXX XX XX',
+  );
+
+  /// Mali
+  static const ml = PhoneCountryConfig(
+    code: 'ML',
+    name: 'Mali',
+    dialCode: '+223',
+    minLength: 8,
+    maxLength: 8,
+    mobilePrefixes: ['6', '7', '8', '9'],
+    formatHint: 'XX XX XX XX',
+  );
+
+  /// Burkina Faso
+  static const bf = PhoneCountryConfig(
+    code: 'BF',
+    name: 'Burkina Faso',
+    dialCode: '+226',
+    minLength: 8,
+    maxLength: 8,
+    mobilePrefixes: ['5', '6', '7'],
+    formatHint: 'XX XX XX XX',
+  );
+
+  /// Bénin
+  static const bj = PhoneCountryConfig(
+    code: 'BJ',
+    name: 'Bénin',
+    dialCode: '+229',
+    minLength: 8,
+    maxLength: 10,
+    mobilePrefixes: ['9', '6'],
+    formatHint: 'XX XX XX XX',
+  );
+
+  /// Togo
+  static const tg = PhoneCountryConfig(
+    code: 'TG',
+    name: 'Togo',
+    dialCode: '+228',
+    minLength: 8,
+    maxLength: 8,
+    mobilePrefixes: ['9', '7'],
+    formatHint: 'XX XX XX XX',
+  );
+
+  /// Cameroun
+  static const cm = PhoneCountryConfig(
+    code: 'CM',
+    name: 'Cameroun',
+    dialCode: '+237',
+    minLength: 9,
+    maxLength: 9,
+    mobilePrefixes: ['6', '2'],
+    formatHint: '6 XX XX XX XX',
+  );
+
+  /// France
+  static const fr = PhoneCountryConfig(
+    code: 'FR',
+    name: 'France',
+    dialCode: '+33',
+    minLength: 9,
+    maxLength: 9,
+    mobilePrefixes: ['6', '7'],
+    formatHint: '06 XX XX XX XX',
+  );
+
+  /// Tous les pays supportés.
+  static const List<PhoneCountryConfig> all = [ci, sn, ml, bf, bj, tg, cm, fr];
+
+  /// Trouve un pays par code.
+  static PhoneCountryConfig? byCode(String code) {
+    try {
+      return all.firstWhere((c) => c.code.toUpperCase() == code.toUpperCase());
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+/// Validateurs de téléphone multi-pays.
+class PhoneValidators {
+  PhoneValidators._();
+
+  /// Valide un numéro pour un pays spécifique.
+  static ValidationResult validateForCountry(
+    String? value,
+    PhoneCountryConfig country, {
+    bool strictPrefix = false,
+  }) {
+    if (value == null || value.trim().isEmpty) {
+      return const ValidationResult.invalid(
+        'Le numéro de téléphone est requis',
+      );
+    }
+
+    // Nettoie le numéro
+    String cleaned = value.replaceAll(RegExp(r'[\s\-\.\(\)]'), '');
+
+    // Supprime l'indicatif du pays si présent
+    if (cleaned.startsWith(country.dialCode)) {
+      cleaned = cleaned.substring(country.dialCode.length);
+    } else if (cleaned.startsWith(country.dialCode.substring(1))) {
+      cleaned = cleaned.substring(country.dialCode.length - 1);
+    } else if (cleaned.startsWith('00${country.dialCode.substring(1)}')) {
+      cleaned = cleaned.substring(country.dialCode.length + 1);
+    }
+
+    // Garde uniquement les chiffres
+    cleaned = cleaned.replaceAll(RegExp(r'[^\d]'), '');
+
+    // Vérification longueur
+    if (cleaned.length < country.minLength) {
+      return ValidationResult.invalid(
+        'Le numéro doit contenir au moins ${country.minLength} chiffres',
+      );
+    }
+
+    if (cleaned.length > country.maxLength) {
+      return ValidationResult.invalid(
+        'Le numéro ne peut pas dépasser ${country.maxLength} chiffres',
+      );
+    }
+
+    // Vérification préfixe mobile strict
+    if (strictPrefix && country.mobilePrefixes.isNotEmpty) {
+      final hasValidPrefix = country.mobilePrefixes.any(
+        (prefix) => cleaned.startsWith(prefix),
+      );
+      if (!hasValidPrefix) {
+        return ValidationResult.invalid(
+          'Préfixe invalide pour ${country.name}',
+        );
+      }
+    }
+
+    return const ValidationResult.valid();
+  }
+
+  /// Normalise au format E.164 avec l'indicatif pays.
+  static String normalize(String value, PhoneCountryConfig country) {
+    String cleaned = value.replaceAll(RegExp(r'[\s\-\.\(\)]'), '');
+
+    // Supprime l'indicatif existant
+    if (cleaned.startsWith(country.dialCode)) {
+      cleaned = cleaned.substring(country.dialCode.length);
+    } else if (cleaned.startsWith(country.dialCode.substring(1))) {
+      cleaned = cleaned.substring(country.dialCode.length - 1);
+    } else if (cleaned.startsWith('00${country.dialCode.substring(1)}')) {
+      cleaned = cleaned.substring(country.dialCode.length + 1);
+    }
+
+    cleaned = cleaned.replaceAll(RegExp(r'[^\d]'), '');
+
+    return '${country.dialCode}$cleaned';
+  }
+
+  /// Détecte le pays à partir d'un numéro avec indicatif.
+  static PhoneCountryConfig? detectCountry(String value) {
+    final cleaned = value.trim();
+    
+    for (final country in PhoneCountryConfig.all) {
+      if (cleaned.startsWith(country.dialCode) ||
+          cleaned.startsWith('00${country.dialCode.substring(1)}')) {
+        return country;
+      }
+    }
+    
+    return null;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// AMOUNT VALIDATION CONTEXTUELLE
+// ══════════════════════════════════════════════════════════════════════════
+
+/// Type d'opération financière pour validation contextuelle.
+enum AmountOperationType {
+  /// Recharge de portefeuille
+  topup(minAmount: 500, maxAmount: 500000, currency: 'FCFA'),
+  
+  /// Retrait vers mobile money
+  withdrawal(minAmount: 1000, maxAmount: 200000, currency: 'FCFA'),
+  
+  /// Paiement de commande
+  payment(minAmount: 100, maxAmount: 5000000, currency: 'FCFA'),
+  
+  /// Transfert entre utilisateurs
+  transfer(minAmount: 100, maxAmount: 100000, currency: 'FCFA'),
+  
+  /// Remboursement
+  refund(minAmount: 0, maxAmount: 5000000, currency: 'FCFA');
+
+  const AmountOperationType({
+    required this.minAmount,
+    required this.maxAmount,
+    required this.currency,
+  });
+
+  final double minAmount;
+  final double maxAmount;
+  final String currency;
+}
+
+/// Validateurs de montant contextuels.
+class AmountValidators {
+  AmountValidators._();
+
+  /// Valide un montant pour une opération spécifique.
+  static ValidationResult validateForOperation(
+    String? value,
+    AmountOperationType operation, {
+    double? availableBalance,
+    double? customMin,
+    double? customMax,
+  }) {
+    if (value == null || value.trim().isEmpty) {
+      return const ValidationResult.invalid('Le montant est requis');
+    }
+
+    // Parse le montant
+    final amount = double.tryParse(
+      value.replaceAll(RegExp(r'[^\d.]'), ''),
+    );
+
+    if (amount == null || amount.isNaN) {
+      return const ValidationResult.invalid('Montant invalide');
+    }
+
+    // Vérifie les décimales (pas supporté en FCFA)
+    if (operation.currency == 'FCFA' && amount != amount.truncateToDouble()) {
+      return const ValidationResult.invalid(
+        'Les montants en FCFA doivent être des nombres entiers',
+      );
+    }
+
+    // Montant minimum
+    final minAmount = customMin ?? operation.minAmount;
+    if (amount < minAmount) {
+      return ValidationResult.invalid(
+        'Le montant minimum est ${_formatAmount(minAmount, operation.currency)}',
+      );
+    }
+
+    // Montant maximum
+    final maxAmount = customMax ?? operation.maxAmount;
+    if (amount > maxAmount) {
+      return ValidationResult.invalid(
+        'Le montant maximum est ${_formatAmount(maxAmount, operation.currency)}',
+      );
+    }
+
+    // Vérification du solde disponible pour retraits/transferts
+    if (availableBalance != null &&
+        (operation == AmountOperationType.withdrawal ||
+            operation == AmountOperationType.transfer)) {
+      if (amount > availableBalance) {
+        return ValidationResult.invalid(
+          'Solde insuffisant. Disponible: ${_formatAmount(availableBalance, operation.currency)}',
+        );
+      }
+    }
+
+    return const ValidationResult.valid();
+  }
+
+  /// Formate un montant avec la devise.
+  static String _formatAmount(double amount, String currency) {
+    final formatted = amount.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]} ',
+    );
+    return '$formatted $currency';
+  }
+
+  /// Suggère le prochain montant valide.
+  static double suggestValidAmount(
+    double amount,
+    AmountOperationType operation, {
+    double? availableBalance,
+  }) {
+    double suggested = amount;
+
+    // Arrondi au multiple de 100 le plus proche
+    suggested = (suggested / 100).round() * 100;
+
+    // Clamp aux limites
+    suggested = suggested.clamp(operation.minAmount, operation.maxAmount);
+
+    // Limite au solde disponible
+    if (availableBalance != null &&
+        (operation == AmountOperationType.withdrawal ||
+            operation == AmountOperationType.transfer)) {
+      suggested = suggested.clamp(0, availableBalance);
+    }
+
+    return suggested;
+  }
+
+  /// Montants suggérés courants pour une opération.
+  static List<double> commonAmounts(AmountOperationType operation) {
+    switch (operation) {
+      case AmountOperationType.topup:
+        return [1000, 2000, 5000, 10000, 20000, 50000];
+      case AmountOperationType.withdrawal:
+        return [5000, 10000, 20000, 50000, 100000];
+      case AmountOperationType.transfer:
+        return [1000, 2000, 5000, 10000];
+      case AmountOperationType.payment:
+      case AmountOperationType.refund:
+        return [];
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
 // SANITIZATION
 // ══════════════════════════════════════════════════════════════════════════
 

@@ -196,7 +196,7 @@ void main() {
   });
 
   group('NotificationsPage With Notifications Tests', () {
-    NotificationsState _loadedState(List<NotificationEntity> notifications) {
+    NotificationsState loadedState(List<NotificationEntity> notifications) {
       return NotificationsState(
         status: NotificationsStatus.loaded,
         notifications: notifications,
@@ -213,7 +213,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
-        createTestWidget(initialState: _loadedState([_makeNotification()])),
+        createTestWidget(initialState: loadedState([_makeNotification()])),
       );
       await tester.pumpAndSettle();
 
@@ -228,7 +228,7 @@ void main() {
 
       await tester.pumpWidget(
         createTestWidget(
-          initialState: _loadedState([
+          initialState: loadedState([
             _makeNotification(title: 'Ma notification test'),
           ]),
         ),
@@ -246,7 +246,7 @@ void main() {
 
       await tester.pumpWidget(
         createTestWidget(
-          initialState: _loadedState([
+          initialState: loadedState([
             _makeNotification(body: 'Corps de ma notification'),
           ]),
         ),
@@ -266,7 +266,7 @@ void main() {
 
       await tester.pumpWidget(
         createTestWidget(
-          initialState: _loadedState([_makeNotification(isRead: false)]),
+          initialState: loadedState([_makeNotification(isRead: false)]),
         ),
       );
       await tester.pumpAndSettle();
@@ -285,7 +285,7 @@ void main() {
 
       await tester.pumpWidget(
         createTestWidget(
-          initialState: _loadedState([_makeNotification(type: 'order_status')]),
+          initialState: loadedState([_makeNotification(type: 'order_status')]),
         ),
       );
       await tester.pumpAndSettle();
@@ -303,7 +303,7 @@ void main() {
 
       await tester.pumpWidget(
         createTestWidget(
-          initialState: _loadedState([
+          initialState: loadedState([
             _makeNotification(type: 'payment_confirmed'),
           ]),
         ),
@@ -323,7 +323,7 @@ void main() {
 
       await tester.pumpWidget(
         createTestWidget(
-          initialState: _loadedState([
+          initialState: loadedState([
             _makeNotification(type: 'delivery_assigned'),
           ]),
         ),
@@ -343,7 +343,7 @@ void main() {
 
       await tester.pumpWidget(
         createTestWidget(
-          initialState: _loadedState([
+          initialState: loadedState([
             _makeNotification(type: 'order_delivered'),
           ]),
         ),
@@ -361,7 +361,7 @@ void main() {
 
       await tester.pumpWidget(
         createTestWidget(
-          initialState: _loadedState([_makeNotification(type: 'unknown_type')]),
+          initialState: loadedState([_makeNotification(type: 'unknown_type')]),
         ),
       );
       await tester.pumpAndSettle();
@@ -377,7 +377,7 @@ void main() {
 
       await tester.pumpWidget(
         createTestWidget(
-          initialState: _loadedState([
+          initialState: loadedState([
             _makeNotification(id: '1', title: 'Notif 1'),
             _makeNotification(id: '2', title: 'Notif 2'),
             _makeNotification(id: '3', title: 'Notif 3'),
@@ -396,7 +396,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
-        createTestWidget(initialState: _loadedState([_makeNotification()])),
+        createTestWidget(initialState: loadedState([_makeNotification()])),
       );
       await tester.pumpAndSettle();
 
@@ -411,7 +411,7 @@ void main() {
 
       await tester.pumpWidget(
         createTestWidget(
-          initialState: _loadedState([
+          initialState: loadedState([
             _makeNotification(title: 'Notif Détail'),
           ]),
         ),
@@ -432,7 +432,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
-        createTestWidget(initialState: _loadedState([_makeNotification()])),
+        createTestWidget(initialState: loadedState([_makeNotification()])),
       );
       await tester.pumpAndSettle();
 
@@ -453,7 +453,7 @@ void main() {
 
         await tester.pumpWidget(
           createTestWidget(
-            initialState: _loadedState([
+            initialState: loadedState([
               _makeNotification(
                 type: 'order_status',
                 data: {'type': 'order_status', 'order_id': 42},
@@ -477,7 +477,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
-        createTestWidget(initialState: _loadedState([_makeNotification()])),
+        createTestWidget(initialState: loadedState([_makeNotification()])),
       );
       await tester.pumpAndSettle();
 

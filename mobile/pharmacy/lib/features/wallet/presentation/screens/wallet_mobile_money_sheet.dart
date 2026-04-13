@@ -411,41 +411,46 @@ Widget _buildOperatorChip(
   final color = operatorColors[code] ?? Colors.grey;
 
   return Expanded(
-    child: Material(
-      color: isSelected ? color.withValues(alpha: 0.1) : Colors.grey.shade50,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: () {
-          HapticFeedback.lightImpact();
-          onTap();
-        },
+    child: AnimatedScale(
+      scale: isSelected ? 1.08 : 1.0,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutBack,
+      child: Material(
+        color: isSelected ? color.withValues(alpha: 0.1) : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected ? color : Colors.transparent,
-              width: 2,
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            onTap();
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected ? color : Colors.transparent,
+                width: 2,
+              ),
             ),
-          ),
-          child: Column(
-            children: [
-              Icon(
-                Icons.phone_android,
-                color: isSelected ? color : Colors.grey,
-                size: 24,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                name.split(' ').first,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  color: isSelected ? color : Colors.grey.shade600,
+            child: Column(
+              children: [
+                Icon(
+                  Icons.phone_android,
+                  color: isSelected ? color : Colors.grey,
+                  size: 24,
                 ),
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  name.split(' ').first,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected ? color : Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

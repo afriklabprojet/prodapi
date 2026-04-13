@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -352,39 +353,20 @@ class _OnboardingPageState extends State<OnboardingPage>
         product.category,
         style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
       ),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            '${product.price} F',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: AppColors.primary,
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: AppColors.success.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: const Text(
-              'En stock',
-              style: TextStyle(fontSize: 10, color: AppColors.success),
-            ),
-          ),
-        ],
+      trailing: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppColors.success.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: const Text(
+          'Disponible',
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.success),
+        ),
       ),
       onTap: () {
         HapticFeedback.lightImpact();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Créez un compte pour commander 🛒'),
-            backgroundColor: AppColors.primary,
-            duration: Duration(seconds: 2),
-          ),
-        );
+        AppSnackbar.info(context, 'Créez un compte pour commander 🛒');
       },
     );
   }
@@ -505,7 +487,6 @@ class _OnboardingPageState extends State<OnboardingPage>
 
   Widget _buildBottomAction() {
     final isLastStep = _currentStep == 1;
-    final canProceed = _currentStep == 0 ? _hasSearched : true;
     
     return SafeArea(
       child: Padding(
@@ -529,25 +510,20 @@ class _OnboardingPageState extends State<OnboardingPage>
               width: double.infinity,
               height: 56,
               decoration: BoxDecoration(
-                gradient: canProceed
-                    ? const LinearGradient(
-                        colors: [AppColors.primary, Color(0xFF00A085)],
-                      )
-                    : null,
-                color: canProceed ? null : Colors.grey.shade300,
+                gradient: const LinearGradient(
+                  colors: [AppColors.primary, Color(0xFF00A085)],
+                ),
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: canProceed
-                    ? [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.4),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        ),
-                      ]
-                    : null,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.4),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
               ),
               child: ElevatedButton(
-                onPressed: canProceed ? _nextStep : null,
+                onPressed: _nextStep,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
@@ -560,22 +536,20 @@ class _OnboardingPageState extends State<OnboardingPage>
                   children: [
                     Text(
                       _currentStep == 0
-                          ? (canProceed ? 'Continuer' : 'Essayez de chercher...')
+                          ? 'Continuer'
                           : 'Créer mon compte',
-                      style: TextStyle(
-                        color: canProceed ? Colors.white : Colors.grey.shade600,
+                      style: const TextStyle(
+                        color: Colors.white,
                         fontSize: 17,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    if (canProceed) ...[
-                      const SizedBox(width: 8),
-                      Icon(
-                        isLastStep ? Icons.rocket_launch_rounded : Icons.arrow_forward_rounded,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ],
+                    const SizedBox(width: 8),
+                    Icon(
+                      isLastStep ? Icons.rocket_launch_rounded : Icons.arrow_forward_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ],
                 ),
               ),

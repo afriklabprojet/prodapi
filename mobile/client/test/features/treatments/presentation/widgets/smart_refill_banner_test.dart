@@ -34,7 +34,7 @@ void main() {
     sharedPreferences = await SharedPreferences.getInstance();
   });
 
-  TreatmentEntity _makeTreatment({String id = 't1'}) {
+  TreatmentEntity makeTreatment({String id = 't1'}) {
     return TreatmentEntity(
       id: id,
       productId: 1,
@@ -47,11 +47,11 @@ void main() {
     );
   }
 
-  RefillSuggestion _makeSuggestion({
+  RefillSuggestion makeSuggestion({
     RefillUrgency urgency = RefillUrgency.upcoming,
   }) {
     return RefillSuggestion(
-      treatment: _makeTreatment(),
+      treatment: makeTreatment(),
       daysRemaining: urgency == RefillUrgency.urgent ? 2 : 5,
       urgency: urgency,
       message: 'Pensez à renouveler votre traitement',
@@ -94,7 +94,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
-        createWidget(state: SmartRefillState(suggestions: [_makeSuggestion()])),
+        createWidget(state: SmartRefillState(suggestions: [makeSuggestion()])),
       );
       await tester.pump();
       expect(find.byIcon(Icons.notifications_active_rounded), findsOneWidget);
@@ -107,7 +107,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
-        createWidget(state: SmartRefillState(suggestions: [_makeSuggestion()])),
+        createWidget(state: SmartRefillState(suggestions: [makeSuggestion()])),
       );
       await tester.pump();
       expect(find.textContaining('Paracétamol'), findsAtLeastNWidgets(1));
@@ -120,7 +120,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
-        createWidget(state: SmartRefillState(suggestions: [_makeSuggestion()])),
+        createWidget(state: SmartRefillState(suggestions: [makeSuggestion()])),
       );
       await tester.pump();
       expect(find.text('Commander'), findsOneWidget);
@@ -135,7 +135,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
-        createWidget(state: SmartRefillState(suggestions: [_makeSuggestion()])),
+        createWidget(state: SmartRefillState(suggestions: [makeSuggestion()])),
       );
       await tester.pump();
       expect(find.byIcon(Icons.add_shopping_cart_rounded), findsOneWidget);
@@ -148,7 +148,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
-        createWidget(state: SmartRefillState(suggestions: [_makeSuggestion()])),
+        createWidget(state: SmartRefillState(suggestions: [makeSuggestion()])),
       );
       await tester.pump();
       expect(find.byIcon(Icons.close_rounded), findsOneWidget);
@@ -163,7 +163,7 @@ void main() {
       await tester.pumpWidget(
         createWidget(
           state: SmartRefillState(
-            suggestions: [_makeSuggestion(urgency: RefillUrgency.urgent)],
+            suggestions: [makeSuggestion(urgency: RefillUrgency.urgent)],
           ),
         ),
       );
@@ -180,7 +180,7 @@ void main() {
       await tester.pumpWidget(
         createWidget(
           state: SmartRefillState(
-            suggestions: [_makeSuggestion(urgency: RefillUrgency.upcoming)],
+            suggestions: [makeSuggestion(urgency: RefillUrgency.upcoming)],
           ),
         ),
       );
@@ -195,7 +195,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
-        createWidget(state: SmartRefillState(suggestions: [_makeSuggestion()])),
+        createWidget(state: SmartRefillState(suggestions: [makeSuggestion()])),
       );
       await tester.pump();
       expect(find.textContaining('traitement'), findsAtLeastNWidgets(1));
@@ -210,7 +210,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
-        createWidget(state: SmartRefillState(suggestions: [_makeSuggestion()])),
+        createWidget(state: SmartRefillState(suggestions: [makeSuggestion()])),
       );
       await tester.pump();
       expect(find.text('Tout voir'), findsOneWidget);
@@ -225,7 +225,7 @@ void main() {
       await tester.pumpWidget(
         createWidget(
           state: SmartRefillState(
-            suggestions: [_makeSuggestion(urgency: RefillUrgency.upcoming)],
+            suggestions: [makeSuggestion(urgency: RefillUrgency.upcoming)],
           ),
         ),
       );
@@ -240,7 +240,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
-        createWidget(state: SmartRefillState(suggestions: [_makeSuggestion()])),
+        createWidget(state: SmartRefillState(suggestions: [makeSuggestion()])),
       );
       await tester.pump();
       expect(find.textContaining('renouveler'), findsAtLeastNWidgets(1));

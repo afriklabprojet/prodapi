@@ -224,7 +224,7 @@ void main() {
   });
 
   group('PrescriptionsListPage Loaded State Tests', () {
-    PrescriptionEntity _makePrescription({
+    PrescriptionEntity makePrescription({
       int id = 1,
       String status = 'pending',
     }) {
@@ -250,7 +250,7 @@ void main() {
         createTestWidgetWithState(
           state: PrescriptionsState(
             status: PrescriptionsStatus.loaded,
-            prescriptions: [_makePrescription()],
+            prescriptions: [makePrescription()],
           ),
         ),
       );
@@ -270,7 +270,7 @@ void main() {
         createTestWidgetWithState(
           state: PrescriptionsState(
             status: PrescriptionsStatus.loaded,
-            prescriptions: [_makePrescription(status: 'pending')],
+            prescriptions: [makePrescription(status: 'pending')],
           ),
         ),
       );
@@ -290,7 +290,7 @@ void main() {
         createTestWidgetWithState(
           state: PrescriptionsState(
             status: PrescriptionsStatus.loaded,
-            prescriptions: [_makePrescription()],
+            prescriptions: [makePrescription()],
           ),
         ),
       );

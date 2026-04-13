@@ -111,16 +111,29 @@ class AppServiceProvider extends ServiceProvider
                 });
         });
 
-        // OTP sending - Limité pour éviter le spam SMS
-        // Beta: 10/min — Production recommandé: 2/min
+        // OTP sending - Strict pour éviter le spam SMS (coûteux)
+        // Double limite: par IP ET par numéro de téléphone
         RateLimiter::for('otp-send', function (Request $request) {
-            return Limit::perMinute(10)->by($request->ip())
-                ->response(function () {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Trop de demandes d\'OTP. Veuillez attendre 1 minute.',
-                    ], 429);
-                });
+            $phone = $request->input('phone', '');
+
+            return [
+                // Max 3 OTP par minute par IP
+                Limit::perMinute(3)->by($request->ip())
+                    ->response(function () {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Trop de demandes d\'OTP. Veuillez attendre 1 minute.',
+                        ], 429);
+                    }),
+                // Max 5 OTP par heure par numéro de téléphone
+                Limit::perHour(5)->by('otp-phone:' . $phone)
+                    ->response(function () {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Trop de codes envoyés à ce numéro. Réessayez plus tard.',
+                        ], 429);
+                    }),
+            ];
         });
 
         // Password reset

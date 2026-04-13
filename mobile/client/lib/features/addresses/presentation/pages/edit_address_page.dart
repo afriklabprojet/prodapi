@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../domain/entities/address_entity.dart';
 import '../providers/addresses_provider.dart';
 
@@ -140,22 +140,12 @@ class _EditAddressPageState extends ConsumerState<EditAddressPage> {
             isDefault: _isDefault,
           );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Adresse mise à jour'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        AppSnackbar.success(context, 'Adresse mise à jour');
         context.pop();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Impossible de mettre à jour l\'adresse'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppSnackbar.error(context, 'Impossible de mettre à jour l\'adresse');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../config/providers.dart';
+import '../../../orders/domain/entities/order_entity.dart';
 import '../../../orders/presentation/providers/orders_provider.dart';
 import '../../../orders/presentation/providers/orders_state.dart';
 import '../../domain/entities/product_entity.dart';
@@ -86,7 +87,7 @@ class FrequentProductsNotifier extends StateNotifier<FrequentProductsState> {
 
       for (final order in _ordersState.orders) {
         // Ne considérer que les commandes livrées ou confirmées
-        if (order.status != 'delivered' && order.status != 'confirmed') {
+        if (order.status != OrderStatus.delivered && order.status != OrderStatus.confirmed) {
           continue;
         }
 

@@ -12,9 +12,11 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/providers/ui_state_providers.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/services/firebase_otp_service.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../config/providers.dart';
 import '../../providers/firebase_otp_provider.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/otp_background_decor.dart';
 
 class OtpVerificationPage extends ConsumerStatefulWidget {
   final String phoneNumber;
@@ -82,9 +84,10 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
       vsync: this,
       duration: const Duration(milliseconds: 2000),
     )..repeat(reverse: true);
-    _pulseScale = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(parent: _iconPulse, curve: Curves.easeInOut),
-    );
+    _pulseScale = Tween<double>(
+      begin: 1.0,
+      end: 1.05,
+    ).animate(CurvedAnimation(parent: _iconPulse, curve: Curves.easeInOut));
 
     // Success checkmark
     _successAnim = AnimationController(
@@ -100,6 +103,11 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
     // Defer provider modifications to after the widget tree is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startResendCountdown();
+      final transitionMessage = ref.read(authTransitionMessageProvider);
+      if (transitionMessage != null && mounted) {
+        AppSnackbar.success(context, transitionMessage);
+        ref.read(authTransitionMessageProvider.notifier).state = null;
+      }
       if (widget.sendOtpOnInit) _sendFirebaseOtp();
     });
   }
@@ -221,18 +229,18 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
     final completer = Completer<void>();
 
     // Listen for Firebase state resolution (codeSent, error, verified, timeout)
-    final sub = ref.listenManual<FirebaseOtpStateData>(
-      firebaseOtpProvider,
-      (previous, next) {
-        if (!completer.isCompleted &&
-            (next.state == FirebaseOtpState.codeSent ||
-             next.state == FirebaseOtpState.error ||
-             next.state == FirebaseOtpState.verified ||
-             next.state == FirebaseOtpState.timeout)) {
-          completer.complete();
-        }
-      },
-    );
+    final sub = ref.listenManual<FirebaseOtpStateData>(firebaseOtpProvider, (
+      previous,
+      next,
+    ) {
+      if (!completer.isCompleted &&
+          (next.state == FirebaseOtpState.codeSent ||
+              next.state == FirebaseOtpState.error ||
+              next.state == FirebaseOtpState.verified ||
+              next.state == FirebaseOtpState.timeout)) {
+        completer.complete();
+      }
+    });
 
     final notifier = ref.read(firebaseOtpProvider.notifier);
     await notifier.sendOtp(widget.phoneNumber);
@@ -243,7 +251,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
     try {
       await completer.future.timeout(const Duration(seconds: 30));
     } catch (_) {
-      debugPrint('[OTP] Firebase did not respond within 30s, falling back to backend SMS');
+      debugPrint(
+        '[OTP] Firebase did not respond within 30s, falling back to backend SMS',
+      );
     }
 
     sub.close();
@@ -259,10 +269,10 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
 
     // Firebase failed or timed out — check if we should fallback
     final err = state.errorMessage ?? '';
-    
+
     // Only skip fallback for user-caused errors (invalid phone number)
     final isUserError = err.contains('invalide') && !err.contains('interne');
-    
+
     if (!isUserError) {
       debugPrint('[OTP] Firebase failed ($err), switching to backend SMS');
       await _switchToBackendSms();
@@ -321,13 +331,13 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
       _showSnackBar('Veuillez entrer le code complet', isError: true);
       return;
     }
-    
+
     if (_useBackendSms) {
       // Backend OTP verification (Infobip)
       await _verifyBackendOtp();
       return;
     }
-    
+
     // Firebase OTP verification
     final notifier = ref.read(firebaseOtpProvider.notifier);
     final result = await notifier.verifyOtp(_otpCode);
@@ -373,12 +383,16 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
   void _handleAutoVerification(FirebaseOtpStateData otpState) {
     // Auto-fill fields if Firebase provided the SMS code
     final autoCode = otpState.autoRetrievedSmsCode;
-    if (autoCode != null && autoCode.length == _otpLength && _lastAutoFilledCode != autoCode) {
+    if (autoCode != null &&
+        autoCode.length == _otpLength &&
+        _lastAutoFilledCode != autoCode) {
       _autoFillCode(autoCode);
     }
 
     // If Firebase auto-verified (verificationCompleted), go to backend
-    if (otpState.state == FirebaseOtpState.verified && !_autoVerified && otpState.firebaseUid != null) {
+    if (otpState.state == FirebaseOtpState.verified &&
+        !_autoVerified &&
+        otpState.firebaseUid != null) {
       _autoVerified = true;
       _successAnim.forward();
       Future.delayed(const Duration(milliseconds: 400), () {
@@ -392,16 +406,23 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
       // Get Firebase ID token for server-side verification
       final firebaseUser = FirebaseAuth.instance.currentUser;
       if (firebaseUser == null) {
-        if (mounted) _showSnackBar('Session Firebase expirée. Réessayez.', isError: true);
+        if (mounted) {
+          _showSnackBar('Session Firebase expirée. Réessayez.', isError: true);
+        }
         return;
       }
-      
+
       final firebaseIdToken = await firebaseUser.getIdToken();
       if (firebaseIdToken == null) {
-        if (mounted) _showSnackBar('Impossible d obtenir le token Firebase', isError: true);
+        if (mounted) {
+          _showSnackBar(
+            'Impossible d obtenir le token Firebase',
+            isError: true,
+          );
+        }
         return;
       }
-      
+
       final authNotifier = ref.read(authProvider.notifier);
       final result = await authNotifier.verifyFirebaseOtp(
         phone: widget.phoneNumber,
@@ -409,12 +430,11 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
         firebaseIdToken: firebaseIdToken,
       );
       if (!mounted) return;
-      result.fold(
-        (failure) => _showSnackBar(failure.message, isError: true),
-        (success) {
-          if (context.mounted) _navigateAfterAuth();
-        },
-      );
+      result.fold((failure) => _showSnackBar(failure.message, isError: true), (
+        success,
+      ) {
+        if (context.mounted) _navigateAfterAuth();
+      });
     } catch (e) {
       if (mounted) _showSnackBar('Erreur de liaison au compte', isError: true);
     }
@@ -425,9 +445,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
     try {
       final deepLinkService = ref.read(deepLinkServiceProvider);
       final pendingLink = await deepLinkService.consumePendingDeepLink();
-      
+
       if (!mounted) return;
-      
+
       if (pendingLink != null) {
         // Navigate to the pending deep link destination
         context.go(pendingLink.path, extra: pendingLink.extra);
@@ -441,27 +461,11 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              isError ? Icons.error_outline_rounded : Icons.check_circle_rounded,
-              color: Colors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(message, style: const TextStyle(fontWeight: FontWeight.w500)),
-            ),
-          ],
-        ),
-        backgroundColor: isError ? const Color(0xFFE53935) : AppColors.primary,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
+    if (isError) {
+      AppSnackbar.error(context, message);
+    } else {
+      AppSnackbar.success(context, message);
+    }
   }
 
   Future<void> _resendOtp() async {
@@ -474,7 +478,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
     _autoVerified = false;
     _focusNodes[0].requestFocus();
     setState(() {});
-    
+
     if (_useBackendSms) {
       // Resend via backend (Infobip)
       await _sendBackendOtp();
@@ -529,7 +533,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
         backgroundColor: isDark ? const Color(0xFF0F1512) : Colors.white,
         body: Stack(
           children: [
-            _BackgroundDecor(isDark: isDark),
+            OtpBackgroundDecor(isDark: isDark),
             SafeArea(
               child: Column(
                 children: [
@@ -639,27 +643,28 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
   }
 
   Widget _buildBackButton(bool isDark) {
-    return GestureDetector(
-      onTap: _handleBack,
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.07)
-              : const Color(0xFFF5F7F6),
+    return IconButton(
+      onPressed: _handleBack,
+      tooltip: 'Retour',
+      style: IconButton.styleFrom(
+        backgroundColor: isDark
+            ? Colors.white.withValues(alpha: 0.07)
+            : const Color(0xFFF5F7F6),
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
+          side: BorderSide(
             color: isDark
                 ? Colors.white.withValues(alpha: 0.08)
                 : Colors.black.withValues(alpha: 0.05),
           ),
         ),
-        child: Icon(
-          Icons.arrow_back_ios_new_rounded,
-          size: 17,
-          color: isDark ? Colors.white70 : const Color(0xFF3D5347),
-        ),
+        fixedSize: const Size(44, 44),
+        minimumSize: const Size(44, 44),
+      ),
+      icon: Icon(
+        Icons.arrow_back_ios_new_rounded,
+        size: 17,
+        color: isDark ? Colors.white70 : const Color(0xFF3D5347),
       ),
     );
   }
@@ -671,10 +676,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
   Widget _buildIcon(bool isDark) {
     return AnimatedBuilder(
       animation: _pulseScale,
-      builder: (context, child) => Transform.scale(
-        scale: _pulseScale.value,
-        child: child,
-      ),
+      builder: (context, child) =>
+          Transform.scale(scale: _pulseScale.value, child: child),
       child: Container(
         width: 100,
         height: 100,
@@ -703,7 +706,11 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
           animation: _successAnim,
           builder: (context, child) {
             if (_successAnim.value > 0.5) {
-              return const Icon(Icons.check_rounded, size: 48, color: Colors.white);
+              return const Icon(
+                Icons.check_rounded,
+                size: 48,
+                color: Colors.white,
+              );
             }
             return const Icon(Icons.sms_rounded, size: 42, color: Colors.white);
           },
@@ -743,7 +750,11 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.sms_rounded, size: 14, color: Colors.orange.shade700),
+                Icon(
+                  Icons.sms_rounded,
+                  size: 14,
+                  color: Colors.orange.shade700,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   'Code envoyé par ${_backendChannel == 'whatsapp' ? 'WhatsApp' : 'SMS'}',
@@ -802,7 +813,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
         final dashWidth = 20.0;
         final gapWidth = 4.0;
         final totalGaps = (_otpLength - 1) * gapWidth + dashWidth;
-        final fieldSize = ((constraints.maxWidth - totalGaps) / _otpLength).clamp(36.0, 48.0);
+        final fieldSize = ((constraints.maxWidth - totalGaps) / _otpLength)
+            .clamp(36.0, 48.0);
         final fieldHeight = (fieldSize * 1.15).clamp(44.0, 56.0);
 
         return Row(
@@ -827,7 +839,12 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
                     ),
                   ),
                 if (!isMiddleGap && i > 0) SizedBox(width: gapWidth),
-                _buildOtpField(i, isDark, fieldSize: fieldSize, fieldHeight: fieldHeight),
+                _buildOtpField(
+                  i,
+                  isDark,
+                  fieldSize: fieldSize,
+                  fieldHeight: fieldHeight,
+                ),
               ],
             );
           }),
@@ -836,7 +853,12 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
     );
   }
 
-  Widget _buildOtpField(int index, bool isDark, {double fieldSize = 48, double fieldHeight = 56}) {
+  Widget _buildOtpField(
+    int index,
+    bool isDark, {
+    double fieldSize = 48,
+    double fieldHeight = 56,
+  }) {
     final hasValue = _controllers[index].text.isNotEmpty;
     final isFocused = _focusNodes[index].hasFocus;
 
@@ -860,23 +882,26 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
           : const Color(0xFFF7F8F7);
     }
 
-    return GestureDetector(
-      onTap: () => _focusNodes[index].requestFocus(),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        width: fieldSize,
-        height: fieldHeight,
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: borderColor,
-            width: isFocused || hasValue ? 1.8 : 1.2,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _focusNodes[index].requestFocus(),
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          width: fieldSize,
+          height: fieldHeight,
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: borderColor,
+              width: isFocused || hasValue ? 1.8 : 1.2,
+            ),
           ),
-        ),
-        alignment: Alignment.center,
-        child: KeyboardListener(
+          alignment: Alignment.center,
+          child: KeyboardListener(
           focusNode: FocusNode(),
           onKeyEvent: (event) => _onKeyEvent(index, event),
           child: TextField(
@@ -911,6 +936,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
           ),
         ),
       ),
+      ),
     );
   }
 
@@ -919,7 +945,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
   // ---------------------------------------------------------------------------
 
   Widget _buildError(String message, bool isDark) {
-    final isRateLimit = message.toLowerCase().contains('trop de tentatives') ||
+    final isRateLimit =
+        message.toLowerCase().contains('trop de tentatives') ||
         message.toLowerCase().contains('too many requests');
 
     return Container(
@@ -928,15 +955,15 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
         color: isRateLimit
             ? const Color(0xFFFFF8E7)
             : isDark
-                ? const Color(0xFF2D1515)
-                : const Color(0xFFFDF0F0),
+            ? const Color(0xFF2D1515)
+            : const Color(0xFFFDF0F0),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isRateLimit
               ? const Color(0xFFFFE082)
               : isDark
-                  ? Colors.red.shade900
-                  : const Color(0xFFF5C6C6),
+              ? Colors.red.shade900
+              : const Color(0xFFF5C6C6),
         ),
       ),
       child: Row(
@@ -956,8 +983,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
                 color: isRateLimit
                     ? const Color(0xFF8D6E00)
                     : isDark
-                        ? Colors.red.shade300
-                        : const Color(0xFFC62828),
+                    ? Colors.red.shade300
+                    : const Color(0xFFC62828),
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 height: 1.4,
@@ -993,8 +1020,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
           color: isComplete
               ? null
               : isDark
-                  ? Colors.white.withValues(alpha: 0.06)
-                  : const Color(0xFFF0F2F1),
+              ? Colors.white.withValues(alpha: 0.06)
+              : const Color(0xFFF0F2F1),
           boxShadow: isComplete
               ? [
                   BoxShadow(
@@ -1013,8 +1040,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
             shadowColor: Colors.transparent,
             foregroundColor: Colors.white,
             disabledBackgroundColor: Colors.transparent,
-            disabledForegroundColor:
-                isDark ? Colors.white24 : const Color(0xFFB0BAB3),
+            disabledForegroundColor: isDark
+                ? Colors.white24
+                : const Color(0xFFB0BAB3),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
@@ -1038,8 +1066,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
                     color: isComplete
                         ? Colors.white
                         : isDark
-                            ? Colors.white24
-                            : const Color(0xFFB0BAB3),
+                        ? Colors.white24
+                        : const Color(0xFFB0BAB3),
                   ),
                 ),
         ),
@@ -1146,67 +1174,6 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage>
             fontSize: 12,
             fontWeight: FontWeight.w500,
             color: isDark ? Colors.white24 : const Color(0xFFB0BAB3),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// =============================================================================
-// BACKGROUND DECORATION
-// =============================================================================
-
-class _BackgroundDecor extends StatelessWidget {
-  final bool isDark;
-  const _BackgroundDecor({required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned(
-          top: -80,
-          right: -60,
-          child: Container(
-            width: 220,
-            height: 220,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: isDark
-                    ? [
-                        AppColors.primary.withValues(alpha: 0.08),
-                        Colors.transparent,
-                      ]
-                    : [
-                        AppColors.primary.withValues(alpha: 0.06),
-                        Colors.transparent,
-                      ],
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: -100,
-          left: -80,
-          child: Container(
-            width: 260,
-            height: 260,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: isDark
-                    ? [
-                        AppColors.primary.withValues(alpha: 0.05),
-                        Colors.transparent,
-                      ]
-                    : [
-                        AppColors.primary.withValues(alpha: 0.04),
-                        Colors.transparent,
-                      ],
-              ),
-            ),
           ),
         ),
       ],

@@ -22,6 +22,7 @@ class MockProductsNotifier extends StateNotifier<ProductsState>
   @override
   Future<void> loadProducts({bool refresh = false}) async {}
 
+  @override
   Future<void> loadMore({bool refresh = false}) async {}
 
   @override
@@ -323,7 +324,7 @@ void main() {
   });
 
   group('AllProductsPage Loaded State Tests', () {
-    ProductEntity _makeProduct({
+    ProductEntity makeProduct({
       int id = 1,
       String name = 'Paracétamol',
       double price = 500.0,
@@ -358,7 +359,7 @@ void main() {
         createTestWidgetWithState(
           state: ProductsState(
             status: ProductsStatus.loaded,
-            products: [_makeProduct()],
+            products: [makeProduct()],
             hasMore: false,
           ),
         ),
@@ -377,7 +378,7 @@ void main() {
         createTestWidgetWithState(
           state: ProductsState(
             status: ProductsStatus.loaded,
-            products: [_makeProduct(price: 500.0)],
+            products: [makeProduct(price: 500.0)],
             hasMore: false,
           ),
         ),
@@ -397,8 +398,8 @@ void main() {
           state: ProductsState(
             status: ProductsStatus.loaded,
             products: [
-              _makeProduct(id: 1, name: 'Paracétamol'),
-              _makeProduct(id: 2, name: 'Ibuprofène'),
+              makeProduct(id: 1, name: 'Paracétamol'),
+              makeProduct(id: 2, name: 'Ibuprofène'),
             ],
             hasMore: false,
           ),

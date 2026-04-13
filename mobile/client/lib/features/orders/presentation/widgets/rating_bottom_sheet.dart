@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../config/providers.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/providers/theme_provider.dart';
 
 /// Bottom sheet for rating an order (courier + pharmacy).
@@ -261,8 +262,9 @@ class _RatingBottomSheetState extends ConsumerState<RatingBottomSheet> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(5, (index) {
             final starValue = index + 1;
-            return GestureDetector(
+            return InkWell(
               onTap: () => onRatingChanged(starValue),
+              customBorder: const CircleBorder(),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Icon(
@@ -385,22 +387,12 @@ class _RatingBottomSheetState extends ConsumerState<RatingBottomSheet> {
 
       if (mounted) {
         Navigator.of(context).pop(true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Merci pour votre avis !'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        AppSnackbar.success(context, 'Merci pour votre avis !');
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isSubmitting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Impossible d\'envoyer votre avis. Réessayez.'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppSnackbar.error(context, 'Impossible d\'envoyer votre avis. Réessayez.');
       }
     }
   }

@@ -1,7 +1,13 @@
 const https = require('https');
+require('dotenv').config({ path: require('path').resolve(__dirname, '../api/.env') });
 
-const API_KEY = '239e46fe655d53cc9cde8dd8b62e6fc0-d074b80d-744c-4314-a00a-017596dfe48e';
-const BASE_HOST = '8vg98e.api.infobip.com';
+const API_KEY = process.env.INFOBIP_API_KEY;
+const BASE_HOST = (process.env.INFOBIP_BASE_URL || '').replace('https://', '');
+
+if (!API_KEY || !BASE_HOST) {
+  console.error('❌ INFOBIP_API_KEY et INFOBIP_BASE_URL doivent être définis dans api/.env');
+  process.exit(1);
+}
 
 function request(method, path, body = null) {
   return new Promise((resolve, reject) => {

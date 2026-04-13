@@ -389,9 +389,9 @@ void main() {
   // OrderEntity computed properties
   // ────────────────────────────────────────────────────────────────────────────
   group('OrderEntity', () {
-    const _delivery = DeliveryAddressEntity(address: 'Plateau');
+    const delivery = DeliveryAddressEntity(address: 'Plateau');
 
-    OrderEntity _makeEntity({
+    OrderEntity makeEntity({
       OrderStatus status = OrderStatus.pending,
       String paymentStatus = 'pending',
       PaymentMode paymentMode = PaymentMode.platform,
@@ -407,35 +407,35 @@ void main() {
       subtotal: 1000.0,
       deliveryFee: 500.0,
       totalAmount: 1500.0,
-      deliveryAddress: _delivery,
+      deliveryAddress: delivery,
       createdAt: DateTime(2024),
     );
 
     test('statusLabel matches all statuses', () {
       expect(
-        _makeEntity(status: OrderStatus.pending).statusLabel,
+        makeEntity(status: OrderStatus.pending).statusLabel,
         'En attente',
       );
       expect(
-        _makeEntity(status: OrderStatus.confirmed).statusLabel,
+        makeEntity(status: OrderStatus.confirmed).statusLabel,
         'Confirmée',
       );
       expect(
-        _makeEntity(status: OrderStatus.preparing).statusLabel,
+        makeEntity(status: OrderStatus.preparing).statusLabel,
         'En préparation',
       );
-      expect(_makeEntity(status: OrderStatus.ready).statusLabel, 'Prête');
+      expect(makeEntity(status: OrderStatus.ready).statusLabel, 'Prête');
       expect(
-        _makeEntity(status: OrderStatus.delivering).statusLabel,
+        makeEntity(status: OrderStatus.delivering).statusLabel,
         'En livraison',
       );
-      expect(_makeEntity(status: OrderStatus.delivered).statusLabel, 'Livrée');
-      expect(_makeEntity(status: OrderStatus.cancelled).statusLabel, 'Annulée');
-      expect(_makeEntity(status: OrderStatus.failed).statusLabel, 'Échouée');
+      expect(makeEntity(status: OrderStatus.delivered).statusLabel, 'Livrée');
+      expect(makeEntity(status: OrderStatus.cancelled).statusLabel, 'Annulée');
+      expect(makeEntity(status: OrderStatus.failed).statusLabel, 'Échouée');
     });
 
     test('total == totalAmount', () {
-      expect(_makeEntity().total, 1500.0);
+      expect(makeEntity().total, 1500.0);
     });
 
     test('PaymentMode displayName', () {

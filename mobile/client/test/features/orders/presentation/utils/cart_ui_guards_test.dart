@@ -136,8 +136,8 @@ void main() {
         _wrap(
           DebouncedElevatedButton(
             onPressed: () => count++,
-            child: const Text('Ok'),
             debounceDuration: const Duration(milliseconds: 100),
+            child: const Text('Ok'),
           ),
         ),
       );
@@ -154,8 +154,8 @@ void main() {
         _wrap(
           DebouncedElevatedButton(
             onPressed: () {},
-            child: const Text('Go'),
             debounceDuration: const Duration(milliseconds: 500),
+            child: const Text('Go'),
           ),
         ),
       );
@@ -171,8 +171,8 @@ void main() {
         _wrap(
           DebouncedElevatedButton(
             onPressed: () {},
-            child: const Text('Go'),
             debounceDuration: const Duration(milliseconds: 100),
+            child: const Text('Go'),
           ),
         ),
       );
@@ -191,8 +191,8 @@ void main() {
         _wrap(
           DebouncedElevatedButton(
             onPressed: () => count++,
-            child: const Text('Tap'),
             debounceDuration: const Duration(milliseconds: 500),
+            child: const Text('Tap'),
           ),
         ),
       );
@@ -248,8 +248,8 @@ void main() {
           DebouncedElevatedButton(
             onPressed: () {},
             icon: const Icon(Icons.save),
-            child: const Text('Save'),
             debounceDuration: const Duration(milliseconds: 500),
+            child: const Text('Save'),
           ),
         ),
       );
@@ -272,8 +272,8 @@ void main() {
           DebouncedElevatedButton(
             onPressed: () => count++,
             icon: const Icon(Icons.send),
-            child: const Text('Send'),
             debounceDuration: const Duration(milliseconds: 100),
+            child: const Text('Send'),
           ),
         ),
       );

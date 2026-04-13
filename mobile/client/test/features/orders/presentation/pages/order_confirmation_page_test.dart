@@ -14,7 +14,7 @@ import '../../../../helpers/fake_api_client.dart';
 class MockOrdersNotifier extends StateNotifier<OrdersState>
     with Mock
     implements OrdersNotifier {
-  MockOrdersNotifier(OrdersState state) : super(state);
+  MockOrdersNotifier(super.state);
 
   @override
   Future<void> loadOrderDetails(int orderId) async {}
@@ -318,7 +318,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(
         createStateWidget(
-          const OrdersState(status: OrdersStatus.loading, orders: const []),
+          const OrdersState(status: OrdersStatus.loading, orders: []),
         ),
       );
       await tester.pump();
@@ -334,7 +334,7 @@ void main() {
         createStateWidget(
           const OrdersState(
             status: OrdersStatus.error,
-            orders: const [],
+            orders: [],
             errorMessage: 'Erreur serveur',
           ),
         ),
@@ -352,7 +352,7 @@ void main() {
         createStateWidget(
           const OrdersState(
             status: OrdersStatus.error,
-            orders: const [],
+            orders: [],
             errorMessage: 'Erreur serveur',
           ),
         ),
@@ -370,7 +370,7 @@ void main() {
         createStateWidget(
           const OrdersState(
             status: OrdersStatus.error,
-            orders: const [],
+            orders: [],
             errorMessage: 'Erreur réseau',
           ),
         ),
@@ -386,7 +386,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(
         createStateWidget(
-          const OrdersState(status: OrdersStatus.initial, orders: const []),
+          const OrdersState(status: OrdersStatus.initial, orders: []),
         ),
       );
       await tester.pump(const Duration(milliseconds: 900));
@@ -403,7 +403,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(
         createStateWidget(
-          const OrdersState(status: OrdersStatus.initial, orders: const []),
+          const OrdersState(status: OrdersStatus.initial, orders: []),
         ),
       );
       await tester.pump(const Duration(milliseconds: 900));

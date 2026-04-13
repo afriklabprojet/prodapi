@@ -468,43 +468,48 @@ class _FilterChip extends StatelessWidget {
       button: true,
       selected: isActive,
       label: '$label${isActive ? ", sélectionné" : ""}',
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(30),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          decoration: BoxDecoration(
-            color: isActive
-                ? Theme.of(context).primaryColor
-                : (isDark ? AppColors.cardColor(context) : Colors.white),
-            borderRadius: BorderRadius.circular(30),
-            border: isActive
-                ? Border.all(color: Colors.transparent)
-                : Border.all(
-                    color: isDark ? Colors.grey[700]! : Colors.grey[200]!,
-                    width: 1.5,
-                  ),
-            boxShadow: isActive && !isDark
-                ? [
-                    BoxShadow(
-                      color: Theme.of(
-                        context,
-                      ).primaryColor.withValues(alpha: 0.25),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
-                    ),
-                  ]
-                : [],
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
+      child: AnimatedScale(
+        scale: isActive ? 1.05 : 1.0,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutBack,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(30),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            decoration: BoxDecoration(
               color: isActive
-                  ? Colors.white
-                  : (isDark ? Colors.grey[400] : Colors.grey[600]),
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-              fontSize: 15,
+                  ? Theme.of(context).primaryColor
+                  : (isDark ? AppColors.cardColor(context) : Colors.white),
+              borderRadius: BorderRadius.circular(30),
+              border: isActive
+                  ? Border.all(color: Colors.transparent)
+                  : Border.all(
+                      color: isDark ? Colors.grey[700]! : Colors.grey[200]!,
+                      width: 1.5,
+                    ),
+              boxShadow: isActive && !isDark
+                  ? [
+                      BoxShadow(
+                        color: Theme.of(context)
+                            .primaryColor
+                            .withValues(alpha: 0.25),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
+                      ),
+                    ]
+                  : [],
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isActive
+                    ? Colors.white
+                    : (isDark ? Colors.grey[400] : Colors.grey[600]),
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                fontSize: 15,
+              ),
             ),
           ),
         ),

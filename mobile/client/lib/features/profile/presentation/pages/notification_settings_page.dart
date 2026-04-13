@@ -5,6 +5,7 @@ import '../../../../config/providers.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/app_logger.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 
 class NotificationSettingsPage extends ConsumerStatefulWidget {
   const NotificationSettingsPage({super.key});
@@ -93,38 +94,12 @@ class _NotificationSettingsPageState
         },
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white, size: 18),
-                SizedBox(width: 8),
-                Text('Préférences synchronisées'),
-              ],
-            ),
-            backgroundColor: AppColors.success,
-            duration: Duration(milliseconds: 1500),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackbar.success(context, 'Préférences synchronisées');
       }
     } catch (e) {
       AppLogger.debug('[NotifSettings] Failed to sync to server: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.warning_amber, color: Colors.white, size: 18),
-                SizedBox(width: 8),
-                Text('Synchronisation échouée (sauvegardé localement)'),
-              ],
-            ),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackbar.warning(context, 'Synchronisation échouée (sauvegardé localement)');
       }
     } finally {
       _syncing = false;

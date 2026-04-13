@@ -187,7 +187,7 @@ void main() {
   // NotificationEntity
   // ────────────────────────────────────────────────────────────────────────────
   group('NotificationEntity', () {
-    NotificationEntity _make({bool isRead = false}) => NotificationEntity(
+    NotificationEntity make({bool isRead = false}) => NotificationEntity(
       id: 'e-1',
       type: 'orderUpdate',
       title: 'Mise à jour',
@@ -197,7 +197,7 @@ void main() {
     );
 
     test('props contains id, type, title, isRead, createdAt', () {
-      final entity = _make();
+      final entity = make();
       expect(
         entity.props,
         containsAll([
@@ -211,11 +211,11 @@ void main() {
     });
 
     test('two identical entities are equal', () {
-      expect(_make(), equals(_make()));
+      expect(make(), equals(make()));
     });
 
     test('read vs unread are different', () {
-      expect(_make(isRead: false), isNot(equals(_make(isRead: true))));
+      expect(make(isRead: false), isNot(equals(make(isRead: true))));
     });
   });
 }

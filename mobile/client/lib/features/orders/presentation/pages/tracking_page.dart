@@ -11,6 +11,7 @@ import '../../../../core/services/app_logger.dart';
 import '../../../../core/services/messaging/messaging.dart';
 import '../../../../core/services/firestore_tracking_service.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/theme_colors.dart';
 import '../../../../core/services/eta_service.dart';
 import 'courier_chat_page.dart';
 
@@ -38,16 +39,11 @@ final courierLocationStreamProvider =
 class TrackingPage extends ConsumerStatefulWidget {
   final int orderId;
   final DeliveryAddressEntity deliveryAddress;
-  final String?
-  pharmacyAddress; // Assuming we can get coordinates via geocoding or passed
-  // Ideally, we need LatLng for pharmacy and delivery. Does OrderEntity have them?
-  // OrderEntity has DeliveryAddressEntity which might have lat/lng?
 
   const TrackingPage({
     super.key,
     required this.orderId,
     required this.deliveryAddress,
-    this.pharmacyAddress,
   });
 
   @override
@@ -322,49 +318,8 @@ class _TrackingPageState extends ConsumerState<TrackingPage> {
           _isLoading
               ? const Center(child: CircularProgressIndicator())
               : trackingAsync.when(
-                  data: (tracking) {
-                    // State updates are handled by the listener in initState
-                    return GoogleMap(
-                      initialCameraPosition: CameraPosition(
-                        target:
-                            _courierPosition ??
-                            (widget.deliveryAddress.latitude != null
-                                ? LatLng(
-                                    widget.deliveryAddress.latitude!,
-                                    widget.deliveryAddress.longitude!,
-                                  )
-                                : _center),
-                        zoom: 14,
-                      ),
-                      markers: _markers,
-                      polylines: _polylines,
-                      onMapCreated: (GoogleMapController controller) {
-                        if (!_controller.isCompleted) {
-                          _controller.complete(controller);
-                        }
-                      },
-                    );
-                  },
-                  loading: () => GoogleMap(
-                    initialCameraPosition: CameraPosition(
-                      target:
-                          _courierPosition ??
-                          (widget.deliveryAddress.latitude != null
-                              ? LatLng(
-                                  widget.deliveryAddress.latitude!,
-                                  widget.deliveryAddress.longitude!,
-                                )
-                              : _center),
-                      zoom: 14,
-                    ),
-                    markers: _markers,
-                    polylines: _polylines,
-                    onMapCreated: (GoogleMapController controller) {
-                      if (!_controller.isCompleted) {
-                        _controller.complete(controller);
-                      }
-                    },
-                  ),
+                  data: (_) => _buildGoogleMap(),
+                  loading: () => _buildGoogleMap(),
                   error: (e, _) => Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -372,7 +327,7 @@ class _TrackingPageState extends ConsumerState<TrackingPage> {
                         const Icon(
                           Icons.location_off,
                           size: 48,
-                          color: Colors.grey,
+                          color: AppColors.textHint,
                         ),
                         const SizedBox(height: 16),
                         const Text(
@@ -468,18 +423,22 @@ class _TrackingPageState extends ConsumerState<TrackingPage> {
                       ),
                     ),
                     if (_courierPhone != null)
-                      GestureDetector(
-                        onTap: _openWhatsApp,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
+                      Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: context.cardBackground,
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          child: Row(
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: _openWhatsApp,
+                              borderRadius: BorderRadius.circular(16),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
@@ -498,8 +457,70 @@ class _TrackingPageState extends ConsumerState<TrackingPage> {
                               ),
                             ],
                           ),
-                        ),
+                              ),
+                            ),
+                          ),
                       ),
+                  ],
+                ),
+              ),
+            ),
+
+          // Waiting for courier — shown when no courier assigned
+          if (_courierName == null)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFF1E1E1E)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                        color: Colors.orange.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Recherche d\'un livreur...',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : const Color(0xFF1A1A1A),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Votre commande est en cours de préparation.\nUn livreur sera assigné sous peu.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.grey[400]
+                            : Colors.grey[600],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -530,10 +551,11 @@ class _TrackingPageState extends ConsumerState<TrackingPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // Drag handle + courier header (always visible, tap to toggle)
-                    GestureDetector(
+                    InkWell(
                       onTap: () => setState(
                         () => _isCourierCardExpanded = !_isCourierCardExpanded,
                       ),
+                      borderRadius: BorderRadius.circular(16),
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                         child: Column(
@@ -544,7 +566,7 @@ class _TrackingPageState extends ConsumerState<TrackingPage> {
                               height: 4,
                               margin: const EdgeInsets.only(bottom: 12),
                               decoration: BoxDecoration(
-                                color: Colors.grey.shade300,
+                                color: context.subtleBorder,
                                 borderRadius: BorderRadius.circular(2),
                               ),
                             ),
@@ -742,6 +764,30 @@ class _TrackingPageState extends ConsumerState<TrackingPage> {
     );
   }
 
+  /// Construit le widget GoogleMap avec la position actuelle
+  Widget _buildGoogleMap() {
+    return GoogleMap(
+      initialCameraPosition: CameraPosition(
+        target:
+            _courierPosition ??
+            (widget.deliveryAddress.latitude != null
+                ? LatLng(
+                    widget.deliveryAddress.latitude!,
+                    widget.deliveryAddress.longitude!,
+                  )
+                : _center),
+        zoom: 14,
+      ),
+      markers: _markers,
+      polylines: _polylines,
+      onMapCreated: (GoogleMapController controller) {
+        if (!_controller.isCompleted) {
+          _controller.complete(controller);
+        }
+      },
+    );
+  }
+
   // --- Helpers pour le bandeau de statut en temps réel ---
 
   Color _getStatusColor(String status) {
@@ -755,7 +801,7 @@ class _TrackingPageState extends ConsumerState<TrackingPage> {
       case 'delivered':
         return AppColors.primary;
       default:
-        return Colors.grey;
+        return AppColors.textHint;
     }
   }
 

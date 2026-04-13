@@ -13,13 +13,11 @@ import 'tracking_page.dart';
 class TrackingPageWrapper extends ConsumerStatefulWidget {
   final int orderId;
   final DeliveryAddressEntity? deliveryAddress;
-  final String? pharmacyAddress;
 
   const TrackingPageWrapper({
     super.key,
     required this.orderId,
     this.deliveryAddress,
-    this.pharmacyAddress,
   });
 
   @override
@@ -69,7 +67,6 @@ class _TrackingPageWrapperState extends ConsumerState<TrackingPageWrapper> {
       return TrackingPage(
         orderId: widget.orderId,
         deliveryAddress: widget.deliveryAddress!,
-        pharmacyAddress: widget.pharmacyAddress,
       );
     }
 
@@ -105,7 +102,6 @@ class _TrackingPageWrapperState extends ConsumerState<TrackingPageWrapper> {
         return TrackingPage(
           orderId: widget.orderId,
           deliveryAddress: order.deliveryAddress,
-          pharmacyAddress: order.pharmacyAddress ?? widget.pharmacyAddress,
         );
       },
     );

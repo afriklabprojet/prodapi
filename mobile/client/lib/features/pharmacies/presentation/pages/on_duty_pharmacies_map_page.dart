@@ -9,6 +9,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../../config/providers.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/router/app_router.dart';
 import '../../domain/entities/pharmacy_entity.dart';
 import '../providers/pharmacies_state.dart';
@@ -264,12 +265,7 @@ class _OnDutyPharmaciesMapPageState
 
   Future<void> _centerOnUser() async {
     if (_currentPosition == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Position non disponible'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      AppSnackbar.error(context, 'Position non disponible');
       return;
     }
 
@@ -538,9 +534,7 @@ class _OnDutyPharmaciesMapPageState
   }
 
   Widget _buildSelectedPharmacyCard(PharmacyEntity pharmacy) {
-    return GestureDetector(
-      onTap: () => _onPharmacyTap(pharmacy),
-      child: Container(
+    return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Theme.of(context).brightness == Brightness.dark
@@ -555,7 +549,12 @@ class _OnDutyPharmaciesMapPageState
             ),
           ],
         ),
-        child: Row(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => _onPharmacyTap(pharmacy),
+            borderRadius: BorderRadius.circular(16),
+            child: Row(
           children: [
             Container(
               width: 60,
@@ -619,7 +618,8 @@ class _OnDutyPharmaciesMapPageState
             const Icon(Icons.chevron_right, color: Colors.grey),
           ],
         ),
-      ),
+          ),
+        ),
     );
   }
 

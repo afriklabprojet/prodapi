@@ -22,11 +22,11 @@ void main() {
       routes: [
         GoRoute(
           path: '/forgot-password',
-          builder: (_, __) => const ForgotPasswordPage(),
+          builder: (_, _) => const ForgotPasswordPage(),
         ),
         GoRoute(
           path: '/login',
-          builder: (_, __) => const Scaffold(body: Text('Login Page')),
+          builder: (_, _) => const Scaffold(body: Text('Login Page')),
         ),
       ],
     );

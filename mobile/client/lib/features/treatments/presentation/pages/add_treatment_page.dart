@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../../products/domain/entities/product_entity.dart';
 import '../../../products/presentation/providers/products_provider.dart';
 import '../../../products/presentation/providers/products_state.dart';
@@ -364,7 +365,7 @@ class _AddTreatmentPageState extends ConsumerState<AddTreatmentPage> {
             child: ListView.separated(
               shrinkWrap: true,
               itemCount: productsState.products.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
+              separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (context, index) {
                 final product = productsState.products[index];
                 return ListTile(
@@ -541,17 +542,10 @@ class _AddTreatmentPageState extends ConsumerState<AddTreatmentPage> {
       final msg = _isEditMode
           ? '$productName mis à jour'
           : '$productName ajouté à vos traitements';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: AppColors.success),
-      );
+      AppSnackbar.success(context, msg);
       context.pop();
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Erreur lors de l\'enregistrement'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      AppSnackbar.error(context, 'Erreur lors de l\'enregistrement');
     }
   }
 }

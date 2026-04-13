@@ -2,9 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/providers/ui_state_providers.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../providers/prescriptions_provider.dart';
 
 // Provider ID for this page
@@ -102,11 +104,9 @@ class _PrescriptionUploadPageState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Impossible de sélectionner l\'image. Réessayez.'),
-            backgroundColor: AppColors.error,
-          ),
+        AppSnackbar.error(
+          context,
+          'Impossible de sélectionner l\'image. Réessayez.',
         );
       }
     }
@@ -194,9 +194,7 @@ class _PrescriptionUploadPageState
             onPressed: () {
               Navigator.of(context).pop();
               // Navigate to login page and clear the stack
-              Navigator.of(
-                context,
-              ).pushNamedAndRemoveUntil('/login', (route) => false);
+              context.go('/login');
             },
             child: const Text('Se reconnecter'),
           ),
@@ -207,11 +205,9 @@ class _PrescriptionUploadPageState
 
   Future<void> _submitPrescription() async {
     if (_selectedImages.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez ajouter au moins une photo d\'ordonnance'),
-          backgroundColor: AppColors.error,
-        ),
+      AppSnackbar.warning(
+        context,
+        'Veuillez ajouter au moins une photo d\'ordonnance',
       );
       return;
     }
@@ -261,12 +257,7 @@ class _PrescriptionUploadPageState
         }
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Ordonnance envoyée avec succès !'),
-              backgroundColor: AppColors.success,
-            ),
-          );
+          AppSnackbar.success(context, 'Ordonnance envoyée avec succès !');
           Navigator.pop(context, true); // Return true to indicate success
         }
       }
@@ -299,12 +290,10 @@ class _PrescriptionUploadPageState
           errorMessage = 'Erreur lors de l\'envoi. Veuillez réessayer.';
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: AppColors.error,
-            duration: const Duration(seconds: 4),
-          ),
+        AppSnackbar.error(
+          context,
+          errorMessage,
+          duration: const Duration(seconds: 4),
         );
       }
     } finally {
@@ -572,19 +561,25 @@ class _PrescriptionUploadPageState
             Positioned(
               top: 8,
               right: 8,
-              child: GestureDetector(
-                onTap: () => _removeImage(index),
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: AppColors.error,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.close,
-                    color: Colors.white,
-                    size: 20,
-                    semanticLabel: 'Supprimer l\'image',
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: AppColors.error,
+                  shape: BoxShape.circle,
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => _removeImage(index),
+                    customBorder: const CircleBorder(),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 20,
+                        semanticLabel: 'Supprimer l\'image',
+                      ),
+                    ),
                   ),
                 ),
               ),

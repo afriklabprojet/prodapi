@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart'; // Add for kIsWeb
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +10,7 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/presentation/widgets/adaptive_picker.dart';
 import '../../../../core/presentation/widgets/widgets.dart';
 import '../../../../core/utils/error_messages.dart';
+import '../../../../core/services/celebration_service.dart';
 import '../providers/inventory_provider.dart';
 import '../../domain/entities/product_entity.dart';
 
@@ -49,6 +50,10 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
 
   bool _requiresPrescription = false;
   bool _isLoading = false;
+  
+  // UI States pour sections collapsibles
+  bool _showProductDetails = false;
+  bool _showMedicalInfo = false;
 
   @override
   void initState() {
@@ -171,7 +176,12 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
          );
          if (mounted) {
             context.pop(); 
-            ErrorSnackBar.showSuccess(context, "Produit modifié avec succès !");
+            // ✨ Célébration améliorée pour feedback positif
+            CelebrationService.quickCelebrate(
+              context: context,
+              message: "Produit modifié avec succès !",
+              color: Colors.teal,
+            );
          }
       } else {
         // Create
@@ -194,7 +204,12 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
         );
         if (mounted) {
           context.pop(); 
-          ErrorSnackBar.showSuccess(context, "Produit ajouté avec succès !");
+          // ✨ Célébration améliorée pour feedback positif
+          CelebrationService.quickCelebrate(
+            context: context,
+            message: "Produit ajouté avec succès ! 🎉",
+            color: Colors.green.shade600,
+          );
         }
       }
     } catch (e) {
@@ -210,6 +225,116 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
   }
 
   // No local creation allowed
+
+  /// Widget helper pour créer une section collapsible avec animation
+  Widget _buildCollapsibleSection({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required bool isExpanded,
+    required VoidCallback onTap,
+    required List<Widget> children,
+  }) {
+    final isDark = AppColors.isDark(context);
+    
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      decoration: BoxDecoration(
+        color: isExpanded 
+            ? (isDark ? Colors.grey.shade900 : Colors.grey.shade50)
+            : (isDark ? AppColors.darkCard : Colors.white),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isExpanded 
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)
+              : (isDark ? Colors.grey.shade800 : Colors.grey.shade200),
+          width: isExpanded ? 1.5 : 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          // Header cliquable
+          InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isExpanded 
+                          ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
+                          : (isDark ? Colors.grey.shade800 : Colors.grey.shade100),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      icon,
+                      size: 20,
+                      color: isExpanded 
+                          ? Theme.of(context).colorScheme.primary
+                          : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textColor(context),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textColor(context).withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: isExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          // Contenu animé
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: children,
+              ),
+            ),
+            crossFadeState: isExpanded 
+                ? CrossFadeState.showSecond 
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 200),
+            sizeCurve: Curves.easeInOut,
+          ),
+        ],
+      ),
+    );
+  }
 
 
   @override
@@ -402,114 +527,160 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
                     
-                    // --- SECTION DETAILS SUPPLEMENTAIRES ---
-                    Divider(color: AppColors.isDark(context) ? Colors.grey[700] : Colors.grey[300]),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Text("Détails Supplémentaires", style: AppTextStyles.h3.copyWith(color: AppColors.textColor(context))),
-                    ),
-                    
-                    // Brand & Manufacturer
-                    Row(
+                    // ═══════════════════════════════════════════════════════
+                    // SECTION 1: DÉTAILS PRODUIT (collapsible)
+                    // ═══════════════════════════════════════════════════════
+                    _buildCollapsibleSection(
+                      title: 'Détails produit',
+                      subtitle: 'Marque, fabricant, code-barres...',
+                      icon: Icons.info_outline_rounded,
+                      isExpanded: _showProductDetails,
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        setState(() => _showProductDetails = !_showProductDetails);
+                      },
                       children: [
-                        Expanded(child: TextFormField(
-                          controller: _brandController,
-                          style: TextStyle(color: AppColors.textColor(context)),
-                          decoration: InputDecoration(
-                            labelText: 'Marque',
-                            labelStyle: TextStyle(color: AppColors.textColor(context).withValues(alpha: 0.7)),
-                          ),
-                        )),
-                        const SizedBox(width: 16),
-                        Expanded(child: TextFormField(
-                          controller: _manufacturerController,
-                          style: TextStyle(color: AppColors.textColor(context)),
-                          decoration: InputDecoration(
-                            labelText: 'Fabricant',
-                            labelStyle: TextStyle(color: AppColors.textColor(context).withValues(alpha: 0.7)),
-                          ),
-                        )),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Active Ingredient
-                    TextFormField(
-                      controller: _activeIngredientController,
-                      style: TextStyle(color: AppColors.textColor(context)),
-                      decoration: InputDecoration(
-                        labelText: 'Principe Actif',
-                        labelStyle: TextStyle(color: AppColors.textColor(context).withValues(alpha: 0.7)),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Unit & Expiry
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            initialValue: ['pièce', 'boîte', 'flacon', 'tube', 'sachet', 'ampoule'].contains(_unitController.text) 
-                                ? _unitController.text 
-                                : 'pièce',
-                            decoration: InputDecoration(
-                              labelText: 'Unité',
-                              labelStyle: TextStyle(color: AppColors.textColor(context).withValues(alpha: 0.7)),
-                            ),
-                            dropdownColor: AppColors.cardColor(context),
-                            style: TextStyle(color: AppColors.textColor(context)),
-                            items: ['pièce', 'boîte', 'flacon', 'tube', 'sachet', 'ampoule'].map((u) => DropdownMenuItem(
-                              value: u, child: Text(u, style: TextStyle(color: AppColors.textColor(context)))
-                            )).toList(),
-                            onChanged: (v) => setState(() => _unitController.text = v!),
-                          ),
+                        // Brand & Manufacturer
+                        Row(
+                          children: [
+                            Expanded(child: TextFormField(
+                              controller: _brandController,
+                              style: TextStyle(color: AppColors.textColor(context)),
+                              decoration: InputDecoration(
+                                labelText: 'Marque',
+                                labelStyle: TextStyle(color: AppColors.textColor(context).withValues(alpha: 0.7)),
+                                prefixIcon: Icon(Icons.branding_watermark_outlined, color: Colors.grey.shade500, size: 20),
+                              ),
+                            )),
+                            const SizedBox(width: 12),
+                            Expanded(child: TextFormField(
+                              controller: _manufacturerController,
+                              style: TextStyle(color: AppColors.textColor(context)),
+                              decoration: InputDecoration(
+                                labelText: 'Fabricant',
+                                labelStyle: TextStyle(color: AppColors.textColor(context).withValues(alpha: 0.7)),
+                                prefixIcon: Icon(Icons.factory_outlined, color: Colors.grey.shade500, size: 20),
+                              ),
+                            )),
+                          ],
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: InkWell(
-                            onTap: () async {
-                              final d = await AdaptivePicker.showDate(
-                                context: context,
-                                initialDate: _expiryDate ?? DateTime.now().add(const Duration(days: 365)),
-                                firstDate: DateTime.now(),
-                                lastDate: DateTime.now().add(const Duration(days: 365 * 10)),
-                              );
-                              if (d != null) setState(() => _expiryDate = d);
-                            },
-                            child: InputDecorator(
-                              decoration: const InputDecoration(labelText: 'Date exp.'),
-                              child: Text(
-                                _expiryDate != null ? "${_expiryDate!.day}/${_expiryDate!.month}/${_expiryDate!.year}" : "Choisir",
-                                style: TextStyle(color: _expiryDate != null ? AppColors.textColor(context) : AppColors.textColor(context).withValues(alpha: 0.5)),
+                        const SizedBox(height: 12),
+                        
+                        // Unit & Expiry
+                        Row(
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                initialValue: ['pièce', 'boîte', 'flacon', 'tube', 'sachet', 'ampoule'].contains(_unitController.text) 
+                                    ? _unitController.text 
+                                    : 'pièce',
+                                decoration: InputDecoration(
+                                  labelText: 'Unité',
+                                  labelStyle: TextStyle(color: AppColors.textColor(context).withValues(alpha: 0.7)),
+                                  prefixIcon: Icon(Icons.straighten_outlined, color: Colors.grey.shade500, size: 20),
+                                ),
+                                dropdownColor: AppColors.cardColor(context),
+                                style: TextStyle(color: AppColors.textColor(context)),
+                                items: ['pièce', 'boîte', 'flacon', 'tube', 'sachet', 'ampoule'].map((u) => DropdownMenuItem(
+                                  value: u, child: Text(u, style: TextStyle(color: AppColors.textColor(context)))
+                                )).toList(),
+                                onChanged: (v) => setState(() => _unitController.text = v!),
                               ),
                             ),
-                          ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () async {
+                                  HapticFeedback.selectionClick();
+                                  final d = await AdaptivePicker.showDate(
+                                    context: context,
+                                    initialDate: _expiryDate ?? DateTime.now().add(const Duration(days: 365)),
+                                    firstDate: DateTime.now(),
+                                    lastDate: DateTime.now().add(const Duration(days: 365 * 10)),
+                                  );
+                                  if (d != null) setState(() => _expiryDate = d);
+                                },
+                                child: InputDecorator(
+                                  decoration: InputDecoration(
+                                    labelText: 'Date d\'expiration',
+                                    prefixIcon: Icon(Icons.calendar_today_outlined, color: Colors.grey.shade500, size: 20),
+                                  ),
+                                  child: Text(
+                                    _expiryDate != null ? "${_expiryDate!.day}/${_expiryDate!.month}/${_expiryDate!.year}" : "Choisir",
+                                    style: TextStyle(color: _expiryDate != null ? AppColors.textColor(context) : AppColors.textColor(context).withValues(alpha: 0.5)),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-
-                    // Instructions & Side Effects
-                    TextFormField(
-                      controller: _usageController,
-                      style: TextStyle(color: AppColors.textColor(context)),
-                      maxLines: 2,
-                      decoration: InputDecoration(
-                        labelText: 'Instructions d\'usage',
-                        labelStyle: TextStyle(color: AppColors.textColor(context).withValues(alpha: 0.7)),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _sideEffectsController,
-                      style: TextStyle(color: AppColors.textColor(context)),
-                      maxLines: 2,
-                      decoration: InputDecoration(
-                        labelText: 'Effets secondaires',
-                        labelStyle: TextStyle(color: AppColors.textColor(context).withValues(alpha: 0.7)),
-                      ),
+                    
+                    const SizedBox(height: 12),
+                    
+                    // ═══════════════════════════════════════════════════════
+                    // SECTION 2: INFORMATIONS MÉDICALES (collapsible)
+                    // ═══════════════════════════════════════════════════════
+                    _buildCollapsibleSection(
+                      title: 'Informations médicales',
+                      subtitle: 'Principe actif, usage, effets...',
+                      icon: Icons.medical_information_outlined,
+                      isExpanded: _showMedicalInfo,
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        setState(() => _showMedicalInfo = !_showMedicalInfo);
+                      },
+                      children: [
+                        // Active Ingredient
+                        TextFormField(
+                          controller: _activeIngredientController,
+                          style: TextStyle(color: AppColors.textColor(context)),
+                          decoration: InputDecoration(
+                            labelText: 'Principe Actif',
+                            labelStyle: TextStyle(color: AppColors.textColor(context).withValues(alpha: 0.7)),
+                            prefixIcon: Icon(Icons.science_outlined, color: Colors.grey.shade500, size: 20),
+                            hintText: 'Ex: Paracétamol, Ibuprofène...',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        
+                        // Instructions
+                        TextFormField(
+                          controller: _usageController,
+                          style: TextStyle(color: AppColors.textColor(context)),
+                          maxLines: 2,
+                          decoration: InputDecoration(
+                            labelText: 'Instructions d\'usage',
+                            labelStyle: TextStyle(color: AppColors.textColor(context).withValues(alpha: 0.7)),
+                            prefixIcon: Padding(
+                              padding: const EdgeInsets.only(bottom: 24),
+                              child: Icon(Icons.description_outlined, color: Colors.grey.shade500, size: 20),
+                            ),
+                            hintText: 'Posologie, précautions...',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        
+                        // Side Effects
+                        TextFormField(
+                          controller: _sideEffectsController,
+                          style: TextStyle(color: AppColors.textColor(context)),
+                          maxLines: 2,
+                          decoration: InputDecoration(
+                            labelText: 'Effets secondaires',
+                            labelStyle: TextStyle(color: AppColors.textColor(context).withValues(alpha: 0.7)),
+                            prefixIcon: Padding(
+                              padding: const EdgeInsets.only(bottom: 24),
+                              child: Icon(Icons.warning_amber_outlined, color: Colors.orange.shade400, size: 20),
+                            ),
+                            hintText: 'Contre-indications, effets...',
+                          ),
+                        ),
+                      ],
                     ),
                     
                     const SizedBox(height: 32),

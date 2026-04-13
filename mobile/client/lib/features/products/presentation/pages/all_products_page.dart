@@ -9,11 +9,11 @@ import '../../../../config/providers.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/widgets/shimmer_loading.dart';
-import '../../../../core/widgets/cached_image.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../orders/presentation/providers/cart_provider.dart';
 import '../providers/products_provider.dart';
 import '../providers/products_state.dart';
+import '../widgets/product_card.dart';
 
 enum ProductSort { none, priceLow, priceHigh, rating }
 
@@ -30,6 +30,7 @@ class AllProductsPage extends ConsumerStatefulWidget {
 class _AllProductsPageState extends ConsumerState<AllProductsPage> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   Timer? _debounceTimer;
   final NumberFormat _currencyFormat = NumberFormat.currency(
     locale: 'fr_FR',
@@ -41,6 +42,7 @@ class _AllProductsPageState extends ConsumerState<AllProductsPage> {
   ProductSort _currentSort = ProductSort.none;
   bool _filterInStock = false;
   bool _filterPromo = false;
+  bool _showSearchHistory = false;
 
   // Catégories basées sur les IDs de l'API
   final List<Map<String, dynamic>> _categories = [
@@ -58,6 +60,9 @@ class _AllProductsPageState extends ConsumerState<AllProductsPage> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    // Focus listener pour afficher l'historique
+    _searchFocusNode.addListener(_onSearchFocusChange);
+    _searchController.addListener(_onSearchTextChange);
     // Pré-remplir la recherche si un query initial est fourni
     if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
       _searchController.text = widget.initialQuery!;
@@ -74,10 +79,25 @@ class _AllProductsPageState extends ConsumerState<AllProductsPage> {
     });
   }
 
+  void _onSearchFocusChange() {
+    setState(() {
+      _showSearchHistory =
+          _searchFocusNode.hasFocus && _searchController.text.isEmpty;
+    });
+  }
+
+  void _onSearchTextChange() {
+    setState(() {
+      _showSearchHistory =
+          _searchFocusNode.hasFocus && _searchController.text.isEmpty;
+    });
+  }
+
   @override
   void dispose() {
     _scrollController.dispose();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     _debounceTimer?.cancel();
     super.dispose();
   }
@@ -120,10 +140,11 @@ class _AllProductsPageState extends ConsumerState<AllProductsPage> {
 
   List<dynamic> _applyLocalFilters(List<dynamic> products) {
     var list = products.toList();
-    if (_filterInStock)
+    if (_filterInStock) {
       list = list
           .where((p) => p.isAvailable == true && p.isOutOfStock != true)
           .toList();
+    }
     if (_filterPromo) list = list.where((p) => p.hasDiscount == true).toList();
     switch (_currentSort) {
       case ProductSort.priceLow:
@@ -152,6 +173,133 @@ class _AllProductsPageState extends ConsumerState<AllProductsPage> {
 
   bool get _hasActiveFilters =>
       _filterInStock || _filterPromo || _currentSort != ProductSort.none;
+
+  bool _shouldShowAutocomplete(ProductsState state) {
+    return _searchFocusNode.hasFocus &&
+        _searchController.text.trim().length >= 2 &&
+        state.status == ProductsStatus.loaded &&
+        state.products.isNotEmpty;
+  }
+
+  void _selectAutocompleteSuggestion(dynamic product) {
+    _searchController.text = product.name;
+    _searchController.selection = TextSelection.collapsed(
+      offset: _searchController.text.length,
+    );
+    _searchFocusNode.unfocus();
+    context.goToProductDetails(product.id);
+  }
+
+  Widget _buildAutocompleteSuggestions(ProductsState state, bool isDark) {
+    final suggestions = state.products.take(6).toList();
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF20243A) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white10 : Colors.grey[200]!,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.auto_awesome,
+                  size: 16,
+                  color: AppColors.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Suggestions',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ...suggestions.asMap().entries.map((entry) {
+            final index = entry.key;
+            final product = entry.value;
+
+            return Column(
+              children: [
+                ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 2,
+                  ),
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.medication_outlined,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    product.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  subtitle: Text(
+                    product.pharmacy.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.white60 : Colors.grey[600],
+                    ),
+                  ),
+                  trailing: Text(
+                    _currencyFormat.format(product.finalPrice),
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                  onTap: () => _selectAutocompleteSuggestion(product),
+                ),
+                if (index < suggestions.length - 1)
+                  Divider(
+                    height: 1,
+                    indent: 68,
+                    endIndent: 14,
+                    color: isDark ? Colors.white10 : Colors.grey[200],
+                  ),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
 
   void _showFilterSheet(BuildContext context, bool isDark) {
     HapticFeedback.lightImpact();
@@ -223,7 +371,7 @@ class _AllProductsPageState extends ConsumerState<AllProductsPage> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  _SortChip(
+                  _sortChip(
                     label: 'Par défaut',
                     icon: Icons.sort,
                     value: ProductSort.none,
@@ -233,7 +381,7 @@ class _AllProductsPageState extends ConsumerState<AllProductsPage> {
                       () => setState(() => _currentSort = ProductSort.none),
                     ),
                   ),
-                  _SortChip(
+                  _sortChip(
                     label: 'Prix ↑',
                     icon: Icons.arrow_upward,
                     value: ProductSort.priceLow,
@@ -243,7 +391,7 @@ class _AllProductsPageState extends ConsumerState<AllProductsPage> {
                       () => setState(() => _currentSort = ProductSort.priceLow),
                     ),
                   ),
-                  _SortChip(
+                  _sortChip(
                     label: 'Prix ↓',
                     icon: Icons.arrow_downward,
                     value: ProductSort.priceHigh,
@@ -254,7 +402,7 @@ class _AllProductsPageState extends ConsumerState<AllProductsPage> {
                           setState(() => _currentSort = ProductSort.priceHigh),
                     ),
                   ),
-                  _SortChip(
+                  _sortChip(
                     label: 'Mieux notés',
                     icon: Icons.star_rounded,
                     value: ProductSort.rating,
@@ -399,18 +547,31 @@ class _AllProductsPageState extends ConsumerState<AllProductsPage> {
               children: [
                 TextField(
                   controller: _searchController,
+                  focusNode: _searchFocusNode,
                   decoration: InputDecoration(
                     hintText: 'Rechercher un médicament...',
                     prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _searchController.clear();
-                              _onSearch('');
-                            },
+                    suffixIcon: state.status == ProductsStatus.loading &&
+                            _searchController.text.trim().length >= 2
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            ),
                           )
-                        : null,
+                        : _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  _onSearch('');
+                                },
+                              )
+                            : null,
                     filled: true,
                     fillColor: isDark ? Colors.white10 : Colors.grey[100],
                     border: OutlineInputBorder(
@@ -427,6 +588,10 @@ class _AllProductsPageState extends ConsumerState<AllProductsPage> {
                     _onSearch(v);
                   },
                 ),
+                if (_shouldShowAutocomplete(state))
+                  _buildAutocompleteSuggestions(state, isDark),
+                // Historique de recherche
+                if (_showSearchHistory) _buildSearchHistory(isDark),
                 const SizedBox(height: 8),
                 // Sort & Filter toolbar
                 Row(
@@ -471,29 +636,32 @@ class _AllProductsPageState extends ConsumerState<AllProductsPage> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => _showFilterSheet(context, isDark),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _hasActiveFilters
-                              ? AppColors.primary
-                              : (isDark ? Colors.white10 : Colors.grey[100]),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.tune_rounded,
-                              size: 16,
-                              color: _hasActiveFilters
-                                  ? Colors.white
-                                  : (isDark ? Colors.white : Colors.black54),
-                            ),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => _showFilterSheet(context, isDark),
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _hasActiveFilters
+                                ? AppColors.primary
+                                : (isDark ? Colors.white10 : Colors.grey[100]),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.tune_rounded,
+                                size: 16,
+                                color: _hasActiveFilters
+                                    ? Colors.white
+                                    : (isDark ? Colors.white : Colors.black54),
+                              ),
                             const SizedBox(width: 4),
                             Text(
                               'Filtres',
@@ -508,6 +676,7 @@ class _AllProductsPageState extends ConsumerState<AllProductsPage> {
                           ],
                         ),
                       ),
+                    ),
                     ),
                   ],
                 ),
@@ -566,27 +735,31 @@ class _AllProductsPageState extends ConsumerState<AllProductsPage> {
 
   Widget _buildSortChipSmall(String label, ProductSort value, bool isDark) {
     final isActive = _currentSort == value;
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        setState(() => _currentSort = isActive ? ProductSort.none : value);
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: isActive
-              ? AppColors.primary
-              : (isDark ? Colors.white10 : Colors.grey[100]),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          setState(() => _currentSort = isActive ? ProductSort.none : value);
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
             color: isActive
-                ? Colors.white
-                : (isDark ? Colors.white70 : Colors.black54),
+                ? AppColors.primary
+                : (isDark ? Colors.white10 : Colors.grey[100]),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: isActive
+                  ? Colors.white
+                  : (isDark ? Colors.white70 : Colors.black54),
+            ),
           ),
         ),
       ),
@@ -616,8 +789,9 @@ class _AllProductsPageState extends ConsumerState<AllProductsPage> {
             ),
           ),
           const SizedBox(width: 4),
-          GestureDetector(
+          InkWell(
             onTap: onRemove,
+            customBorder: const CircleBorder(),
             child: const Icon(Icons.close, size: 14, color: AppColors.primary),
           ),
         ],
@@ -690,7 +864,7 @@ class _AllProductsPageState extends ConsumerState<AllProductsPage> {
           }
 
           final product = state.products[index];
-          return _ProductCard(
+          return ProductCard(
             product: product,
             currencyFormat: _currencyFormat,
             isDark: isDark,
@@ -715,7 +889,7 @@ class _AllProductsPageState extends ConsumerState<AllProductsPage> {
     );
   }
 
-  Widget _SortChip({
+  Widget _sortChip({
     required String label,
     required IconData icon,
     required ProductSort value,
@@ -767,224 +941,104 @@ class _AllProductsPageState extends ConsumerState<AllProductsPage> {
       ),
     );
   }
-}
 
-class _ProductCard extends StatelessWidget {
-  final dynamic product;
-  final NumberFormat currencyFormat;
-  final bool isDark;
-  final VoidCallback onTap;
+  /// Historique de recherche affiché quand le champ est focus et vide
+  Widget _buildSearchHistory(bool isDark) {
+    final searchService = ref.watch(searchHistoryServiceProvider);
+    final history = searchService.getHistory();
 
-  const _ProductCard({
-    required this.product,
-    required this.currencyFormat,
-    required this.isDark,
-    required this.onTap,
-  });
+    if (history.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shadowColor: Colors.black12,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image
-            Expanded(
-              flex: 3,
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(16),
-                ),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CachedImage(
-                      imageUrl: product.imageUrl ?? '',
-                      fit: BoxFit.cover,
-                      placeholder: Container(
-                        color: isDark ? Colors.white10 : Colors.grey[100],
-                        child: Icon(
-                          Icons.medication,
-                          size: 50,
-                          color: isDark ? Colors.white30 : Colors.grey[300],
-                        ),
-                      ),
-                    ),
-                    // Stock indicator
-                    if (product.isLowStock || product.isOutOfStock)
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: product.isOutOfStock
-                                ? Colors.red
-                                : Colors.orange,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            product.isOutOfStock ? 'Rupture' : 'Stock faible',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    // Discount badge
-                    if (product.hasDiscount)
-                      Positioned(
-                        top: 8,
-                        left: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            '-${product.discountPercentage}%',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    // Pharmacy badge
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.topCenter,
-                            colors: [
-                              Colors.black.withValues(alpha: 0.7),
-                              Colors.transparent,
-                            ],
-                          ),
-                        ),
-                        child: Text(
-                          product.pharmacy.name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                  ],
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isDark ? Colors.white12 : Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Recherches récentes',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white70 : Colors.grey[700],
                 ),
               ),
-            ),
-            // Details
-            Expanded(
-              flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      product.name ?? 'Produit',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    // Rating stars
-                    if (product.hasRating)
-                      Row(
-                        children: [
-                          ...List.generate(5, (i) {
-                            final rating = product.averageRating!;
-                            return Icon(
-                              i < rating.floor()
-                                  ? Icons.star
-                                  : (i < rating
-                                        ? Icons.star_half
-                                        : Icons.star_border),
-                              color: Colors.amber,
-                              size: 12,
-                            );
-                          }),
-                          const SizedBox(width: 4),
-                          Text(
-                            '(${product.reviewsCount ?? 0})',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: isDark
-                                  ? Colors.grey[400]
-                                  : Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    const Spacer(),
-                    // Price with discount
-                    if (product.hasDiscount) ...[
-                      Text(
-                        currencyFormat.format(product.price),
-                        style: TextStyle(
-                          fontSize: 11,
-                          decoration: TextDecoration.lineThrough,
-                          color: isDark ? Colors.grey[500] : Colors.grey[600],
-                        ),
-                      ),
-                      Text(
-                        currencyFormat.format(product.finalPrice),
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ] else
-                      Text(
-                        currencyFormat.format(product.price ?? 0),
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                  ],
+              TextButton(
+                onPressed: () {
+                  ref.read(searchHistoryServiceProvider).clearHistory();
+                  setState(() {});
+                },
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(48, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  'Effacer',
+                  style: TextStyle(fontSize: 12, color: AppColors.primary),
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: history.take(8).map((term) {
+              return InkWell(
+                onTap: () {
+                  _searchController.text = term;
+                  _searchFocusNode.unfocus();
+                  _onSearch(term);
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.1)
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isDark ? Colors.white24 : Colors.grey[300]!,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.history,
+                        size: 14,
+                        color: isDark ? Colors.white54 : Colors.grey[600],
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        term,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isDark ? Colors.white : Colors.grey[800],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }

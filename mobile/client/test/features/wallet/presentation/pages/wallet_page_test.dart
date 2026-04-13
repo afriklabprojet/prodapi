@@ -139,10 +139,10 @@ void main() {
     );
   }
 
-  MockWalletNotifier? _mutableNotifier;
+  MockWalletNotifier? mutableNotifier;
 
   Widget createTestWidgetWithMutableNotifier({WalletState? initialState}) {
-    _mutableNotifier = MockWalletNotifier()
+    mutableNotifier = MockWalletNotifier()
       ..state =
           initialState ??
           const WalletState(
@@ -158,7 +158,7 @@ void main() {
       overrides: [
         sharedPreferencesProvider.overrideWithValue(sharedPreferences),
         apiClientProvider.overrideWithValue(FakeApiClient()),
-        walletProvider.overrideWith((_) => _mutableNotifier!),
+        walletProvider.overrideWith((_) => mutableNotifier!),
       ],
       child: MaterialApp(
         locale: const Locale('fr'),
@@ -928,7 +928,7 @@ void main() {
       await tester.pump();
 
       // Trigger errorMessage transition
-      _mutableNotifier!.state = _mutableNotifier!.state.copyWith(
+      mutableNotifier!.state = mutableNotifier!.state.copyWith(
         errorMessage: 'Erreur dynamique',
       );
       await tester.pump();
@@ -947,7 +947,7 @@ void main() {
       await tester.pump();
 
       // Trigger successMessage transition
-      _mutableNotifier!.state = _mutableNotifier!.state.copyWith(
+      mutableNotifier!.state = mutableNotifier!.state.copyWith(
         successMessage: 'Succès dynamique',
       );
       await tester.pump();

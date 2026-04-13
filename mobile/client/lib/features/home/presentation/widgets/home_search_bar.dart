@@ -166,23 +166,25 @@ class _HomeSearchBarState extends ConsumerState<HomeSearchBar>
                   ),
                 ),
                 // Bouton filtre avec badge
-                GestureDetector(
-                  onTap: () => context.goToProducts(),
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.primary.withValues(alpha: 0.12),
-                          AppColors.primaryLight.withValues(alpha: 0.08),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: AppColors.primary.withValues(alpha: 0.15),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => context.goToProducts(),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.primary.withValues(alpha: 0.12),
+                            AppColors.primaryLight.withValues(alpha: 0.08),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.15),
                       ),
                     ),
                     child: Icon(
@@ -190,6 +192,7 @@ class _HomeSearchBarState extends ConsumerState<HomeSearchBar>
                       color: AppColors.primary,
                       size: 20,
                     ),
+                  ),
                   ),
                 ),
               ],
@@ -256,30 +259,34 @@ class _HomeSearchBarState extends ConsumerState<HomeSearchBar>
                                 ),
                               ],
                             ),
-                            GestureDetector(
-                              onTap: () {
-                                ref
-                                    .read(searchHistoryServiceProvider)
-                                    .clearHistory();
-                                setState(() {});
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(
-                                    alpha: 0.1,
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () {
+                                  ref
+                                      .read(searchHistoryServiceProvider)
+                                      .clearHistory();
+                                  setState(() {});
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
                                   ),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  'Effacer',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.primary,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    'Effacer',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primary,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -329,25 +336,29 @@ class _HomeSearchBarState extends ConsumerState<HomeSearchBar>
                                       ),
                                     ),
                                   ),
-                                  GestureDetector(
-                                    onTap: () {
-                                      ref
-                                          .read(searchHistoryServiceProvider)
-                                          .removeSearch(query);
-                                      setState(() {});
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey.withValues(
-                                          alpha: 0.1,
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: () {
+                                        ref
+                                            .read(searchHistoryServiceProvider)
+                                            .removeSearch(query);
+                                        setState(() {});
+                                      },
+                                      customBorder: const CircleBorder(),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.withValues(
+                                            alpha: 0.1,
+                                          ),
+                                          shape: BoxShape.circle,
                                         ),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        Icons.close_rounded,
-                                        size: 14,
-                                        color: Colors.grey[500],
+                                        child: Icon(
+                                          Icons.close_rounded,
+                                          size: 14,
+                                          color: Colors.grey[500],
+                                        ),
                                       ),
                                     ),
                                   ),

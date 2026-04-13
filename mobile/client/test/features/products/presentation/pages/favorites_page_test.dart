@@ -81,7 +81,7 @@ void main() {
     sharedPreferences = await SharedPreferences.getInstance();
   });
 
-  List<Override> _overrides(SharedPreferences prefs, FavoritesState state) => [
+  List<Override> overrides(SharedPreferences prefs, FavoritesState state) => [
     sharedPreferencesProvider.overrideWithValue(prefs),
     apiClientProvider.overrideWithValue(FakeApiClient()),
     favoritesProvider.overrideWith((_) => MockFavoritesNotifier(state)),
@@ -90,7 +90,7 @@ void main() {
 
   Widget createTestWidget({FavoritesState? initialState}) {
     return ProviderScope(
-      overrides: _overrides(
+      overrides: overrides(
         sharedPreferences,
         initialState ?? const FavoritesState(),
       ),
@@ -116,17 +116,17 @@ void main() {
 
     final router = GoRouter(
       routes: [
-        GoRoute(path: '/', builder: (_, __) => const FavoritesPage()),
+        GoRoute(path: '/', builder: (_, _) => const FavoritesPage()),
         GoRoute(
           path: '/products',
           name: 'productsList',
-          builder: (_, __) => const Scaffold(body: Text('Products')),
+          builder: (_, _) => const Scaffold(body: Text('Products')),
         ),
       ],
     );
 
     return ProviderScope(
-      overrides: _overrides(sharedPreferences, state),
+      overrides: overrides(sharedPreferences, state),
       child: MaterialApp.router(
         routerConfig: router,
         locale: const Locale('fr'),
@@ -144,17 +144,17 @@ void main() {
   Widget createEmptyWithRouter() {
     final router = GoRouter(
       routes: [
-        GoRoute(path: '/', builder: (_, __) => const FavoritesPage()),
+        GoRoute(path: '/', builder: (_, _) => const FavoritesPage()),
         GoRoute(
           path: '/products',
           name: 'productsList',
-          builder: (_, __) => const Scaffold(body: Text('Products')),
+          builder: (_, _) => const Scaffold(body: Text('Products')),
         ),
       ],
     );
 
     return ProviderScope(
-      overrides: _overrides(sharedPreferences, const FavoritesState()),
+      overrides: overrides(sharedPreferences, const FavoritesState()),
       child: MaterialApp.router(
         routerConfig: router,
         locale: const Locale('fr'),

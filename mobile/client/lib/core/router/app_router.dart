@@ -54,6 +54,26 @@ import '../../features/products/domain/entities/product_entity.dart';
 import '../../features/treatments/domain/entities/treatment_entity.dart';
 import '../services/navigation_service.dart';
 
+/// Transition par défaut pour les routes go() (remplacement de stack)
+/// Fade + léger scale pour une navigation fluide
+CustomTransitionPage<void> _fadePage({
+  required GoRouterState state,
+  required Widget child,
+}) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 250),
+    reverseTransitionDuration: const Duration(milliseconds: 200),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return FadeTransition(
+        opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+        child: child,
+      );
+    },
+  );
+}
+
 /// Helper pour afficher une page d'erreur quand un paramètre de route est invalide
 Widget _buildInvalidRouteErrorPage(BuildContext context, String message) {
   return Scaffold(
@@ -324,22 +344,34 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.splash,
         name: 'splash',
-        builder: (context, state) => const SplashPage(),
+        pageBuilder: (context, state) => _fadePage(
+          state: state,
+          child: const SplashPage(),
+        ),
       ),
       GoRoute(
         path: AppRoutes.onboarding,
         name: 'onboarding',
-        builder: (context, state) => const OnboardingPage(),
+        pageBuilder: (context, state) => _fadePage(
+          state: state,
+          child: const OnboardingPage(),
+        ),
       ),
       GoRoute(
         path: AppRoutes.login,
         name: 'login',
-        builder: (context, state) => const LoginPage(),
+        pageBuilder: (context, state) => _fadePage(
+          state: state,
+          child: const LoginPage(),
+        ),
       ),
       GoRoute(
         path: AppRoutes.register,
         name: 'register',
-        builder: (context, state) => const RegisterPage(),
+        pageBuilder: (context, state) => _fadePage(
+          state: state,
+          child: const RegisterPage(),
+        ),
       ),
       GoRoute(
         path: AppRoutes.forgotPassword,
@@ -369,7 +401,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.home,
         name: 'home',
-        builder: (context, state) => const MainShellPage(),
+        pageBuilder: (context, state) => _fadePage(
+          state: state,
+          child: const MainShellPage(),
+        ),
       ),
 
       // ===== Pharmacy Routes =====
@@ -498,12 +533,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           final extra = state.extra as Map<String, dynamic>?;
           final deliveryAddress =
               extra?['deliveryAddress'] as DeliveryAddressEntity?;
-          final pharmacyAddress = extra?['pharmacyAddress'] as String?;
 
           return TrackingPageWrapper(
             orderId: orderId,
             deliveryAddress: deliveryAddress,
-            pharmacyAddress: pharmacyAddress,
           );
         },
       ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/widgets/cached_image.dart';
 import '../providers/favorites_provider.dart';
 import '../../../orders/presentation/providers/cart_provider.dart';
@@ -54,12 +55,7 @@ class FavoritesPage extends ConsumerWidget {
                 if (confirm == true) {
                   ref.read(favoritesProvider.notifier).clearAll();
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Tous les favoris ont été supprimés'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
+                    AppSnackbar.info(context, 'Tous les favoris ont été supprimés');
                   }
                 }
               },
@@ -124,29 +120,20 @@ class FavoritesPage extends ConsumerWidget {
                   onTap: () => context.goToProductDetails(product.id),
                   onRemove: () {
                     ref.read(favoritesProvider.notifier).removeFavorite(product.id);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('${product.name} retiré des favoris'),
-                        duration: const Duration(seconds: 2),
-                        action: SnackBarAction(
-                          label: 'Annuler',
-                          onPressed: () => ref.read(favoritesProvider.notifier).addFavorite(product),
-                        ),
-                      ),
+                    AppSnackbar.info(
+                      context,
+                      '${product.name} retiré des favoris',
+                      actionLabel: 'Annuler',
+                      onAction: () => ref.read(favoritesProvider.notifier).addFavorite(product),
                     );
                   },
                   onAddToCart: () {
                     ref.read(cartProvider.notifier).addItem(product);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('${product.name} ajouté au panier'),
-                        duration: const Duration(seconds: 1),
-                        behavior: SnackBarBehavior.floating,
-                        action: SnackBarAction(
-                          label: 'Voir',
-                          onPressed: () => context.goToCart(),
-                        ),
-                      ),
+                    AppSnackbar.success(
+                      context,
+                      '${product.name} ajouté au panier',
+                      actionLabel: 'Voir',
+                      onAction: () => context.goToCart(),
                     );
                   },
                 );
@@ -175,21 +162,24 @@ class _FavoriteProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Image avec bouton supprimer
@@ -292,20 +282,24 @@ class _FavoriteProductCard extends StatelessWidget {
                           ),
                         ),
                         // Bouton ajout panier
-                        GestureDetector(
-                          onTap: product.isAvailable ? onAddToCart : null,
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: product.isAvailable
-                                  ? AppColors.primary
-                                  : Colors.grey,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              Icons.add_shopping_cart,
-                              size: 18,
-                              color: Colors.white,
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: product.isAvailable ? onAddToCart : null,
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: product.isAvailable
+                                    ? AppColors.primary
+                                    : Colors.grey,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.add_shopping_cart,
+                                size: 18,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ),
@@ -317,6 +311,7 @@ class _FavoriteProductCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

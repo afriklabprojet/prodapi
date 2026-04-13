@@ -11,9 +11,11 @@ use Illuminate\Support\Facades\Log;
 use Infobip\ApiException;
 use Mockery;
 use Tests\TestCase;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class SmsServiceDeepTest extends TestCase
 {
+    use RefreshDatabase;
     protected function setUp(): void
     {
         parent::setUp();

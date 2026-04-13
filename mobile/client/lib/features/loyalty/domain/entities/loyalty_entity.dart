@@ -193,3 +193,39 @@ class LoyaltyReward extends Equatable {
   @override
   List<Object?> get props => [id, title, pointsCost, type];
 }
+
+/// Transaction de points fidélité
+class LoyaltyTransaction extends Equatable {
+  final String id;
+  final String description;
+  final int points;
+  final String type; // 'earned', 'redeemed', 'expired'
+  final DateTime createdAt;
+  final int? orderId;
+
+  const LoyaltyTransaction({
+    required this.id,
+    required this.description,
+    required this.points,
+    required this.type,
+    required this.createdAt,
+    this.orderId,
+  });
+
+  bool get isEarned => type == 'earned';
+  bool get isRedeemed => type == 'redeemed';
+
+  factory LoyaltyTransaction.fromJson(Map<String, dynamic> json) {
+    return LoyaltyTransaction(
+      id: json['id']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      points: json['points'] as int? ?? 0,
+      type: json['type']?.toString() ?? 'earned',
+      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
+      orderId: json['order_id'] as int?,
+    );
+  }
+
+  @override
+  List<Object?> get props => [id, points, type, createdAt];
+}

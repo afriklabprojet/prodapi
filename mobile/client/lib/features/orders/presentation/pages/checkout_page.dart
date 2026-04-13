@@ -5,9 +5,11 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/constants/theme_colors.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/providers/ui_state_providers.dart';
 import '../providers/orders_provider.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../providers/orders_state.dart';
 import '../providers/cart_provider.dart';
 import '../providers/checkout_prescription_provider.dart';
@@ -403,9 +405,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
+        color: context.elevatedSurface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
+        border: Border.all(color: context.subtleBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -457,9 +459,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
+        color: context.elevatedSurface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
+        border: Border.all(color: context.subtleBorder),
       ),
       child: Row(
         children: [
@@ -594,35 +596,20 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage>
     final selectedAddress = ref.read(selectedAddressProvider);
 
     if (!useManual && selectedAddress == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez sélectionner une adresse de livraison'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      AppSnackbar.warning(context, 'Veuillez sélectionner une adresse de livraison');
       return false;
     }
 
     if (useManual) {
       if (addressController.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Veuillez entrer une adresse de livraison'),
-            backgroundColor: Colors.orange,
-          ),
-        );
+        AppSnackbar.warning(context, 'Veuillez entrer une adresse de livraison');
         return false;
       }
     }
 
     if (phoneController.text.trim().isEmpty ||
         phoneController.text.trim().length < 8) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez entrer un numéro de téléphone valide'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      AppSnackbar.warning(context, 'Veuillez entrer un numéro de téléphone valide');
       return false;
     }
 
@@ -636,13 +623,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage>
     if (cartState.hasPrescriptionRequiredItems) {
       final prescriptionState = ref.read(checkoutPrescriptionProvider);
       if (!prescriptionState.hasValidPrescription) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Veuillez ajouter une ordonnance pour les produits qui le nécessitent',
-            ),
-            backgroundColor: Colors.orange,
-          ),
+        AppSnackbar.warning(
+          context,
+          'Veuillez ajouter une ordonnance pour les produits qui le nécessitent',
         );
         return false;
       }

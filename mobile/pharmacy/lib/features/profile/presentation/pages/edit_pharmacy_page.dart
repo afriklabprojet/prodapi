@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart';
@@ -10,6 +11,7 @@ import '../../../auth/domain/entities/pharmacy_entity.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/presentation/providers/duty_zones_provider.dart';
 import '../providers/profile_provider.dart';
+import '../../../../core/services/celebration_service.dart';
 
 
 class EditPharmacyPage extends ConsumerStatefulWidget {
@@ -221,13 +223,13 @@ class _EditPharmacyPageState extends ConsumerState<EditPharmacyPage> with FormGu
         }
       } else {
         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Pharmacie mise à jour avec succès'),
-              backgroundColor: Colors.green,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+           // ✨ Feedback amélioré avec haptic + animation
+           HapticFeedback.mediumImpact();
+           CelebrationService.quickCelebrate(
+             context: context,
+             message: 'Pharmacie mise à jour avec succès',
+             color: Colors.teal,
+           );
           markClean();
           Navigator.pop(context);
         }

@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Events\DeliveryOfferBroadcast;
+use App\Events\DeliveryOfferTaken;
+use App\Events\NoCourierFoundEvent;
 use App\Jobs\ExpireDeliveryOffer;
 use App\Models\Courier;
 use App\Models\DeliveryOffer;
@@ -274,7 +276,9 @@ class BroadcastDispatchService
             // Aucun livreur trouvé après tous les niveaux
             $offer->update(['status' => DeliveryOffer::STATUS_NO_COURIER]);
             
-            // Notifier l'équipe
+            // Notifier l'équipe via event broadcast
+            event(new NoCourierFoundEvent($offer));
+            
             Log::error("BroadcastDispatch: No courier found for order {$offer->order_id} after all levels");
         }
     }
@@ -286,13 +290,28 @@ class BroadcastDispatchService
     {
         $acceptedCourierId = $offer->accepted_by_courier_id;
 
+        // Récupérer les IDs des livreurs qui ont été notifiés (sauf celui qui a accepté)
+        $notifiedCourierIds = $offer->targetedCouriers()
+            ->wherePivotIn('status', ['notified', 'viewed'])
+            ->pluck('courier_id')
+            ->toArray();
+
+        // Broadcast via Laravel Broadcasting (Pusher/Reverb/Ably)
+        if (!empty($notifiedCourierIds)) {
+            broadcast(new DeliveryOfferTaken($offer, $notifiedCourierIds, $acceptedCourierId));
+            
+            Log::info("BroadcastDispatch: Notified " . count($notifiedCourierIds) . " couriers that offer {$offer->id} was taken");
+        }
+
+        // Mettre à jour le statut dans le pivot
         $offer->targetedCouriers()
             ->where('courier_id', '!=', $acceptedCourierId)
             ->wherePivotIn('status', ['notified', 'viewed'])
-            ->get()
             ->each(function ($courier) use ($offer) {
-                // Envoyer notification que l'offre est prise
-                // TODO: Broadcast via Pusher/Firebase
+                $offer->targetedCouriers()->updateExistingPivot($courier->id, [
+                    'status' => 'offer_taken',
+                    'updated_at' => now(),
+                ]);
             });
     }
 

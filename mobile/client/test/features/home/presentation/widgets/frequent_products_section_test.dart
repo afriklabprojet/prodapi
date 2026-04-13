@@ -82,16 +82,16 @@ void main() {
       routes: [
         GoRoute(
           path: '/',
-          builder: (_, __) =>
+          builder: (_, _) =>
               Scaffold(body: FrequentProductsSection(isDark: isDark)),
         ),
         GoRoute(
           path: '/products/:id',
-          builder: (_, __) => const Scaffold(body: Text('Produit')),
+          builder: (_, _) => const Scaffold(body: Text('Produit')),
         ),
         GoRoute(
           path: '/cart',
-          builder: (_, __) => const Scaffold(body: Text('Panier')),
+          builder: (_, _) => const Scaffold(body: Text('Panier')),
         ),
       ],
     );

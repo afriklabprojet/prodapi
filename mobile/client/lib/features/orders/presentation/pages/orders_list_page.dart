@@ -13,6 +13,7 @@ import '../providers/orders_state.dart';
 import '../providers/reorder_provider.dart';
 import '../services/review_prompt_service.dart';
 import '../../domain/entities/order_entity.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 
 class OrdersListPage extends ConsumerStatefulWidget {
   const OrdersListPage({super.key});
@@ -264,50 +265,23 @@ class _OrderCard extends ConsumerWidget {
     // Écouter les changements d'état du reorder
     ref.listen<ReorderState>(reorderProvider, (previous, next) {
       if (next.status == ReorderStatus.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(next.message ?? 'Articles ajoutés au panier'),
-            backgroundColor: AppColors.success,
-            action: SnackBarAction(
-              label: 'Voir panier',
-              textColor: Colors.white,
-              onPressed: () => context.push(AppRoutes.cart),
-            ),
-          ),
+        AppSnackbar.success(
+          context,
+          next.message ?? 'Articles ajoutés au panier',
+          actionLabel: 'Voir panier',
+          onAction: () => context.push(AppRoutes.cart),
         );
         ref.read(reorderProvider.notifier).reset();
       } else if (next.status == ReorderStatus.partialSuccess) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(next.message ?? 'Certains articles ajoutés'),
-                if (next.failedProducts.isNotEmpty)
-                  Text(
-                    'Non disponibles: ${next.failedProducts.join(", ")}',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-              ],
-            ),
-            backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(
-              label: 'Voir panier',
-              textColor: Colors.white,
-              onPressed: () => context.push(AppRoutes.cart),
-            ),
-          ),
+        AppSnackbar.warning(
+          context,
+          '${next.message ?? 'Certains articles ajoutés'}${next.failedProducts.isNotEmpty ? '\nNon disponibles: ${next.failedProducts.join(", ")}' : ''}',
+          actionLabel: 'Voir panier',
+          onAction: () => context.push(AppRoutes.cart),
         );
         ref.read(reorderProvider.notifier).reset();
       } else if (next.status == ReorderStatus.error) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(next.message ?? 'Erreur'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppSnackbar.error(context, next.message ?? 'Erreur');
         ref.read(reorderProvider.notifier).reset();
       }
     });

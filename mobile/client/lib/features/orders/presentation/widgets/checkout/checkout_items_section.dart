@@ -36,6 +36,7 @@ class CheckoutItemsSection extends ConsumerWidget {
     final isLoadingDelivery = ref.watch(
       deliveryFeeProvider.select((s) => s.isLoading),
     );
+    final surge = ref.watch(deliveryFeeProvider.select((s) => s.surge));
     final paymentMode = ref.watch(
       formFieldsProvider(
         checkoutPaymentModeId,
@@ -53,6 +54,7 @@ class CheckoutItemsSection extends ConsumerWidget {
       isLoadingDeliveryFee: isLoadingDelivery,
       currencyFormat: _currency,
       paymentMode: paymentMode,
+      surge: surge,
     );
   }
 }

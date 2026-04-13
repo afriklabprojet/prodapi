@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/constants/app_colors.dart';
 import 'home_page.dart';
 import 'features/orders/presentation/pages/orders_list_page.dart';
+import 'features/orders/presentation/providers/orders_provider.dart';
 import 'features/wallet/presentation/pages/wallet_page.dart';
 import 'features/profile/presentation/pages/profile_page.dart';
 import 'features/notifications/presentation/providers/notifications_provider.dart';
@@ -34,6 +35,7 @@ class _MainShellPageState extends ConsumerState<MainShellPage> {
   Widget build(BuildContext context) {
     final currentIndex = ref.watch(mainShellTabProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final activeOrdersCount = ref.watch(activeOrdersCountProvider);
 
     return PopScope(
       canPop: false,
@@ -77,8 +79,17 @@ class _MainShellPageState extends ConsumerState<MainShellPage> {
               label: 'Accueil',
             ),
             NavigationDestination(
-              icon: const Icon(Icons.receipt_long_outlined),
-              selectedIcon: Icon(Icons.receipt_long, color: AppColors.primary),
+              icon: _buildIconWithBadge(
+                icon: Icons.receipt_long_outlined,
+                count: activeOrdersCount,
+                isDark: isDark,
+              ),
+              selectedIcon: _buildIconWithBadge(
+                icon: Icons.receipt_long,
+                count: activeOrdersCount,
+                isDark: isDark,
+                isSelected: true,
+              ),
               label: 'Commandes',
             ),
             NavigationDestination(

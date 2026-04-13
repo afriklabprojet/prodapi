@@ -18,6 +18,7 @@ class MockPriceComparisonNotifier extends StateNotifier<PriceComparisonState>
   MockPriceComparisonNotifier([PriceComparisonState? state])
     : super(state ?? const PriceComparisonState());
 
+  @override
   Future<void> comparePrices(int productId) async {}
 }
 
@@ -59,7 +60,7 @@ void main() {
       routes: [
         GoRoute(
           path: '/',
-          builder: (_, __) => Scaffold(
+          builder: (_, _) => Scaffold(
             body: PriceComparisonSection(
               productId: productId,
               currentPrice: currentPrice,
@@ -68,7 +69,7 @@ void main() {
         ),
         GoRoute(
           path: '/products/:id',
-          builder: (_, __) => const Scaffold(body: Text('Produit')),
+          builder: (_, _) => const Scaffold(body: Text('Produit')),
         ),
       ],
     );

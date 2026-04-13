@@ -236,9 +236,11 @@ class TutorialService {
     required GlobalKey searchKey,
     required GlobalKey filtersKey,
     required GlobalKey addProductKey,
-    required GlobalKey productCardKey,
+    GlobalKey? productCardKey,
+    GlobalKey? voiceSearchKey,
+    GlobalKey? scannerKey,
   }) {
-    return [
+    final targets = <TargetFocus>[
       _buildTarget(
         key: searchKey,
         identify: 'search',
@@ -247,6 +249,37 @@ class TutorialService {
         shape: ShapeLightFocus.RRect,
         radius: 24,
       ),
+    ];
+
+    // Recherche vocale
+    if (voiceSearchKey != null) {
+      targets.add(
+        _buildTarget(
+          key: voiceSearchKey,
+          identify: 'voiceSearch',
+          title: '🎤 Recherche vocale',
+          description:
+              'Dites le nom du médicament. ' 'La reconnaissance vocale cherchera automatiquement.',
+          shape: ShapeLightFocus.Circle,
+        ),
+      );
+    }
+
+    // Scanner
+    if (scannerKey != null) {
+      targets.add(
+        _buildTarget(
+          key: scannerKey,
+          identify: 'scanner',
+          title: '📷 Scanner',
+          description:
+              'Scannez le code-barres d\'un produit ' 'pour le trouver ou l\'ajouter rapidement.',
+          shape: ShapeLightFocus.Circle,
+        ),
+      );
+    }
+
+    targets.add(
       _buildTarget(
         key: filtersKey,
         identify: 'filters',
@@ -257,16 +290,24 @@ class TutorialService {
         shape: ShapeLightFocus.RRect,
         radius: 8,
       ),
-      _buildTarget(
-        key: productCardKey,
-        identify: 'productCard',
-        title: 'Fiche produit',
-        description:
-            'Tapez pour modifier prix, stock et détails. '
-            'Glissez pour des actions rapides.',
-        shape: ShapeLightFocus.RRect,
-        radius: 12,
-      ),
+    );
+
+    if (productCardKey != null) {
+      targets.add(
+        _buildTarget(
+          key: productCardKey,
+          identify: 'productCard',
+          title: 'Fiche produit',
+          description:
+              'Tapez pour modifier prix, stock et détails. '
+              'Glissez pour des actions rapides.',
+          shape: ShapeLightFocus.RRect,
+          radius: 12,
+        ),
+      );
+    }
+
+    targets.add(
       _buildTarget(
         key: addProductKey,
         identify: 'addProduct',
@@ -276,7 +317,9 @@ class TutorialService {
             'du code-barres optionnel.',
         shape: ShapeLightFocus.Circle,
       ),
-    ];
+    );
+
+    return targets;
   }
 
   /// Targets pour le scan d'ordonnance.

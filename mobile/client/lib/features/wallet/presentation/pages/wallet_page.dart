@@ -12,6 +12,7 @@ import '../../../../core/services/celebration_service.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/biometric_service.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../domain/entities/wallet_entity.dart';
 import '../providers/wallet_notifier.dart';
 import '../providers/wallet_provider.dart';
@@ -44,22 +45,12 @@ class _WalletPageState extends ConsumerState<WalletPage> {
     ref.listen<WalletState>(walletProvider, (previous, next) {
       if (next.errorMessage != null &&
           previous?.errorMessage != next.errorMessage) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(next.errorMessage!),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppSnackbar.error(context, next.errorMessage!);
         ref.read(walletProvider.notifier).clearMessages();
       }
       if (next.successMessage != null &&
           previous?.successMessage != next.successMessage) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(next.successMessage!),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        AppSnackbar.success(context, next.successMessage!);
         ref.read(walletProvider.notifier).clearMessages();
       }
     });
@@ -473,12 +464,7 @@ class _TopUpPageState extends ConsumerState<TopUpPage> {
   Future<void> _submitTopUp() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedOperator == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez sélectionner un opérateur'),
-          backgroundColor: AppColors.warning,
-        ),
-      );
+      AppSnackbar.warning(context, 'Veuillez sélectionner un opérateur');
       return;
     }
 
@@ -525,21 +511,11 @@ class _TopUpPageState extends ConsumerState<TopUpPage> {
       // Rafraîchir le wallet et retourner
       await ref.read(walletProvider.notifier).loadAll();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Rechargement effectué avec succès !'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        AppSnackbar.success(context, 'Rechargement effectué avec succès !');
         Navigator.pop(context);
       }
     } else if (result == false) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Le paiement a échoué ou a été annulé.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      AppSnackbar.error(context, 'Le paiement a échoué ou a été annulé.');
     }
   }
 }
@@ -1047,25 +1023,16 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
     final amount = double.tryParse(_amountController.text) ?? 0;
 
     if (amount > walletState.availableBalance) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Solde insuffisant (disponible: ${walletState.availableBalance.toInt()} F)',
-          ),
-          backgroundColor: AppColors.error,
-        ),
+      AppSnackbar.error(
+        context,
+        'Solde insuffisant (disponible: ${walletState.availableBalance.toInt()} F)',
       );
       return;
     }
 
     if (!_formKey.currentState!.validate()) return;
     if (_selectedOperator == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez sélectionner un opérateur'),
-          backgroundColor: AppColors.warning,
-        ),
-      );
+      AppSnackbar.warning(context, 'Veuillez sélectionner un opérateur');
       return;
     }
 
@@ -1073,12 +1040,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
     final authenticated = await BiometricService.authenticateForTransaction();
     if (!authenticated) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Authentification requise pour effectuer un retrait'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppSnackbar.error(context, 'Authentification requise pour effectuer un retrait');
       }
       return;
     }

@@ -8,9 +8,11 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/providers/ui_state_providers.dart';
 import '../../../../core/services/app_logger.dart';
 import '../../../../core/services/url_launcher_service.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/widgets/shimmer_loading.dart';
 import '../providers/pharmacies_state.dart';
+import '../widgets/premium_pharmacy_card_wrapper.dart';
 
 // Provider ID for this page
 const _searchQueryId = 'pharmacies_v2_search_query';
@@ -164,22 +166,11 @@ class _PharmaciesListPageV2State extends ConsumerState<PharmaciesListPageV2>
   }
 
   void _showLocationRequiredSnackBar() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Row(
-          children: [
-            Icon(Icons.location_off, color: Colors.white),
-            SizedBox(width: 12),
-            Text('Activez la localisation pour cette fonctionnalité'),
-          ],
-        ),
-        backgroundColor: Colors.orange,
-        action: SnackBarAction(
-          label: 'Activer',
-          textColor: Colors.white,
-          onPressed: () => Geolocator.openLocationSettings(),
-        ),
-      ),
+    AppSnackbar.warning(
+      context,
+      'Activez la localisation pour cette fonctionnalité',
+      actionLabel: 'Activer',
+      onAction: () => Geolocator.openLocationSettings(),
     );
   }
 
@@ -519,25 +510,31 @@ class _PharmaciesListPageV2State extends ConsumerState<PharmaciesListPageV2>
               ),
             ),
             if (searchQuery.isNotEmpty)
-              GestureDetector(
-                onTap: () {
-                  _searchController.clear();
-                  ref
-                      .read(formFieldsProvider(_searchQueryId).notifier)
-                      .setField('query', '');
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(6),
+              Container(
                   decoration: BoxDecoration(
                     color: Colors.grey.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
-                    Icons.close_rounded,
-                    size: 16,
-                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        _searchController.clear();
+                        ref
+                            .read(formFieldsProvider(_searchQueryId).notifier)
+                            .setField('query', '');
+                      },
+                      customBorder: const CircleBorder(),
+                      child: Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 16,
+                          color: isDark ? Colors.grey[400] : Colors.grey[600],
+                        ),
+                      ),
+                    ),
                   ),
-                ),
               ),
           ],
         ),
@@ -871,7 +868,7 @@ class _PharmaciesListPageV2State extends ConsumerState<PharmaciesListPageV2>
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      child: _PremiumPharmacyCardWrapper(
+      child: PremiumPharmacyCardWrapper(
         accentColor: accentColor,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
@@ -1346,56 +1343,5 @@ class _PharmaciesListPageV2State extends ConsumerState<PharmaciesListPageV2>
       return '${(distanceKm * 1000).toStringAsFixed(0)} m';
     }
     return '${distanceKm.toStringAsFixed(1)} km';
-  }
-}
-
-/// Premium card wrapper with animated scale and shadow on tap
-class _PremiumPharmacyCardWrapper extends StatefulWidget {
-  final Widget child;
-  final Color accentColor;
-
-  const _PremiumPharmacyCardWrapper({
-    required this.child,
-    required this.accentColor,
-  });
-
-  @override
-  State<_PremiumPharmacyCardWrapper> createState() =>
-      _PremiumPharmacyCardWrapperState();
-}
-
-class _PremiumPharmacyCardWrapperState
-    extends State<_PremiumPharmacyCardWrapper> {
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      child: AnimatedScale(
-        scale: _isPressed ? 0.98 : 1.0,
-        duration: const Duration(milliseconds: 150),
-        curve: Curves.easeInOut,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: _isPressed
-                    ? widget.accentColor.withValues(alpha: 0.25)
-                    : Colors.black.withValues(alpha: 0.06),
-                blurRadius: _isPressed ? 20 : 16,
-                offset: Offset(0, _isPressed ? 8 : 6),
-                spreadRadius: _isPressed ? 2 : 0,
-              ),
-            ],
-          ),
-          child: widget.child,
-        ),
-      ),
-    );
   }
 }

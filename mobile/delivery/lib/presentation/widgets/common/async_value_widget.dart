@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/app_exceptions.dart';
 import 'app_loading_widget.dart';
 import 'app_error_widget.dart';
+import 'retry_feedback_widget.dart';
 
 /// Widget générique qui gère automatiquement les 3 états d'un [AsyncValue]:
 /// loading, error, data.
@@ -25,6 +26,16 @@ import 'app_error_widget.dart';
 ///   onRetry: () => ref.invalidate(walletDataProvider),
 /// )
 /// ```
+///
+/// Pour un feedback de retry progressif (recommandé pour les requêtes réseau) :
+/// ```dart
+/// AsyncValueWidget<OrderData>(
+///   value: ref.watch(orderProvider),
+///   data: (order) => OrderContent(order: order),
+///   onRetry: () => ref.invalidate(orderProvider),
+///   useProgressiveRetry: true,  // ← Active le feedback progressif
+/// )
+/// ```
 class AsyncValueWidget<T> extends StatelessWidget {
   const AsyncValueWidget({
     super.key,
@@ -34,6 +45,8 @@ class AsyncValueWidget<T> extends StatelessWidget {
     this.loadingMessage,
     this.loading,
     this.error,
+    this.useProgressiveRetry = false,
+    this.retryConfig,
   });
 
   /// La valeur asynchrone à observer.
@@ -53,6 +66,13 @@ class AsyncValueWidget<T> extends StatelessWidget {
 
   /// Widget d'erreur personnalisé (remplace le défaut).
   final Widget Function(Object error, StackTrace? stack)? error;
+  
+  /// Utiliser le widget de retry progressif avec feedback visuel.
+  /// Recommandé pour les requêtes réseau critiques.
+  final bool useProgressiveRetry;
+  
+  /// Configuration du retry progressif (si useProgressiveRetry=true).
+  final RetryConfig? retryConfig;
 
   @override
   Widget build(BuildContext context) {
@@ -88,6 +108,17 @@ class AsyncValueWidget<T> extends StatelessWidget {
           );
         }
 
+        // Utiliser le retry progressif si activé
+        if (useProgressiveRetry && onRetry != null) {
+          final errorType = detectErrorType(e);
+          return RetryFeedbackWidget(
+            errorType: errorType,
+            message: errorMessage,
+            onRetry: onRetry,
+            config: retryConfig ?? RetryConfig.standard,
+          );
+        }
+
         return AppErrorWidget(message: errorMessage, onRetry: onRetry);
       },
       data: data,
@@ -105,6 +136,8 @@ class SliverAsyncValueWidget<T> extends StatelessWidget {
     required this.data,
     this.onRetry,
     this.loadingMessage,
+    this.useProgressiveRetry = false,
+    this.retryConfig,
   });
 
   /// La valeur asynchrone à observer.
@@ -119,6 +152,12 @@ class SliverAsyncValueWidget<T> extends StatelessWidget {
   /// Message affiché pendant le chargement.
   final String? loadingMessage;
 
+  /// Utiliser le widget de retry progressif.
+  final bool useProgressiveRetry;
+
+  /// Configuration du retry progressif.
+  final RetryConfig? retryConfig;
+
   @override
   Widget build(BuildContext context) {
     return value.when(
@@ -126,6 +165,20 @@ class SliverAsyncValueWidget<T> extends StatelessWidget {
           SliverFillRemaining(child: AppLoadingWidget(message: loadingMessage)),
       error: (e, st) {
         final errorMessage = e.toString();
+        
+        // Utiliser le retry progressif si activé
+        if (useProgressiveRetry && onRetry != null) {
+          final errorType = detectErrorType(e);
+          return SliverFillRemaining(
+            child: RetryFeedbackWidget(
+              errorType: errorType,
+              message: errorMessage,
+              onRetry: onRetry,
+              config: retryConfig ?? RetryConfig.standard,
+            ),
+          );
+        }
+        
         return SliverFillRemaining(
           child: AppErrorWidget(message: errorMessage, onRetry: onRetry),
         );

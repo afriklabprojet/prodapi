@@ -110,7 +110,7 @@ void main() {
   // Loaded state with loyalty data
   // ──────────────────────────────────────────────────────
   group('LoyaltyPage Loaded State', () {
-    LoyaltyEntity _makeLoyalty({
+    LoyaltyEntity makeLoyalty({
       LoyaltyTier tier = LoyaltyTier.bronze,
       int totalPoints = 200,
       int availablePoints = 180,
@@ -134,7 +134,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      final loyalty = _makeLoyalty();
+      final loyalty = makeLoyalty();
       await tester.pumpWidget(
         createTestWidget(initialState: LoyaltyState(loyalty: loyalty)),
       );
@@ -152,7 +152,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      final loyalty = _makeLoyalty(totalPoints: 1234);
+      final loyalty = makeLoyalty(totalPoints: 1234);
       await tester.pumpWidget(
         createTestWidget(initialState: LoyaltyState(loyalty: loyalty)),
       );
@@ -167,7 +167,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      final loyalty = _makeLoyalty(
+      final loyalty = makeLoyalty(
         tier: LoyaltyTier.silver,
         totalPoints: 600,
         pointsToNextTier: 1400,
@@ -186,7 +186,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      final loyalty = _makeLoyalty(
+      final loyalty = makeLoyalty(
         tier: LoyaltyTier.silver,
         totalPoints: 700,
         pointsToNextTier: 1300,
@@ -206,7 +206,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      final loyalty = _makeLoyalty(
+      final loyalty = makeLoyalty(
         tier: LoyaltyTier.gold,
         totalPoints: 2500,
         pointsToNextTier: 2500,
@@ -227,7 +227,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      final loyalty = _makeLoyalty(
+      final loyalty = makeLoyalty(
         tier: LoyaltyTier.platinum,
         totalPoints: 5500,
         pointsToNextTier: 0,
@@ -246,7 +246,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      final loyalty = _makeLoyalty(availablePoints: 999);
+      final loyalty = makeLoyalty(availablePoints: 999);
       await tester.pumpWidget(
         createTestWidget(initialState: LoyaltyState(loyalty: loyalty)),
       );
@@ -261,7 +261,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      final loyalty = _makeLoyalty();
+      final loyalty = makeLoyalty();
       await tester.pumpWidget(
         createTestWidget(initialState: LoyaltyState(loyalty: loyalty)),
       );
@@ -276,7 +276,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      final loyalty = _makeLoyalty(
+      final loyalty = makeLoyalty(
         tier: LoyaltyTier.silver,
         availablePoints: 600,
         rewards: [

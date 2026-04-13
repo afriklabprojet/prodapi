@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../providers/orders_provider.dart';
 import '../providers/orders_state.dart';
 import '../providers/payment_provider.dart';
@@ -610,7 +611,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
             ),
           ),
           Expanded(
-            child: GestureDetector(
+            child: InkWell(
               onTap: () => _launchPhone(phone),
               child: Row(
                 children: [
@@ -653,7 +654,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
             ),
           ),
           Expanded(
-            child: GestureDetector(
+            child: InkWell(
               onTap: () => _launchMaps(address),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -686,16 +687,12 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
         await launchUrl(uri);
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Impossible d\'ouvrir le téléphone')),
-          );
+          AppSnackbar.error(context, 'Impossible d\'ouvrir le téléphone');
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erreur lors de l\'appel')),
-        );
+        AppSnackbar.error(context, 'Erreur lors de l\'appel');
       }
     }
   }
@@ -710,16 +707,12 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Impossible d\'ouvrir Maps')),
-          );
+          AppSnackbar.error(context, 'Impossible d\'ouvrir Maps');
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erreur lors de l\'ouverture de Maps')),
-        );
+        AppSnackbar.error(context, 'Erreur lors de l\'ouverture de Maps');
       }
     }
   }
@@ -853,13 +846,9 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
             onPressed: () async {
               final reason = reasonController.text.trim();
               if (reason.length < 3) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'La raison doit contenir au moins 3 caractères',
-                    ),
-                    backgroundColor: AppColors.error,
-                  ),
+                AppSnackbar.error(
+                  context,
+                  'La raison doit contenir au moins 3 caractères',
                 );
                 return;
               }
@@ -875,34 +864,19 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
               if (!context.mounted) return;
 
               if (error != null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Impossible d\'annuler la commande. Réessayez.',
-                    ),
-                    backgroundColor: AppColors.error,
-                  ),
+                AppSnackbar.error(
+                  context,
+                  'Impossible d\'annuler la commande. Réessayez.',
                 );
               } else {
-                // Capture the messenger before navigating away
-                final messenger = ScaffoldMessenger.of(context);
-
                 // Refresh orders list so status is updated
                 ref.read(ordersProvider.notifier).loadOrders();
 
-                // Navigate back first
+                // Navigate back with confirmation
                 if (context.mounted) {
+                  AppSnackbar.success(context, 'Commande annulée avec succès ✓');
                   context.pop();
                 }
-
-                // Show confirmation snackbar on the destination page
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Commande annulée avec succès ✓'),
-                    backgroundColor: AppColors.success,
-                    duration: Duration(seconds: 3),
-                  ),
-                );
               }
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
@@ -962,16 +936,11 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
       if (!mounted) return;
       Navigator.pop(context); // fermer loading
       ref.read(ordersProvider.notifier).loadOrderDetails(orderId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            success
-                ? 'Paiement effectué avec succès !'
-                : 'Paiement échoué. Vérifiez votre solde.',
-          ),
-          backgroundColor: success ? AppColors.success : AppColors.error,
-        ),
-      );
+      if (success) {
+        AppSnackbar.success(context, 'Paiement effectué avec succès !');
+      } else {
+        AppSnackbar.error(context, 'Paiement échoué. Vérifiez votre solde.');
+      }
       return;
     }
     // ─────────────────────────────────────────────────────────────────────────
@@ -1028,19 +997,9 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
         ref.read(ordersProvider.notifier).loadOrderDetails(orderId);
 
         if (paymentResult == true) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Paiement effectué avec succès !'),
-              backgroundColor: AppColors.success,
-            ),
-          );
+          AppSnackbar.success(context, 'Paiement effectué avec succès !');
         } else if (paymentResult == false) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Le paiement a échoué. Veuillez réessayer.'),
-              backgroundColor: AppColors.error,
-            ),
-          );
+          AppSnackbar.error(context, 'Le paiement a échoué. Veuillez réessayer.');
         }
         // If paymentResult is null, user just closed the page - no message needed
       }
@@ -1049,9 +1008,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
         final errorMsg =
             paymentState.errorMessage ??
             'Erreur lors de l\'initialisation du paiement';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMsg), backgroundColor: AppColors.error),
-        );
+        AppSnackbar.error(context, errorMsg);
         // Refresh order details to get latest payment status from server
         ref.read(ordersProvider.notifier).loadOrderDetails(orderId);
       }
@@ -1105,18 +1062,11 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '$addedCount article${addedCount > 1 ? 's' : ''} ajouté${addedCount > 1 ? 's' : ''} au panier',
-        ),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: 'Voir le panier',
-          onPressed: () => context.goToCart(),
-        ),
-      ),
+    AppSnackbar.success(
+      context,
+      '$addedCount article${addedCount > 1 ? 's' : ''} ajouté${addedCount > 1 ? 's' : ''} au panier',
+      actionLabel: 'Voir le panier',
+      onAction: () => context.goToCart(),
     );
   }
 }

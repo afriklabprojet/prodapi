@@ -18,16 +18,31 @@ class DeepLinkService {
   bool _isInitialized = false;
   
   /// Routes autorisées pour les deep links
+  /// Chaque route doit correspondre à une route GoRouter valide
   static const _allowedDeepLinkPaths = [
+    // Commandes
     '/orders',
     '/order',
-    '/notifications',
-    '/wallet',
+    // Ordonnances
+    '/prescriptions',
+    '/prescription',
+    // Inventaire & Produits
     '/inventory',
-    '/profile',
+    '/product',
+    '/scanner',
+    // Finances
+    '/wallet',
     '/reports',
+    // Notifications
+    '/notifications',
+    // Profil & Paramètres
+    '/profile',
+    '/settings',
+    // Pages légales
     '/terms',
     '/privacy',
+    // Mode garde & urgences
+    '/on-call',
   ];
   
   /// Initialise le service de deep links

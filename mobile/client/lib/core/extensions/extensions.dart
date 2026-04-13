@@ -1,4 +1,5 @@
 /// Extensions utilitaires pour l'application DR Pharma
+library;
 
 /// Extension pour formater les numéros de téléphone au format international E.164
 extension PhoneFormatExtension on String {
@@ -85,7 +86,7 @@ extension DateExtension on DateTime {
 
   /// Formate en date + heure
   String get formatDateTimeFr {
-    return '${formatDateFr} à ${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+    return '$formatDateFr à ${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
   }
 
   /// Temps relatif (il y a X minutes/heures/jours)

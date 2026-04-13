@@ -61,6 +61,10 @@ class _ShimmerLoadingState extends State<ShimmerLoading>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final base = isDark ? const Color(0xFF2C2C2C) : AppColors.shimmerBase;
+    final highlight = isDark ? const Color(0xFF3C3C3C) : AppColors.shimmerHighlight;
+
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
@@ -72,10 +76,10 @@ class _ShimmerLoadingState extends State<ShimmerLoading>
             gradient: LinearGradient(
               begin: Alignment(-1.0 + 2.0 * _controller.value, 0),
               end: Alignment(-1.0 + 2.0 * _controller.value + 1.0, 0),
-              colors: const [
-                AppColors.shimmerBase,
-                AppColors.shimmerHighlight,
-                AppColors.shimmerBase,
+              colors: [
+                base,
+                highlight,
+                base,
               ],
             ),
           ),
@@ -91,10 +95,11 @@ class ShimmerProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -264,6 +269,218 @@ class ListItemSkeleton extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Skeleton pour la page de suivi de livraison
+class TrackingSkeleton extends StatelessWidget {
+  const TrackingSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseColor = isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade200;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Status header
+          ShimmerLoading.rectangle(height: 20, width: 220),
+          const SizedBox(height: 16),
+          // Map placeholder
+          Container(
+            height: 200,
+            decoration: BoxDecoration(
+              color: baseColor,
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Timeline steps
+          ...List.generate(
+            4,
+            (index) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  ShimmerLoading.circle(size: 32),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ShimmerLoading.rectangle(height: 14, width: 150),
+                        const SizedBox(height: 4),
+                        ShimmerLoading.rectangle(height: 10, width: 100),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Courier card
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: baseColor,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                ShimmerLoading.circle(size: 56),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ShimmerLoading.rectangle(height: 16, width: 120),
+                      const SizedBox(height: 8),
+                      ShimmerLoading.rectangle(height: 12, width: 80),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Skeleton pour les détails d'une commande
+class OrderDetailSkeleton extends StatelessWidget {
+  const OrderDetailSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header avec numéro commande
+          ShimmerLoading.rectangle(height: 24, width: 180),
+          const SizedBox(height: 8),
+          ShimmerLoading.rectangle(height: 14, width: 120),
+          const SizedBox(height: 24),
+          // Status badge
+          ShimmerLoading.rectangle(height: 32, width: 100, radius: 16),
+          const SizedBox(height: 24),
+          // Articles
+          ShimmerLoading.rectangle(height: 18, width: 100),
+          const SizedBox(height: 12),
+          ...List.generate(
+            3,
+            (index) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  ShimmerLoading.rectangle(height: 60, width: 60, radius: 8),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ShimmerLoading.rectangle(height: 14),
+                        const SizedBox(height: 6),
+                        ShimmerLoading.rectangle(height: 12, width: 80),
+                      ],
+                    ),
+                  ),
+                  ShimmerLoading.rectangle(height: 14, width: 60),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          // Prix total
+          const Divider(),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              ShimmerLoading.rectangle(height: 16, width: 80),
+              ShimmerLoading.rectangle(height: 20, width: 100),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Skeleton pour la page checkout
+class CheckoutSkeleton extends StatelessWidget {
+  const CheckoutSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Steps indicator
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(
+              3,
+              (index) => Container(
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                child: ShimmerLoading.circle(size: 32),
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+          // Section title
+          ShimmerLoading.rectangle(height: 18, width: 140),
+          const SizedBox(height: 16),
+          // Address card
+          ShimmerLoading.rectangle(height: 100, radius: 12),
+          const SizedBox(height: 24),
+          // Items section
+          ShimmerLoading.rectangle(height: 18, width: 100),
+          const SizedBox(height: 12),
+          ...List.generate(
+            2,
+            (index) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: ShimmerLoading.rectangle(height: 72, radius: 12),
+            ),
+          ),
+          const SizedBox(height: 24),
+          // Prix breakdown
+          ...List.generate(
+            3,
+            (index) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  ShimmerLoading.rectangle(height: 14, width: 100),
+                  ShimmerLoading.rectangle(height: 14, width: 60),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              ShimmerLoading.rectangle(height: 18, width: 50),
+              ShimmerLoading.rectangle(height: 22, width: 100),
+            ],
+          ),
+        ],
       ),
     );
   }

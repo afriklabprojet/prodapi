@@ -8,6 +8,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/services/app_logger.dart';
 import '../../../../core/services/celebration_service.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../../orders/presentation/providers/cart_provider.dart';
 import '../providers/prescription_ocr_provider.dart';
 
@@ -407,12 +408,7 @@ class _PrescriptionScannerPageState
     } catch (e) {
       AppLogger.error('Error capturing image', error: e);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Erreur lors de la capture de l\'image'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        AppSnackbar.error(context, 'Erreur lors de la capture de l\'image');
       }
     }
   }
@@ -477,16 +473,12 @@ class _PrescriptionScannerPageState
         .addItem(med.product!, quantity: med.quantity ?? 1);
 
     if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${med.name} ajouté au panier'),
-          backgroundColor: AppColors.success,
-          action: SnackBarAction(
-            label: 'Voir',
-            textColor: Colors.white,
-            onPressed: () => context.push(AppRoutes.cart),
-          ),
-        ),
+      HapticFeedback.mediumImpact();
+      AppSnackbar.success(
+        context,
+        '${med.name} ajouté au panier',
+        actionLabel: 'Voir',
+        onAction: () => context.push(AppRoutes.cart),
       );
     }
   }
@@ -505,18 +497,11 @@ class _PrescriptionScannerPageState
 
     if (mounted && addedCount > 0) {
       HapticFeedback.mediumImpact();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '$addedCount produit${addedCount > 1 ? 's' : ''} ajouté${addedCount > 1 ? 's' : ''} au panier',
-          ),
-          backgroundColor: AppColors.success,
-          action: SnackBarAction(
-            label: 'Voir panier',
-            textColor: Colors.white,
-            onPressed: () => context.push(AppRoutes.cart),
-          ),
-        ),
+      AppSnackbar.success(
+        context,
+        '$addedCount produit${addedCount > 1 ? 's' : ''} ajouté${addedCount > 1 ? 's' : ''} au panier',
+        actionLabel: 'Voir panier',
+        onAction: () => context.push(AppRoutes.cart),
       );
     }
   }

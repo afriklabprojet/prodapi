@@ -117,7 +117,7 @@ void main() {
   // WalletTransactionModel
   // ────────────────────────────────────────────────────────────────────────────
   group('WalletTransactionModel.fromJson', () {
-    Map<String, dynamic> _txJson({
+    Map<String, dynamic> txJson({
       String type = 'CREDIT',
       String category = 'topup',
     }) => {
@@ -134,7 +134,7 @@ void main() {
     };
 
     test('parses credit transaction', () {
-      final model = WalletTransactionModel.fromJson(_txJson());
+      final model = WalletTransactionModel.fromJson(txJson());
       expect(model.id, 101);
       expect(model.type, 'CREDIT');
       expect(model.amount, 5000.0);
@@ -144,7 +144,7 @@ void main() {
 
     test('converts credit to WalletTransactionEntity with correct type', () {
       final entity = WalletTransactionModel.fromJson(
-        _txJson(type: 'CREDIT'),
+        txJson(type: 'CREDIT'),
       ).toEntity();
       expect(entity.type, TransactionType.credit);
       expect(entity.isCredit, isTrue);
@@ -153,7 +153,7 @@ void main() {
 
     test('converts debit to WalletTransactionEntity with correct type', () {
       final entity = WalletTransactionModel.fromJson(
-        _txJson(type: 'DEBIT'),
+        txJson(type: 'DEBIT'),
       ).toEntity();
       expect(entity.type, TransactionType.debit);
       expect(entity.isDebit, isTrue);
@@ -161,7 +161,7 @@ void main() {
 
     test('maps category topup correctly', () {
       final entity = WalletTransactionModel.fromJson(
-        _txJson(category: 'topup'),
+        txJson(category: 'topup'),
       ).toEntity();
       expect(entity.category, TransactionCategory.topup);
       expect(entity.categoryLabel, 'Rechargement');
@@ -169,7 +169,7 @@ void main() {
 
     test('maps category order_payment correctly', () {
       final entity = WalletTransactionModel.fromJson(
-        _txJson(category: 'order_payment'),
+        txJson(category: 'order_payment'),
       ).toEntity();
       expect(entity.category, TransactionCategory.orderPayment);
       expect(entity.categoryLabel, 'Paiement commande');
@@ -177,7 +177,7 @@ void main() {
 
     test('maps category refund correctly', () {
       final entity = WalletTransactionModel.fromJson(
-        _txJson(category: 'refund'),
+        txJson(category: 'refund'),
       ).toEntity();
       expect(entity.category, TransactionCategory.refund);
       expect(entity.categoryLabel, 'Remboursement');
@@ -185,7 +185,7 @@ void main() {
 
     test('maps category withdrawal correctly', () {
       final entity = WalletTransactionModel.fromJson(
-        _txJson(category: 'withdrawal'),
+        txJson(category: 'withdrawal'),
       ).toEntity();
       expect(entity.category, TransactionCategory.withdrawal);
       expect(entity.categoryLabel, 'Retrait');
@@ -211,7 +211,7 @@ void main() {
   // WalletEntity
   // ────────────────────────────────────────────────────────────────────────────
   group('WalletEntity', () {
-    WalletEntity _entity({
+    WalletEntity entity0({
       double balance = 10000,
       double available = 9000,
       int minWithdraw = 500,
@@ -223,18 +223,18 @@ void main() {
     );
 
     test('canWithdraw returns true when availableBalance >= minimum', () {
-      expect(_entity(available: 1000, minWithdraw: 500).canWithdraw, isTrue);
-      expect(_entity(available: 500, minWithdraw: 500).canWithdraw, isTrue);
+      expect(entity0(available: 1000, minWithdraw: 500).canWithdraw, isTrue);
+      expect(entity0(available: 500, minWithdraw: 500).canWithdraw, isTrue);
     });
 
     test('canWithdraw returns false when availableBalance < minimum', () {
-      expect(_entity(available: 400, minWithdraw: 500).canWithdraw, isFalse);
-      expect(_entity(available: 0, minWithdraw: 500).canWithdraw, isFalse);
+      expect(entity0(available: 400, minWithdraw: 500).canWithdraw, isFalse);
+      expect(entity0(available: 0, minWithdraw: 500).canWithdraw, isFalse);
     });
 
     test('props equality', () {
-      final a = _entity(balance: 5000);
-      final b = _entity(balance: 5000);
+      final a = entity0(balance: 5000);
+      final b = entity0(balance: 5000);
       expect(a, b);
     });
   });
@@ -243,7 +243,7 @@ void main() {
   // WalletTransactionEntity computed properties
   // ────────────────────────────────────────────────────────────────────────────
   group('WalletTransactionEntity', () {
-    WalletTransactionEntity _tx({
+    WalletTransactionEntity tx({
       TransactionType type = TransactionType.credit,
       String? status,
     }) => WalletTransactionEntity(
@@ -260,19 +260,19 @@ void main() {
 
     test(
       'isCredit is true for credit transactions',
-      () => expect(_tx().isCredit, isTrue),
+      () => expect(tx().isCredit, isTrue),
     );
     test(
       'isDebit is true for debit transactions',
-      () => expect(_tx(type: TransactionType.debit).isDebit, isTrue),
+      () => expect(tx(type: TransactionType.debit).isDebit, isTrue),
     );
     test(
       'isPending when status is pending',
-      () => expect(_tx(status: 'pending').isPending, isTrue),
+      () => expect(tx(status: 'pending').isPending, isTrue),
     );
     test(
       'isPending is false for non-pending status',
-      () => expect(_tx(status: 'completed').isPending, isFalse),
+      () => expect(tx(status: 'completed').isPending, isFalse),
     );
   });
 
@@ -312,7 +312,7 @@ void main() {
   // PaymentStatusResult
   // ────────────────────────────────────────────────────────────────────────────
   group('PaymentStatusResult', () {
-    PaymentStatusResult _result(String status) => PaymentStatusResult(
+    PaymentStatusResult result0(String status) => PaymentStatusResult(
       reference: 'REF',
       status: status,
       statusLabel: status,
@@ -322,19 +322,19 @@ void main() {
 
     test(
       'isSuccess when status is success',
-      () => expect(_result('success').isSuccess, isTrue),
+      () => expect(result0('success').isSuccess, isTrue),
     );
     test(
       'isFailed when status is failed',
-      () => expect(_result('failed').isFailed, isTrue),
+      () => expect(result0('failed').isFailed, isTrue),
     );
     test(
       'isFailed when status is expired',
-      () => expect(_result('expired').isFailed, isTrue),
+      () => expect(result0('expired').isFailed, isTrue),
     );
     test(
       'isSuccess is false for non-success status',
-      () => expect(_result('pending').isSuccess, isFalse),
+      () => expect(result0('pending').isSuccess, isFalse),
     );
 
     test('parses from JSON', () {

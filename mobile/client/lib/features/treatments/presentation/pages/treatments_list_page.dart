@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../../orders/presentation/providers/cart_provider.dart';
 import '../../../products/presentation/providers/products_provider.dart';
 import '../../domain/entities/treatment_entity.dart';
@@ -453,18 +454,7 @@ class _TreatmentsListPageState extends ConsumerState<TreatmentsListPage>
 
     if (product == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.error_outline, color: Colors.white),
-                const SizedBox(width: 12),
-                const Expanded(child: Text('Produit non trouvé')),
-              ],
-            ),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppSnackbar.error(context, 'Produit non trouvé');
       }
       return;
     }
@@ -479,24 +469,12 @@ class _TreatmentsListPageState extends ConsumerState<TreatmentsListPage>
       // Marquer comme commandé
       await ref.read(treatmentsProvider.notifier).markAsOrdered(treatment.id);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.check_circle_outline, color: Colors.white),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text('${treatment.productName} ajouté au panier'),
-              ),
-            ],
-          ),
-          backgroundColor: AppColors.success,
-          action: SnackBarAction(
-            label: 'Voir panier',
-            textColor: Colors.white,
-            onPressed: () => context.push(AppRoutes.cart),
-          ),
-        ),
+      if (!mounted) return;
+      AppSnackbar.success(
+        context,
+        '${treatment.productName} ajouté au panier',
+        actionLabel: 'Voir panier',
+        onAction: () => context.push(AppRoutes.cart),
       );
     }
   }
@@ -504,18 +482,7 @@ class _TreatmentsListPageState extends ConsumerState<TreatmentsListPage>
   Future<void> _deleteTreatment(TreatmentEntity treatment) async {
     await ref.read(treatmentsProvider.notifier).deleteTreatment(treatment.id);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.check_circle_outline, color: Colors.white),
-              const SizedBox(width: 12),
-              const Expanded(child: Text('Traitement supprimé')),
-            ],
-          ),
-          backgroundColor: AppColors.success,
-        ),
-      );
+      AppSnackbar.success(context, 'Traitement supprimé');
     }
   }
 
@@ -524,27 +491,11 @@ class _TreatmentsListPageState extends ConsumerState<TreatmentsListPage>
         .read(treatmentsProvider.notifier)
         .toggleReminder(treatment.id, enabled);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(
-                enabled ? Icons.notifications_active : Icons.notifications_off,
-                color: Colors.white,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  enabled
-                      ? 'Rappels activés pour ${treatment.productName}'
-                      : 'Rappels désactivés pour ${treatment.productName}',
-                ),
-              ),
-            ],
-          ),
-          duration: const Duration(seconds: 2),
-          backgroundColor: AppColors.primary,
-        ),
+      AppSnackbar.info(
+        context,
+        enabled
+            ? 'Rappels activés pour ${treatment.productName}'
+            : 'Rappels désactivés pour ${treatment.productName}',
       );
     }
   }

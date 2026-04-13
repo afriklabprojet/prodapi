@@ -813,15 +813,20 @@ class _PeriodChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(label),
-        selected: isSelected,
-        onSelected: (_) => onTap(),
-        materialTapTargetSize: MaterialTapTargetSize.padded,
-        selectedColor: Theme.of(
-          context,
-        ).colorScheme.primary.withValues(alpha: 0.2),
-        checkmarkColor: Theme.of(context).colorScheme.primary,
+      child: AnimatedScale(
+        scale: isSelected ? 1.08 : 1.0,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutBack,
+        child: FilterChip(
+          label: Text(label),
+          selected: isSelected,
+          onSelected: (_) => onTap(),
+          materialTapTargetSize: MaterialTapTargetSize.padded,
+          selectedColor: Theme.of(
+            context,
+          ).colorScheme.primary.withValues(alpha: 0.2),
+          checkmarkColor: Theme.of(context).colorScheme.primary,
+        ),
       ),
     );
   }

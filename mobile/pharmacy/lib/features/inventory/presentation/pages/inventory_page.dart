@@ -11,6 +11,7 @@ import '../../../../core/presentation/widgets/error_display.dart';
 import '../../../../core/presentation/widgets/app_empty_state.dart';
 import '../../../../core/presentation/widgets/app_error_state.dart';
 import '../../../../core/presentation/widgets/skeleton_screens.dart';
+import '../../../../core/services/tutorial_service.dart';
 import '../../../../core/utils/error_messages.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -37,8 +38,44 @@ class InventoryPage extends ConsumerStatefulWidget {
 class _InventoryPageState extends ConsumerState<InventoryPage> {
   final TextEditingController _searchController = TextEditingController();
 
+  /// GlobalKeys pour le tutoriel first-run
+  final _searchKey = GlobalKey();
+  final _voiceSearchKey = GlobalKey();
+  final _scannerKey = GlobalKey();
+  final _addProductKey = GlobalKey();
+  final _filtersKey = GlobalKey();
+
   /// Produit sélectionné pour le mode master-detail sur tablette
   ProductEntity? _selectedProduct;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showInventoryTutorial();
+    });
+  }
+
+  /// Affiche le tutoriel de l'inventaire au premier lancement
+  Future<void> _showInventoryTutorial() async {
+    if (!mounted) return;
+
+    final tutorialService = ref.read(tutorialServiceProvider);
+    final targets = TutorialService.buildInventoryTargets(
+      searchKey: _searchKey,
+      filtersKey: _filtersKey,
+      addProductKey: _addProductKey,
+      productCardKey: GlobalKey(), // placeholder car optionnel
+      voiceSearchKey: _voiceSearchKey,
+      scannerKey: _scannerKey,
+    );
+
+    await tutorialService.showTutorialIfNeeded(
+      context: context,
+      tutorialKey: TutorialKeys.inventory,
+      targets: targets,
+    );
+  }
 
   Future<void> _scanBarcode() async {
     try {
@@ -660,77 +697,86 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                       child: Row(
                         children: [
                           Expanded(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? Colors.grey[800]
-                                    : Colors.grey[100],
-                                borderRadius: BorderRadius.circular(30),
-                              ),
-                              child: TextField(
-                                controller: _searchController,
-                                style: TextStyle(
-                                  color: isDark ? Colors.white : Colors.black,
+                            child: KeyedSubtree(
+                              key: _searchKey,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? Colors.grey[800]
+                                      : Colors.grey[100],
+                                  borderRadius: BorderRadius.circular(30),
                                 ),
-                                decoration: InputDecoration(
-                                  hintText: 'Rechercher un produit...',
-                                  hintStyle: TextStyle(
-                                    color: isDark
-                                        ? Colors.grey[500]
-                                        : Colors.grey[600],
+                                child: TextField(
+                                  controller: _searchController,
+                                  style: TextStyle(
+                                    color: isDark ? Colors.white : Colors.black,
                                   ),
-                                  prefixIcon: Icon(
-                                    Icons.search,
-                                    color: isDark
-                                        ? Colors.grey[500]
-                                        : Colors.grey,
-                                  ),
-                                  suffixIcon: IconButton(
-                                    onPressed: () => _startVoiceSearch(),
-                                    icon: Icon(
-                                      Icons.mic,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.primary,
+                                  decoration: InputDecoration(
+                                    hintText: 'Rechercher un produit...',
+                                    hintStyle: TextStyle(
+                                      color: isDark
+                                          ? Colors.grey[500]
+                                          : Colors.grey[600],
                                     ),
-                                    tooltip: 'Recherche vocale',
+                                    prefixIcon: Icon(
+                                      Icons.search,
+                                      color: isDark
+                                          ? Colors.grey[500]
+                                          : Colors.grey,
+                                    ),
+                                    suffixIcon: KeyedSubtree(
+                                      key: _voiceSearchKey,
+                                      child: IconButton(
+                                        onPressed: () => _startVoiceSearch(),
+                                        icon: Icon(
+                                          Icons.mic,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
+                                        ),
+                                        tooltip: 'Recherche vocale',
+                                      ),
+                                    ),
+                                    border: InputBorder.none,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 14,
+                                    ),
                                   ),
-                                  border: InputBorder.none,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                    vertical: 14,
-                                  ),
+                                  onChanged: (value) {
+                                    ref
+                                        .read(inventoryProvider.notifier)
+                                        .search(value);
+                                  },
                                 ),
-                                onChanged: (value) {
-                                  ref
-                                      .read(inventoryProvider.notifier)
-                                      .search(value);
-                                },
                               ),
                             ),
                           ),
                           const SizedBox(width: 12),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).primaryColor,
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Theme.of(
-                                    context,
-                                  ).primaryColor.withValues(alpha: 0.3),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
+                          KeyedSubtree(
+                            key: _scannerKey,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).primaryColor,
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Theme.of(
+                                      context,
+                                    ).primaryColor.withValues(alpha: 0.3),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: IconButton(
+                                onPressed: _scanBarcode,
+                                icon: const Icon(Icons.qr_code_scanner, size: 24),
+                                tooltip: 'Scanner un produit',
+                                style: IconButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.all(12),
                                 ),
-                              ],
-                            ),
-                            child: IconButton(
-                              onPressed: _scanBarcode,
-                              icon: const Icon(Icons.qr_code_scanner, size: 24),
-                              tooltip: 'Scanner un produit',
-                              style: IconButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.all(12),
                               ),
                             ),
                           ),
@@ -826,32 +872,34 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                     const SizedBox(height: 16),
 
                     // -- Filtres avancés (chips défilants) --
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Row(
-                        children: [
-                          // Indicateur de filtres actifs
-                          if (state.hasActiveFilters)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ActionChip(
-                                avatar: Icon(
-                                  Icons.close,
-                                  size: 16,
-                                  color: Colors.red.shade400,
-                                ),
-                                label: Text(
-                                  'Effacer (${state.activeFilterCount})',
-                                  style: TextStyle(
+                    KeyedSubtree(
+                      key: _filtersKey,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Row(
+                          children: [
+                            // Indicateur de filtres actifs
+                            if (state.hasActiveFilters)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ActionChip(
+                                  avatar: Icon(
+                                    Icons.close,
+                                    size: 16,
                                     color: Colors.red.shade400,
-                                    fontSize: 12,
                                   ),
-                                ),
-                                backgroundColor: Colors.red.shade50,
-                                side: BorderSide(color: Colors.red.shade200),
-                                onPressed: () {
-                                  ref
+                                  label: Text(
+                                    'Effacer (${state.activeFilterCount})',
+                                    style: TextStyle(
+                                      color: Colors.red.shade400,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  backgroundColor: Colors.red.shade50,
+                                  side: BorderSide(color: Colors.red.shade200),
+                                  onPressed: () {
+                                    ref
                                       .read(inventoryProvider.notifier)
                                       .clearAllFilters();
                                   _searchController.clear();
@@ -904,6 +952,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                           ),
                         ],
                       ),
+                    ),
                     ),
                     const SizedBox(height: 12),
                     const Divider(
@@ -1271,6 +1320,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
+        key: _addProductKey,
         onPressed: () {
           showModalBottomSheet(
             context: context,

@@ -12,6 +12,7 @@ import '../../../../core/validators/form_validators.dart';
 import '../providers/auth_provider.dart';
 import '../providers/auth_state.dart';
 import '../providers/biometric_provider.dart';
+import '../widgets/app_text_field.dart';
 
 // Provider IDs pour cette page
 const _obscurePasswordId = 'login_obscure_password';
@@ -155,61 +156,50 @@ class _LoginPageState extends ConsumerState<LoginPage>
       _generalError = null;
     });
 
-    // Validation locale d'abord
     final useEmail = ref.read(toggleProvider(_useEmailId));
     final identifier = _phoneController.text.trim();
     final password = _passwordController.text;
 
-    // Validation du champ email/téléphone
-    if (identifier.isEmpty) {
-      setState(() {
-        _emailError = useEmail
-            ? 'Veuillez entrer votre adresse email'
-            : 'Veuillez entrer votre numéro de téléphone';
-      });
-      _phoneFocusNode.requestFocus();
-      return;
-    }
+    final isFormValid = _formKey.currentState?.validate() ?? false;
+    if (!isFormValid) {
+      final identifierError = _validateIdentifier(identifier, useEmail);
+      final passwordError = _validateLoginPassword(password);
 
-    // Validation du format email/téléphone
-    if (useEmail) {
-      final emailError = FormValidators.validateEmail(identifier);
-      if (emailError != null) {
-        setState(() => _emailError = emailError);
+      if (identifierError != null) {
         _phoneFocusNode.requestFocus();
-        return;
+      } else if (passwordError != null) {
+        _passwordFocusNode.requestFocus();
       }
-    } else {
-      final phoneError = FormValidators.validatePhone(identifier);
-      if (phoneError != null) {
-        setState(() => _emailError = phoneError);
-        _phoneFocusNode.requestFocus();
-        return;
-      }
-    }
-
-    // Validation du mot de passe
-    if (password.isEmpty) {
-      setState(() => _passwordError = 'Veuillez entrer votre mot de passe');
-      _passwordFocusNode.requestFocus();
       return;
     }
 
-    if (password.length < 6) {
-      setState(
-        () => _passwordError =
-            'Le mot de passe doit contenir au moins 6 caractères',
-      );
-      _passwordFocusNode.requestFocus();
-      return;
+    // Validation locale OK — envoyer au serveur
+    ref
+        .read(authProvider.notifier)
+        .login(email: identifier, password: password);
+  }
+
+  String? _validateIdentifier(String? value, bool useEmail) {
+    final trimmed = value?.trim() ?? '';
+    if (trimmed.isEmpty) {
+      return useEmail
+          ? 'Veuillez entrer votre adresse email'
+          : 'Veuillez entrer votre numéro de téléphone';
     }
 
-    // Si validation locale OK, envoyer au serveur
-    if (_formKey.currentState!.validate()) {
-      ref
-          .read(authProvider.notifier)
-          .login(email: identifier, password: password);
+    return useEmail
+        ? FormValidators.validateEmail(trimmed)
+        : FormValidators.validatePhone(trimmed);
+  }
+
+  String? _validateLoginPassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Veuillez entrer votre mot de passe';
     }
+    if (value.length < 6) {
+      return 'Le mot de passe doit contenir au moins 6 caractères';
+    }
+    return null;
   }
 
   /// Connexion avec biométrie (empreinte digitale / Face ID)
@@ -247,111 +237,133 @@ class _LoginPageState extends ConsumerState<LoginPage>
         .login(email: credentials.identifier, password: credentials.password);
   }
 
-  /// Analyse l'erreur serveur et détermine quel champ est concerné
-  void _handleServerError(String? error) {
-    debugPrint('🔐 [LoginPage] _handleServerError called with: $error');
-
+  ({String? identifierError, String? passwordError, String? generalError})
+  _mapLoginError(String? error) {
     if (error == null || error.isEmpty) {
-      setState(
-        () => _generalError = 'Une erreur est survenue. Veuillez réessayer.',
+      return (
+        identifierError: null,
+        passwordError: null,
+        generalError: 'Une erreur est survenue. Veuillez réessayer.',
       );
-      return;
     }
 
     final errorLower = error.toLowerCase();
+    final useEmail = ref.read(toggleProvider(_useEmailId));
 
-    // Erreurs d'identifiants (email/téléphone incorrect)
+    if (errorLower.contains('not found') ||
+        errorLower.contains('introuvable') ||
+        errorLower.contains('n\'existe pas') ||
+        errorLower.contains('no user')) {
+      return (
+        identifierError: useEmail
+            ? 'Aucun compte associé à cet email'
+            : 'Aucun compte associé à ce numéro',
+        passwordError: null,
+        generalError: null,
+      );
+    }
+
+    if (errorLower.contains('password') ||
+        errorLower.contains('mot de passe')) {
+      return (
+        identifierError: null,
+        passwordError: 'Mot de passe incorrect',
+        generalError: null,
+      );
+    }
+
     if (errorLower.contains('invalid') ||
         errorLower.contains('credentials') ||
         errorLower.contains('incorrect') ||
         errorLower.contains('identifiants') ||
         errorLower.contains('unauthorized') ||
         errorLower.contains('401')) {
-      setState(() {
-        _generalError = 'Email ou mot de passe incorrect';
-      });
-      return;
+      return (
+        identifierError: null,
+        passwordError: null,
+        generalError: 'Email ou mot de passe incorrect',
+      );
     }
 
-    // Compte non trouvé
-    if (errorLower.contains('not found') ||
-        errorLower.contains('introuvable') ||
-        errorLower.contains('n\'existe pas') ||
-        errorLower.contains('no user')) {
-      final useEmail = ref.read(toggleProvider(_useEmailId));
-      setState(() {
-        _emailError = useEmail
-            ? 'Aucun compte associé à cet email'
-            : 'Aucun compte associé à ce numéro';
-      });
-      _phoneFocusNode.requestFocus();
-      return;
-    }
-
-    // Erreur de mot de passe spécifique
-    if (errorLower.contains('password') ||
-        errorLower.contains('mot de passe')) {
-      setState(() => _passwordError = 'Mot de passe incorrect');
-      _passwordFocusNode.requestFocus();
-      return;
-    }
-
-    // Compte désactivé/suspendu
     if (errorLower.contains('disabled') ||
         errorLower.contains('suspended') ||
         errorLower.contains('blocked') ||
         errorLower.contains('désactivé') ||
         errorLower.contains('suspendu') ||
         errorLower.contains('bloqué')) {
-      setState(
-        () => _generalError =
-            'Votre compte a été désactivé. Contactez le support.',
+      return (
+        identifierError: null,
+        passwordError: null,
+        generalError: 'Votre compte a été désactivé. Contactez le support.',
       );
-      return;
     }
 
-    // Erreurs réseau
     if (errorLower.contains('network') ||
         errorLower.contains('connexion') ||
         errorLower.contains('internet') ||
         errorLower.contains('timeout') ||
         errorLower.contains('socket') ||
         errorLower.contains('connection')) {
-      setState(
-        () => _generalError =
+      return (
+        identifierError: null,
+        passwordError: null,
+        generalError:
             'Problème de connexion internet. Vérifiez votre connexion.',
       );
-      return;
     }
 
-    // Erreurs serveur
     if (errorLower.contains('server') ||
         errorLower.contains('500') ||
         errorLower.contains('503') ||
         errorLower.contains('serveur')) {
-      setState(
-        () => _generalError =
+      return (
+        identifierError: null,
+        passwordError: null,
+        generalError:
             'Service temporairement indisponible. Réessayez plus tard.',
       );
-      return;
     }
 
-    // Trop de tentatives
     if (errorLower.contains('too many') ||
         errorLower.contains('rate limit') ||
         errorLower.contains('throttle') ||
         errorLower.contains('tentatives')) {
-      setState(
-        () => _generalError = 'Trop de tentatives. Patientez quelques minutes.',
+      return (
+        identifierError: null,
+        passwordError: null,
+        generalError: 'Trop de tentatives. Patientez quelques minutes.',
       );
-      return;
     }
 
-    // Erreur par défaut
-    setState(
-      () => _generalError =
+    if (error.length < 100 && !error.contains('Exception')) {
+      return (identifierError: null, passwordError: null, generalError: error);
+    }
+
+    return (
+      identifierError: null,
+      passwordError: null,
+      generalError:
           'Identifiants incorrects. Vérifiez votre email et mot de passe.',
     );
+  }
+
+  /// Analyse l'erreur serveur et détermine quel champ est concerné.
+  void _handleServerError(String? error) {
+    debugPrint('🔐 [LoginPage] _handleServerError called with: $error');
+
+    final mapped = _mapLoginError(error);
+
+    setState(() {
+      _emailError = mapped.identifierError;
+      _passwordError = mapped.passwordError;
+      _generalError = mapped.generalError;
+    });
+
+    if (mapped.identifierError != null) {
+      _phoneFocusNode.requestFocus();
+    } else if (mapped.passwordError != null) {
+      _passwordFocusNode.requestFocus();
+    }
   }
 
   @override
@@ -584,6 +596,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                 position: _slideAnimation,
                                 child: Form(
                                   key: _formKey,
+                                  autovalidateMode:
+                                      AutovalidateMode.onUserInteraction,
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
@@ -779,8 +793,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
               label: 'Téléphone',
               icon: Icons.phone_android_rounded,
               isSelected: !useEmail,
-              onTap: () =>
-                  ref.read(toggleProvider(_useEmailId).notifier).set(false),
+              onTap: () {
+                ref.read(toggleProvider(_useEmailId).notifier).set(false);
+                setState(() => _emailError = null);
+                _formKey.currentState?.validate();
+              },
               isDark: isDark,
             ),
           ),
@@ -790,8 +807,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
               label: 'Email',
               icon: Icons.email_outlined,
               isSelected: useEmail,
-              onTap: () =>
-                  ref.read(toggleProvider(_useEmailId).notifier).set(true),
+              onTap: () {
+                ref.read(toggleProvider(_useEmailId).notifier).set(true);
+                setState(() => _emailError = null);
+                _formKey.currentState?.validate();
+              },
               isDark: isDark,
             ),
           ),
@@ -811,159 +831,63 @@ class _LoginPageState extends ConsumerState<LoginPage>
       button: true,
       selected: isSelected,
       label: label,
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? (isDark ? AppColors.primary : Colors.white)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: (isDark ? AppColors.primary : Colors.black)
-                          .withValues(alpha: isDark ? 0.3 : 0.08),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: Icon(
-                  icon,
-                  key: ValueKey(isSelected),
-                  size: 18,
-                  color: isSelected
-                      ? (isDark ? Colors.white : AppColors.primary)
-                      : (isDark ? Colors.white38 : AppColors.textHint),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  color: isSelected
-                      ? (isDark ? Colors.white : AppColors.primary)
-                      : (isDark ? Colors.white54 : AppColors.textSecondary),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    bool isDark = false,
-    TextInputType? keyboardType,
-    String? Function(String?)? validator,
-    bool obscureText = false,
-    Widget? suffixIcon,
-    List<TextInputFormatter>? inputFormatters,
-    FocusNode? focusNode,
-    TextInputAction? textInputAction,
-    void Function(String)? onFieldSubmitted,
-    void Function(String)? onChanged,
-    String? errorText,
-  }) {
-    final hasError = errorText != null && errorText.isNotEmpty;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextFormField(
-          controller: controller,
-          focusNode: focusNode,
-          keyboardType: keyboardType,
-          obscureText: obscureText,
-          inputFormatters: inputFormatters,
-          textInputAction: textInputAction,
-          onFieldSubmitted: onFieldSubmitted,
-          onChanged: onChanged,
-          style: TextStyle(
-            color: isDark ? Colors.white : AppColors.textPrimary,
-          ),
-          decoration: InputDecoration(
-            labelText: label,
-            labelStyle: TextStyle(
-              color: hasError
-                  ? Colors.red.shade400
-                  : (isDark ? Colors.grey[400] : Colors.grey[600]),
-            ),
-            prefixIcon: Icon(
-              icon,
-              color: hasError
-                  ? Colors.red.shade400
-                  : (isDark ? Colors.grey[400] : AppColors.primary),
-            ),
-            suffixIcon: suffixIcon,
-            filled: true,
-            fillColor: hasError
-                ? Colors.red.shade50.withValues(alpha: isDark ? 0.1 : 1.0)
-                : (isDark
-                      ? Colors.white.withValues(alpha: 0.05)
-                      : Colors.grey[100]),
-            border: OutlineInputBorder(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          splashColor: AppColors.primary.withValues(alpha: 0.12),
+          highlightColor: AppColors.primary.withValues(alpha: 0.06),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOutCubic,
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? (isDark ? AppColors.primary : Colors.white)
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: (isDark ? AppColors.primary : Colors.black)
+                            .withValues(alpha: isDark ? 0.3 : 0.08),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : null,
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: hasError
-                  ? BorderSide(color: Colors.red.shade400, width: 1.5)
-                  : BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: hasError ? Colors.red.shade400 : AppColors.primary,
-                width: 1.5,
-              ),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.red.shade400, width: 1.5),
-            ),
-          ),
-          validator: validator,
-        ),
-        // Message d'erreur sous le champ
-        if (hasError)
-          Padding(
-            padding: const EdgeInsets.only(top: 6, left: 12),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.error_outline, size: 14, color: Colors.red.shade400),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    errorText,
-                    style: TextStyle(
-                      color: Colors.red.shade400,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    icon,
+                    key: ValueKey(isSelected),
+                    size: 18,
+                    color: isSelected
+                        ? (isDark ? Colors.white : AppColors.primary)
+                        : (isDark ? Colors.white38 : AppColors.textHint),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: isSelected
+                        ? (isDark ? Colors.white : AppColors.primary)
+                        : (isDark ? Colors.white54 : AppColors.textSecondary),
                   ),
                 ),
               ],
             ),
           ),
-      ],
+        ),
+      ),
     );
   }
 
@@ -971,7 +895,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildTextField(
+        AppTextField(
           controller: _phoneController,
           focusNode: _phoneFocusNode,
           label: useEmail ? 'Adresse email' : 'Numéro de téléphone',
@@ -984,6 +908,10 @@ class _LoginPageState extends ConsumerState<LoginPage>
               ? null
               : [FilteringTextInputFormatter.allow(RegExp(r'[0-9+]'))],
           textInputAction: TextInputAction.next,
+          autofocus:
+              false, // Pas d'autofocus : évite l'ouverture clavier durant l'animation d'entrée
+          validator: (_) =>
+              _validateIdentifier(_phoneController.text, useEmail),
           onFieldSubmitted: (_) => _passwordFocusNode.requestFocus(),
           onChanged: (_) {
             // Effacer l'erreur quand l'utilisateur tape
@@ -1004,13 +932,14 @@ class _LoginPageState extends ConsumerState<LoginPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildTextField(
+        AppTextField(
           controller: _passwordController,
           focusNode: _passwordFocusNode,
           label: 'Mot de passe',
           icon: Icons.lock_outline_rounded,
           isDark: isDark,
           obscureText: obscurePassword,
+          validator: _validateLoginPassword,
           textInputAction: TextInputAction.done,
           onFieldSubmitted: (_) => _handleLogin(),
           onChanged: (_) {
@@ -1041,62 +970,14 @@ class _LoginPageState extends ConsumerState<LoginPage>
     );
   }
 
-  /// Parse le message d'erreur serveur pour l'afficher de manière claire
+  /// Traduit un message d'erreur serveur en texte lisible (source unique de vérité).
+  /// Utilisé aussi bien par le listener [_handleServerError] que par le Builder inline.
   String _parseErrorMessage(String? error) {
-    if (error == null || error.isEmpty) {
-      return 'Une erreur est survenue. Veuillez réessayer.';
-    }
-
-    final errorLower = error.toLowerCase();
-
-    // Erreurs d'identifiants
-    if (errorLower.contains('invalid') ||
-        errorLower.contains('credentials') ||
-        errorLower.contains('incorrect') ||
-        errorLower.contains('identifiants') ||
-        errorLower.contains('unauthorized') ||
-        errorLower.contains('401')) {
-      return 'Email ou mot de passe incorrect';
-    }
-
-    // Compte non trouvé
-    if (errorLower.contains('not found') ||
-        errorLower.contains('introuvable') ||
-        errorLower.contains('n\'existe pas') ||
-        errorLower.contains('no user')) {
-      return 'Aucun compte associé à ces identifiants';
-    }
-
-    // Compte désactivé
-    if (errorLower.contains('disabled') ||
-        errorLower.contains('suspended') ||
-        errorLower.contains('blocked') ||
-        errorLower.contains('désactivé')) {
-      return 'Votre compte a été désactivé. Contactez le support.';
-    }
-
-    // Erreurs réseau
-    if (errorLower.contains('network') ||
-        errorLower.contains('connexion') ||
-        errorLower.contains('internet') ||
-        errorLower.contains('timeout') ||
-        errorLower.contains('connection')) {
-      return 'Problème de connexion. Vérifiez votre internet.';
-    }
-
-    // Erreurs serveur
-    if (errorLower.contains('server') ||
-        errorLower.contains('500') ||
-        errorLower.contains('503')) {
-      return 'Service temporairement indisponible. Réessayez plus tard.';
-    }
-
-    // Retourner le message original s'il est déjà en français et lisible
-    if (error.length < 100 && !error.contains('Exception')) {
-      return error;
-    }
-
-    return 'Identifiants incorrects. Vérifiez votre email et mot de passe.';
+    final mapped = _mapLoginError(error);
+    return mapped.generalError ??
+        mapped.passwordError ??
+        mapped.identifierError ??
+        'Une erreur est survenue. Veuillez réessayer.';
   }
 
   /// Widget pour afficher une erreur générale avec un message personnalisé
@@ -1133,17 +1014,19 @@ class _LoginPageState extends ConsumerState<LoginPage>
               ),
             ),
           ),
-          Semantics(
-            button: true,
-            label: 'Fermer le message d\'erreur',
-            child: GestureDetector(
-              onTap: () {
-                setState(() => _generalError = null);
-                // Clear error state in auth notifier
-                ref.read(authProvider.notifier).clearError();
-              },
-              child: Icon(Icons.close, size: 18, color: Colors.red.shade400),
+          IconButton(
+            onPressed: () {
+              setState(() => _generalError = null);
+              ref.read(authProvider.notifier).clearError();
+            },
+            icon: Icon(Icons.close, size: 18, color: Colors.red.shade400),
+            tooltip: 'Fermer le message d\'erreur',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(
+              minWidth: 36,
+              minHeight: 36,
             ),
+            splashRadius: 18,
           ),
         ],
       ),
@@ -1443,29 +1326,19 @@ class _LoginPageState extends ConsumerState<LoginPage>
               fontSize: 14,
             ),
           ),
-          Semantics(
-            button: true,
-            label: 'Créer un compte',
-            child: GestureDetector(
-              onTap: () => context.goToRegister(),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: AppColors.primary.withValues(alpha: 0.5),
-                      width: 2,
-                    ),
-                  ),
-                ),
-                child: Text(
-                  'Créer un compte',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
-                ),
+          TextButton(
+            onPressed: () => context.goToRegister(),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              minimumSize: const Size(0, 44),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              'Créer un compte',
+              style: TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
               ),
             ),
           ),

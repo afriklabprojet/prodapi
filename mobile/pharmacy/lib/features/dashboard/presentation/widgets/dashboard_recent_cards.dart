@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/constants/ui_constants.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../orders/domain/enums/order_status.dart';
@@ -31,21 +32,21 @@ class ActionRequiredCard extends StatelessWidget {
 
     return Material(
       color: isDark ? AppColors.cardColor(context) : Colors.white,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(UIConstants.spacingMD),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(UIConstants.spacingMD),
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(UIConstants.spacingMD),
             border: Border.all(color: color.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: UIConstants.minTouchTargetIOS,
+                height: UIConstants.minTouchTargetIOS,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
@@ -61,7 +62,7 @@ class ActionRequiredCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: UIConstants.spacingMD),
               Expanded(
                 child: Text(
                   label,

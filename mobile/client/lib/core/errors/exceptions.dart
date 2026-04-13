@@ -1,4 +1,5 @@
 /// Exceptions pour la couche Data de l'application
+library;
 
 /// Exception serveur (erreurs HTTP)
 class ServerException implements Exception {

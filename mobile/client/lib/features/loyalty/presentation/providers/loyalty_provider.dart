@@ -9,11 +9,15 @@ class LoyaltyState {
   final LoyaltyEntity? loyalty;
   final bool isLoading;
   final String? error;
+  final List<LoyaltyTransaction> transactions;
+  final bool isLoadingHistory;
 
   const LoyaltyState({
     this.loyalty,
     this.isLoading = false,
     this.error,
+    this.transactions = const [],
+    this.isLoadingHistory = false,
   });
 
   bool get hasData => loyalty != null;
@@ -64,6 +68,33 @@ class LoyaltyNotifier extends StateNotifier<LoyaltyState> {
     } catch (e) {
       AppLogger.error('[Loyalty] Failed to redeem reward: $e');
       return false;
+    }
+  }
+
+  /// Charger l'historique des transactions de points
+  Future<void> loadHistory() async {
+    state = LoyaltyState(
+      loyalty: state.loyalty,
+      transactions: state.transactions,
+      isLoadingHistory: true,
+    );
+
+    try {
+      final response = await _apiClient.get('/customer/loyalty/history');
+      final items = (response.data['data'] as List<dynamic>?)
+              ?.map((t) => LoyaltyTransaction.fromJson(t as Map<String, dynamic>))
+              .toList() ??
+          [];
+      state = LoyaltyState(
+        loyalty: state.loyalty,
+        transactions: items,
+      );
+    } catch (e) {
+      AppLogger.debug('[Loyalty] Could not load history: $e');
+      state = LoyaltyState(
+        loyalty: state.loyalty,
+        transactions: state.transactions,
+      );
     }
   }
 }

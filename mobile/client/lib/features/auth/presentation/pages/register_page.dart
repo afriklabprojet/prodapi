@@ -1,15 +1,16 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/errors/error_handler.dart';
 import '../../../../core/providers/ui_state_providers.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/validators/form_validators.dart';
 import '../providers/auth_provider.dart';
 import '../providers/auth_state.dart';
+import '../widgets/app_text_field.dart';
 
 // Provider IDs pour cette page
 const _obscurePasswordId = 'register_obscure_password';
@@ -31,7 +32,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _addressController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
@@ -42,6 +42,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
   Animation<double>? _fadeAnimation;
   Animation<Offset>? _slideAnimation;
   Animation<double>? _pulseAnimation;
+
+  // Recognizers pour les liens CGU/Politique (doivent être disposés)
+  late final TapGestureRecognizer _termsRecognizer;
+  late final TapGestureRecognizer _privacyRecognizer;
 
   // Current step (0 = info, 1 = sécurité)
   int _currentStep = 0;
@@ -87,6 +91,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
     _fadeController!.forward();
     _slideController!.forward();
 
+    _termsRecognizer = TapGestureRecognizer()
+      ..onTap = () => context.push(AppRoutes.terms);
+    _privacyRecognizer = TapGestureRecognizer()
+      ..onTap = () => context.push(AppRoutes.privacy);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(toggleProvider(_obscurePasswordId).notifier).set(true);
       ref.read(toggleProvider(_obscureConfirmId).notifier).set(true);
@@ -109,12 +118,13 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
-    _addressController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _fadeController?.dispose();
     _slideController?.dispose();
     _pulseController?.dispose();
+    _termsRecognizer.dispose();
+    _privacyRecognizer.dispose();
     super.dispose();
   }
 
@@ -234,32 +244,30 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
         .register(
           name: _nameController.text.trim(),
           email: _emailController.text.trim(),
-          phone: '+225${_phoneController.text.trim()}',
+          phone: _formatPhoneForRegistration(_phoneController.text),
           password: _passwordController.text,
           passwordConfirmation: _confirmPasswordController.text,
-          address: _addressController.text.trim().isEmpty
-              ? null
-              : _addressController.text.trim(),
+          address: null,
         );
+  }
 
-    if (!mounted) return;
-
-    final authState = ref.read(authProvider);
-
-    if (authState.status == AuthStatus.error &&
-        authState.errorMessage != null) {
-      // Parser l'erreur et l'afficher sous le champ approprié
-      _handleRegistrationError(authState.errorMessage!);
-    } else if (authState.status == AuthStatus.authenticated) {
-      // Navigation gérée automatiquement par le router redirect
-      // (authenticated + phone non vérifiée → OTP page)
-      if (mounted) {
-        ErrorHandler.showSuccessSnackBar(
-          context,
-          'Inscription réussie ! Bienvenue',
-        );
-      }
+  String _formatPhoneForRegistration(String value) {
+    final cleaned = value.trim().replaceAll(RegExp(r'[^0-9+]'), '');
+    if (cleaned.isEmpty) {
+      return cleaned;
     }
+    if (cleaned.startsWith('+')) {
+      return cleaned;
+    }
+
+    final digitsOnly = cleaned.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digitsOnly.startsWith('225')) {
+      return '+$digitsOnly';
+    }
+    if (digitsOnly.length == 10) {
+      return '+225$digitsOnly';
+    }
+    return '+$digitsOnly';
   }
 
   /// Parse l'erreur serveur et affiche sous le champ approprié
@@ -364,6 +372,26 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
     final obscurePassword = ref.watch(toggleProvider(_obscurePasswordId));
     final obscureConfirm = ref.watch(toggleProvider(_obscureConfirmId));
     final acceptTerms = ref.watch(toggleProvider(_acceptTermsId));
+
+    ref.listen<AuthState>(authProvider, (previous, next) {
+      if (!mounted) {
+        return;
+      }
+
+      if (next.status == AuthStatus.error &&
+          next.errorMessage != null &&
+          next.errorMessage != previous?.errorMessage) {
+        _handleRegistrationError(next.errorMessage!);
+      }
+
+      if (previous?.status != AuthStatus.authenticated &&
+          next.status == AuthStatus.authenticated &&
+          next.user != null &&
+          !next.user!.isPhoneVerified) {
+        ref.read(authTransitionMessageProvider.notifier).state =
+            'Inscription réussie. Vérifiez maintenant votre numéro.';
+      }
+    });
 
     return PopScope(
       canPop: _currentStep == 0,
@@ -530,7 +558,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
                                     const SizedBox(height: 20),
                                     _buildOrDivider(isDark),
                                     const SizedBox(height: 16),
-                                    _buildSocialButtons(isDark),
+                                    _buildSocialButtons(
+                                      isDark,
+                                      authState.status == AuthStatus.loading,
+                                    ),
                                     const SizedBox(height: 20),
                                     _buildLoginLink(isDark),
                                     const SizedBox(height: 8),
@@ -603,19 +634,20 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
       child: Row(
         children: [
           // Bouton retour
-          GestureDetector(
-            onTap: _previousStep,
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
+          IconButton(
+            onPressed: _previousStep,
+            tooltip: 'Retour',
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white.withValues(alpha: 0.2),
+              shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(
-                Icons.arrow_back_ios_new,
-                color: Colors.white,
-                size: 18,
-              ),
+              minimumSize: const Size(40, 40),
+            ),
+            icon: const Icon(
+              Icons.arrow_back_ios_new,
+              color: Colors.white,
+              size: 18,
             ),
           ),
           Expanded(
@@ -839,8 +871,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
           _buildEmailField(isDark),
           const SizedBox(height: 18),
           _buildPhoneField(isDark),
-          const SizedBox(height: 18),
-          _buildAddressField(isDark),
           const SizedBox(height: 28),
           _buildNextStepButton(),
         ],
@@ -917,7 +947,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
   }
 
   Widget _buildNameField(bool isDark) {
-    return _buildTextField(
+    return AppTextField(
       controller: _nameController,
       label: 'Nom complet',
       icon: Icons.person_outline,
@@ -932,7 +962,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
   }
 
   Widget _buildEmailField(bool isDark) {
-    return _buildTextField(
+    return AppTextField(
       controller: _emailController,
       label: 'Adresse email',
       icon: Icons.email_outlined,
@@ -956,8 +986,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
           controller: _phoneController,
           keyboardType: TextInputType.phone,
           inputFormatters: [
-            FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(10),
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9+\s]')),
           ],
           validator: FormValidators.validatePhone,
           onChanged: (_) {
@@ -969,33 +998,17 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
           ),
           decoration: InputDecoration(
             labelText: 'Téléphone',
+            hintText: '+225 07 00 00 00 00',
             labelStyle: TextStyle(
               color: hasError
                   ? Colors.red.shade400
                   : (isDark ? Colors.grey[400] : Colors.grey[600]),
             ),
-            prefixIcon: Container(
-              padding: const EdgeInsets.only(left: 14, right: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.phone_outlined,
-                    color: hasError
-                        ? Colors.red.shade400
-                        : (isDark ? Colors.grey[400] : AppColors.primary),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '+225',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white70 : AppColors.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
+            prefixIcon: Icon(
+              Icons.phone_outlined,
+              color: hasError
+                  ? Colors.red.shade400
+                  : (isDark ? Colors.grey[400] : AppColors.primary),
             ),
             filled: true,
             fillColor: hasError
@@ -1051,17 +1064,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
     );
   }
 
-  Widget _buildAddressField(bool isDark) {
-    return _buildTextField(
-      controller: _addressController,
-      label: 'Adresse (optionnel)',
-      icon: Icons.location_on_outlined,
-      isDark: isDark,
-    );
-  }
-
   Widget _buildPasswordField(bool isDark, bool obscurePassword) {
-    return _buildTextField(
+    return AppTextField(
       controller: _passwordController,
       label: 'Mot de passe',
       icon: Icons.lock_outline,
@@ -1125,7 +1129,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
   }
 
   Widget _buildConfirmPasswordField(bool isDark, bool obscureConfirm) {
-    return _buildTextField(
+    return AppTextField(
       controller: _confirmPasswordController,
       label: 'Confirmer le mot de passe',
       icon: Icons.lock_outline,
@@ -1173,36 +1177,38 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
           ),
         ),
         Expanded(
-          child: GestureDetector(
-            onTap: () =>
-                ref.read(toggleProvider(_acceptTermsId).notifier).toggle(),
-            child: Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: RichText(
-                text: TextSpan(
-                  style: TextStyle(
-                    color: isDark ? Colors.white70 : AppColors.textSecondary,
-                    fontSize: 14,
-                  ),
-                  children: [
-                    const TextSpan(text: "J'accepte les "),
-                    TextSpan(
-                      text: "Conditions d'utilisation",
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const TextSpan(text: ' et la '),
-                    TextSpan(
-                      text: 'Politique de confidentialité',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+          child: Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: RichText(
+              text: TextSpan(
+                style: TextStyle(
+                  color: isDark ? Colors.white70 : AppColors.textSecondary,
+                  fontSize: 14,
                 ),
+                children: [
+                  const TextSpan(text: "J'accepte les "),
+                  TextSpan(
+                    text: "Conditions d'utilisation",
+                    recognizer: _termsRecognizer,
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.underline,
+                      decorationColor: AppColors.primary,
+                    ),
+                  ),
+                  const TextSpan(text: ' et la '),
+                  TextSpan(
+                    text: 'Politique de confidentialité',
+                    recognizer: _privacyRecognizer,
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.underline,
+                      decorationColor: AppColors.primary,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1305,43 +1311,41 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
     );
   }
 
-  Widget _buildSocialButtons(bool isDark) {
-    return GestureDetector(
-      onTap: _loginWithGoogle,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
+  Widget _buildSocialButtons(bool isDark, bool isLoading) {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: OutlinedButton(
+        onPressed: isLoading ? null : _loginWithGoogle,
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+          side: BorderSide(
             color: isDark ? Colors.white12 : Colors.grey.shade200,
             width: 1.5,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          elevation: 0,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.network(
-              'https://www.google.com/favicon.ico',
-              width: 20,
-              height: 20,
-              errorBuilder: (_, _, _) => Icon(
-                Icons.g_mobiledata,
-                size: 24,
-                color: isDark ? Colors.white70 : Colors.grey.shade700,
-              ),
-            ),
-            const SizedBox(width: 10),
+            if (isLoading)
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: isDark ? Colors.white70 : AppColors.primary,
+                ),
+              )
+            else
+              _buildGoogleMark(isDark),
+            const SizedBox(width: 12),
             Text(
-              'Continuer avec Google',
+              isLoading ? 'Connexion Google...' : 'Continuer avec Google',
               style: TextStyle(
                 color: isDark ? Colors.white : Colors.grey.shade800,
                 fontWeight: FontWeight.w600,
@@ -1349,6 +1353,30 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGoogleMark(bool isDark) {
+    return Container(
+      width: 22,
+      height: 22,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
+        border: Border.all(
+          color: isDark ? Colors.white24 : Colors.grey.shade300,
+        ),
+      ),
+      child: const Text(
+        'G',
+        style: TextStyle(
+          color: Color(0xFF4285F4),
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          height: 1,
         ),
       ),
     );
@@ -1364,8 +1392,13 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
             color: isDark ? Colors.white60 : AppColors.textSecondary,
           ),
         ),
-        GestureDetector(
-          onTap: () => context.go(AppRoutes.login),
+        TextButton(
+          onPressed: () => context.go(AppRoutes.login),
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            minimumSize: const Size(0, 44),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
           child: Text(
             'Se connecter',
             style: TextStyle(
@@ -1374,102 +1407,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
             ),
           ),
         ),
-      ],
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    bool isDark = false,
-    TextInputType? keyboardType,
-    String? Function(String?)? validator,
-    bool obscureText = false,
-    Widget? suffixIcon,
-    List<TextInputFormatter>? inputFormatters,
-    void Function(String)? onChanged,
-    String? errorText,
-  }) {
-    final hasError = errorText != null && errorText.isNotEmpty;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextFormField(
-          controller: controller,
-          keyboardType: keyboardType,
-          obscureText: obscureText,
-          inputFormatters: inputFormatters,
-          onChanged: onChanged,
-          style: TextStyle(
-            color: isDark ? Colors.white : AppColors.textPrimary,
-          ),
-          decoration: InputDecoration(
-            labelText: label,
-            labelStyle: TextStyle(
-              color: hasError
-                  ? Colors.red.shade400
-                  : (isDark ? Colors.grey[400] : Colors.grey[600]),
-            ),
-            prefixIcon: Icon(
-              icon,
-              color: hasError
-                  ? Colors.red.shade400
-                  : (isDark ? Colors.grey[400] : AppColors.primary),
-            ),
-            suffixIcon: suffixIcon,
-            filled: true,
-            fillColor: hasError
-                ? Colors.red.shade50.withValues(alpha: isDark ? 0.1 : 1.0)
-                : (isDark
-                      ? Colors.white.withValues(alpha: 0.05)
-                      : Colors.grey[100]),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: hasError
-                  ? BorderSide(color: Colors.red.shade400, width: 1.5)
-                  : BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: hasError ? Colors.red.shade400 : AppColors.primary,
-                width: 1.5,
-              ),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.red.shade400, width: 1.5),
-            ),
-          ),
-          validator: validator,
-        ),
-        // Message d'erreur sous le champ
-        if (hasError)
-          Padding(
-            padding: const EdgeInsets.only(top: 6, left: 12),
-            child: Row(
-              children: [
-                Icon(Icons.error_outline, size: 14, color: Colors.red.shade400),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    errorText,
-                    style: TextStyle(
-                      color: Colors.red.shade400,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
       ],
     );
   }

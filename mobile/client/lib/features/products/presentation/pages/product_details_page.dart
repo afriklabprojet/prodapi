@@ -6,6 +6,7 @@ import 'package:badges/badges.dart' as badges;
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/widgets/cached_image.dart';
 import '../../domain/entities/product_entity.dart';
 import '../providers/products_provider.dart';
@@ -59,18 +60,10 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
     if (cartState.status == CartStatus.error &&
         cartState.errorMessage != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(cartState.errorMessage!),
-            backgroundColor: AppColors.error,
-            action: SnackBarAction(
-              label: 'OK',
-              textColor: Colors.white,
-              onPressed: () {
-                ref.read(cartProvider.notifier).clearError();
-              },
-            ),
-          ),
+        AppSnackbar.error(
+          context,
+          cartState.errorMessage!,
+          onRetry: () => ref.read(cartProvider.notifier).clearError(),
         );
         ref.read(cartProvider.notifier).clearError();
       });
@@ -94,7 +87,29 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: BackButton(color: AppColors.textPrimary),
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.black54
+                  : Colors.white.withValues(alpha: 0.9),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: BackButton(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : AppColors.textPrimary,
+            ),
+          ),
+        ),
         actions: [
           // Bouton favori
           if (product != null)
@@ -114,17 +129,11 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                     ref
                         .read(favoritesProvider.notifier)
                         .toggleFavorite(product);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          isFavorite
-                              ? 'Retiré des favoris'
-                              : 'Ajouté aux favoris',
-                        ),
-                        duration: const Duration(seconds: 1),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
+                    if (isFavorite) {
+                      AppSnackbar.info(context, 'Retiré des favoris');
+                    } else {
+                      AppSnackbar.success(context, 'Ajouté aux favoris');
+                    }
                   },
                 );
               },
@@ -311,30 +320,23 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                         .addItem(product, quantity: quantity);
 
                     // Check the result from cart state
-                    if (!context.mounted) return;
+                    if (!mounted) return;
 
                     final cartState = ref.read(cartProvider);
                     if (cartState.errorMessage != null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(cartState.errorMessage!),
-                          backgroundColor: AppColors.error,
-                          duration: const Duration(seconds: 3),
-                        ),
+                      AppSnackbar.error(
+                        context,
+                        cartState.errorMessage!,
+                        onRetry: () => ref.read(cartProvider.notifier).clearError(),
                       );
                       // Clear the error
                       ref.read(cartProvider.notifier).clearError();
                     } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            currentQuantity > 0
-                                ? 'Quantité mise à jour: $expectedQuantity'
-                                : 'Ajouté au panier',
-                          ),
-                          backgroundColor: AppColors.success,
-                          duration: const Duration(seconds: 2),
-                        ),
+                      AppSnackbar.success(
+                        context,
+                        currentQuantity > 0
+                            ? 'Quantité mise à jour: $expectedQuantity'
+                            : 'Ajouté au panier',
                       );
                     }
                   },
@@ -422,17 +424,11 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                       ref
                           .read(favoritesProvider.notifier)
                           .toggleFavorite(product);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            isFavorite
-                                ? 'Retiré des favoris'
-                                : 'Ajouté aux favoris — vous serez notifié de sa disponibilité',
-                          ),
-                          behavior: SnackBarBehavior.floating,
-                          duration: const Duration(seconds: 2),
-                        ),
-                      );
+                      if (isFavorite) {
+                        AppSnackbar.info(context, 'Retiré des favoris');
+                      } else {
+                        AppSnackbar.success(context, 'Ajouté aux favoris');
+                      }
                     },
                     icon: Icon(
                       isFavorite ? Icons.favorite : Icons.favorite_border,

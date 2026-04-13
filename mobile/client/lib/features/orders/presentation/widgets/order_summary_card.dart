@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../domain/entities/cart_item_entity.dart';
+import '../providers/delivery_fee_notifier.dart';
 
 /// Widget affichant le résumé de la commande avec détail des frais
 class OrderSummaryCard extends StatelessWidget {
@@ -15,6 +16,7 @@ class OrderSummaryCard extends StatelessWidget {
   final double? distanceKm;
   final bool isLoadingDeliveryFee;
   final String paymentMode;
+  final SurgeInfo? surge;
 
   const OrderSummaryCard({
     super.key,
@@ -28,6 +30,7 @@ class OrderSummaryCard extends StatelessWidget {
     this.distanceKm,
     this.isLoadingDeliveryFee = false,
     this.paymentMode = 'cash',
+    this.surge,
   });
 
   @override
@@ -68,6 +71,9 @@ class OrderSummaryCard extends StatelessWidget {
   }
 
   Widget _buildDeliveryFeeRow() {
+    final bool hasSurge = surge != null && surge!.active;
+    final surgeColor = _getSurgeColor(surge?.level);
+
     return Row(
       children: [
         Expanded(
@@ -75,13 +81,47 @@ class OrderSummaryCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Frais de livraison'),
-              if (distanceKm != null)
+              Row(
+                children: [
+                  const Text('Frais de livraison'),
+                  if (hasSurge) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: surgeColor.withAlpha(38),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.trending_up, size: 12, color: surgeColor),
+                          const SizedBox(width: 2),
+                          Text(
+                            'x${surge!.multiplier.toStringAsFixed(1)}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: surgeColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              if (distanceKm != null || hasSurge)
                 Text(
-                  '${distanceKm!.toStringAsFixed(1)} km',
+                  hasSurge
+                      ? '${distanceKm?.toStringAsFixed(1) ?? "-"} km • Majoration ${_getSurgeLevelText(surge!.level)}'
+                      : '${distanceKm!.toStringAsFixed(1)} km',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey[500],
+                    color: hasSurge ? surgeColor : Colors.grey[500],
                   ),
                 ),
             ],
@@ -204,19 +244,10 @@ class OrderSummaryCard extends StatelessWidget {
   Widget _buildSummaryRow(String label, double amount) {
     return Row(
       children: [
-        Expanded(
-          flex: 2,
-          child: Text(
-            label,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
+        Expanded(flex: 2, child: Text(label, overflow: TextOverflow.ellipsis)),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(
-            currencyFormat.format(amount),
-            textAlign: TextAlign.end,
-          ),
+          child: Text(currencyFormat.format(amount), textAlign: TextAlign.end),
         ),
       ],
     );
@@ -246,5 +277,37 @@ class OrderSummaryCard extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  /// Couleur selon le niveau de surge
+  Color _getSurgeColor(String? level) {
+    switch (level) {
+      case 'low':
+        return Colors.orange;
+      case 'medium':
+        return Colors.deepOrange;
+      case 'high':
+        return Colors.red;
+      case 'extreme':
+        return Colors.red.shade900;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  /// Texte descriptif du niveau de surge
+  String _getSurgeLevelText(String level) {
+    switch (level) {
+      case 'low':
+        return 'légère';
+      case 'medium':
+        return 'moyenne';
+      case 'high':
+        return 'forte';
+      case 'extreme':
+        return 'très forte';
+      default:
+        return '';
+    }
   }
 }

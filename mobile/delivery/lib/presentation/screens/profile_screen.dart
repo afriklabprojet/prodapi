@@ -460,6 +460,12 @@ class _QuickActions extends ConsumerWidget {
           onTap: () => context.push(AppRoutes.gamification),
         ),
         _QuickActionTile(
+          icon: Icons.calendar_month_rounded,
+          label: 'Shifts',
+          color: Colors.indigo.shade400,
+          onTap: () => context.push(AppRoutes.shifts),
+        ),
+        _QuickActionTile(
           icon: Icons.settings_outlined,
           label: 'Réglages',
           color: _ProfileColors.accentTeal,

@@ -150,23 +150,23 @@ void main() {
           routes: [
             GoRoute(
               path: '/checkout',
-              builder: (_, __) => const CheckoutPage(),
+              builder: (_, _) => const CheckoutPage(),
             ),
             GoRoute(
               path: '/home',
-              builder: (_, __) => const Scaffold(body: Text('Home')),
+              builder: (_, _) => const Scaffold(body: Text('Home')),
             ),
             GoRoute(
               path: '/cart',
-              builder: (_, __) => const Scaffold(body: Text('Cart')),
+              builder: (_, _) => const Scaffold(body: Text('Cart')),
             ),
             GoRoute(
               path: '/orders',
-              builder: (_, __) => const Scaffold(body: Text('Orders')),
+              builder: (_, _) => const Scaffold(body: Text('Orders')),
             ),
             GoRoute(
               path: '/order-confirmation',
-              builder: (_, __) => const Scaffold(body: Text('Confirmation')),
+              builder: (_, _) => const Scaffold(body: Text('Confirmation')),
             ),
           ],
         ),

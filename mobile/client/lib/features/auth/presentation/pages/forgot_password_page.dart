@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/providers/ui_state_providers.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../config/providers.dart';
 
@@ -242,12 +243,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
       );
       if (mounted) {
         ref.read(loadingProvider(_forgotPwdLoadingId).notifier).stopLoading();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Nouveau code envoyé !'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        AppSnackbar.success(context, 'Nouveau code envoyé !');
         // Clear OTP fields
         for (final c in _otpControllers) {
           c.clear();
@@ -657,50 +653,56 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
     required bool isDark,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (isDark
-                    ? AppColors.primary.withValues(alpha: 0.2)
-                    : Colors.white)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 18,
-              color: isSelected
-                  ? AppColors.primary
-                  : (isDark ? Colors.white54 : const Color(0xFF6B7C8E)),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        splashColor: AppColors.primary.withValues(alpha: 0.12),
+        highlightColor: AppColors.primary.withValues(alpha: 0.06),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? (isDark
+                      ? AppColors.primary.withValues(alpha: 0.2)
+                      : Colors.white)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 18,
                 color: isSelected
                     ? AppColors.primary
                     : (isDark ? Colors.white54 : const Color(0xFF6B7C8E)),
               ),
-            ),
-          ],
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isSelected
+                      ? AppColors.primary
+                      : (isDark ? Colors.white54 : const Color(0xFF6B7C8E)),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -885,8 +887,9 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
             ),
             validator: (value) {
               if (value == null || value.isEmpty) return 'Confirmation requise';
-              if (value != _passwordController.text)
+              if (value != _passwordController.text) {
                 return 'Les mots de passe ne correspondent pas';
+              }
               return null;
             },
           ),

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../config/providers.dart';
 import '../contracts/deep_link_contract.dart';
 import '../services/deep_link_service.dart';
+import '../widgets/app_snackbar.dart';
 
 /// ─────────────────────────────────────────────────────────
 /// Deep Link Auth Handler
@@ -188,14 +189,9 @@ mixin DeepLinkHandlerMixin<T extends ConsumerStatefulWidget>
       onError: showErrorSnackbar
           ? (error, stackTrace) {
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Impossible de traiter le lien. Veuillez réessayer.',
-                    ),
-                    backgroundColor: Colors.orange,
-                    duration: Duration(seconds: 3),
-                  ),
+                AppSnackbar.warning(
+                  context,
+                  'Impossible de traiter le lien. Veuillez réessayer.',
                 );
               }
             }

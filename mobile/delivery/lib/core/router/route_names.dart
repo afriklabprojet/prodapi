@@ -53,4 +53,5 @@ abstract final class AppRoutes {
   static const paymentError = '/payment/error';
   static const conversations = '/conversations';
   static const notificationCenter = '/notifications';
+  static const shifts = '/shifts';
 }

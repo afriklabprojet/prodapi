@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/widgets/shimmer_loading.dart';
 import '../../../../core/widgets/cached_image.dart';
 import '../../../../core/providers/theme_provider.dart';
@@ -276,22 +277,26 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                               ),
                             ),
                             // Edit Button
-                            GestureDetector(
-                              onTap: () => context.goToEditProfile(),
-                              child: Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.2),
-                                    width: 1,
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () => context.goToEditProfile(),
+                                borderRadius: BorderRadius.circular(14),
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.2),
+                                      width: 1,
+                                    ),
                                   ),
-                                ),
-                                child: const Icon(
-                                  Icons.edit_rounded,
-                                  color: Colors.white,
-                                  size: 20,
+                                  child: const Icon(
+                                    Icons.edit_rounded,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
                                 ),
                               ),
                             ),
@@ -691,27 +696,30 @@ class _PremiumActionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : Colors.grey.withValues(alpha: 0.1),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.grey.withValues(alpha: 0.1),
         ),
-        child: Row(
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
@@ -784,6 +792,7 @@ class _PremiumActionTile extends StatelessWidget {
           ],
         ),
       ),
+      ),
     );
   }
 }
@@ -803,21 +812,25 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.06)
-                : Colors.grey.withValues(alpha: 0.08),
-          ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.grey.withValues(alpha: 0.08),
         ),
-        child: Row(
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
           children: [
             Icon(
               icon,
@@ -841,6 +854,8 @@ class _SettingsTile extends StatelessWidget {
               color: isDark ? Colors.grey[600] : Colors.grey[400],
             ),
           ],
+        ),
+          ),
         ),
       ),
     );
@@ -1114,26 +1129,11 @@ class _BiometricSettingsTile extends ConsumerWidget {
 
           if (!success && context.mounted) {
             final error = ref.read(biometricProvider).error;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(error ?? 'Erreur lors de l\'activation'),
-                backgroundColor: Colors.red,
-              ),
-            );
+            AppSnackbar.error(context, error ?? 'Erreur lors de l\'activation');
           } else if (success && context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    const Icon(Icons.check_circle, color: Colors.white),
-                    const SizedBox(width: 12),
-                    Text(
-                      '${ref.read(biometricProvider).biometricTypeName} activé',
-                    ),
-                  ],
-                ),
-                backgroundColor: AppColors.success,
-              ),
+            AppSnackbar.success(
+              context,
+              '${ref.read(biometricProvider).biometricTypeName} activé',
             );
           }
         }
@@ -1144,9 +1144,7 @@ class _BiometricSettingsTile extends ConsumerWidget {
           .read(biometricProvider.notifier)
           .disableBiometricLogin();
       if (success && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Connexion biométrique désactivée')),
-        );
+        AppSnackbar.info(context, 'Connexion biométrique désactivée');
       }
     }
   }

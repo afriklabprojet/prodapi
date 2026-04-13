@@ -788,7 +788,7 @@ void main() {
   // _mergeCartData with both carts non-empty (covers switch cases)
   // ─────────────────────────────────────────────────────────
   group('CartService._mergeCartData both non-empty', () {
-    CartData _makeCartWithProduct(int productId, int quantity) {
+    CartData makeCartWithProduct(int productId, int quantity) {
       return CartData(
         items: [
           CartItemEntity(
@@ -806,8 +806,8 @@ void main() {
     test('preferServer: both non-empty → server item wins', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
-      _makeCartWithProduct(1, 2);
-      final serverCart = _makeCartWithProduct(1, 5);
+      makeCartWithProduct(1, 2);
+      final serverCart = makeCartWithProduct(1, 5);
 
       final svc = CartService(
         prefs: prefs,
@@ -832,7 +832,7 @@ void main() {
     test('preferLocal: both non-empty → local item wins', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
-      final serverCart = _makeCartWithProduct(1, 5);
+      final serverCart = makeCartWithProduct(1, 5);
 
       final svc = CartService(
         prefs: prefs,
@@ -856,7 +856,7 @@ void main() {
     test('takeHigherQuantity: both non-empty → higher qty selected', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
-      final serverCart = _makeCartWithProduct(1, 8);
+      final serverCart = makeCartWithProduct(1, 8);
 
       final svc = CartService(
         prefs: prefs,
@@ -882,7 +882,7 @@ void main() {
       () async {
         SharedPreferences.setMockInitialValues({});
         final prefs = await SharedPreferences.getInstance();
-        final serverCart = _makeCartWithProduct(1, 6);
+        final serverCart = makeCartWithProduct(1, 6);
 
         final svc = CartService(
           prefs: prefs,
@@ -944,7 +944,7 @@ void main() {
       () async {
         SharedPreferences.setMockInitialValues({});
         final prefs = await SharedPreferences.getInstance();
-        final serverCart = _makeCartWithProduct(2, 3);
+        final serverCart = makeCartWithProduct(2, 3);
 
         var pushCalled = false;
         final svc = CartService(

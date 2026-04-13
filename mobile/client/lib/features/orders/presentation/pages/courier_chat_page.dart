@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../config/providers.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/services/messaging/messaging.dart';
 import '../../data/models/chat_message.dart';
 
@@ -153,12 +154,7 @@ class _CourierChatPageState extends ConsumerState<CourierChatPage> {
       _scrollToBottom();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Impossible d\'envoyer le message. Réessayez.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      AppSnackbar.error(context, 'Impossible d\'envoyer le message. Réessayez.');
     } finally {
       if (mounted) setState(() => _isSending = false);
     }
@@ -435,6 +431,7 @@ class _CourierChatPageState extends ConsumerState<CourierChatPage> {
                       ),
                     ),
                     textCapitalization: TextCapitalization.sentences,
+                    textInputAction: TextInputAction.send,
                     onSubmitted: (_) => _sendMessage(),
                   ),
                 ),

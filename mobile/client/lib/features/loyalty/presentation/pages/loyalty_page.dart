@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../domain/entities/loyalty_entity.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../providers/loyalty_provider.dart';
 
 class LoyaltyPage extends ConsumerStatefulWidget {
@@ -113,6 +115,10 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
                   _buildRewardsSection(loyalty, isDark),
                   const SizedBox(height: 24),
                 ],
+
+                // Historique des transactions
+                _buildHistorySection(isDark),
+                const SizedBox(height: 24),
 
                 // Aperçu des paliers
                 _buildTierOverview(isDark),
@@ -414,23 +420,27 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
                 ),
                 const SizedBox(height: 4),
                 if (canRedeem)
-                  GestureDetector(
-                    onTap: () => _confirmRedeem(reward),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'Échanger',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => _confirmRedeem(reward),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          'Échanger',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
@@ -579,18 +589,11 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
                   .read(loyaltyProvider.notifier)
                   .redeemReward(reward.id);
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      success
-                          ? 'Récompense échangée avec succès !'
-                          : 'Impossible d\'échanger cette récompense.',
-                    ),
-                    backgroundColor: success
-                        ? AppColors.success
-                        : AppColors.error,
-                  ),
-                );
+                if (success) {
+                  AppSnackbar.success(context, 'Récompense échangée avec succès !');
+                } else {
+                  AppSnackbar.error(context, 'Impossible d\'échanger cette récompense.');
+                }
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
@@ -651,6 +654,166 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
       default:
         return Colors.amber;
     }
+  }
+
+  Widget _buildHistorySection(bool isDark) {
+    final loyaltyState = ref.watch(loyaltyProvider);
+    final transactions = loyaltyState.transactions;
+    final isLoading = loyaltyState.isLoadingHistory;
+    final dateFormat = DateFormat('dd/MM/yyyy', 'fr_FR');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Historique des points',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+            ),
+            if (transactions.isEmpty && !isLoading)
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => ref.read(loyaltyProvider.notifier).loadHistory(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: Text(
+                      'Charger',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        if (isLoading)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          )
+        else if (transactions.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : Colors.grey.withValues(alpha: 0.1),
+              ),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.history,
+                  size: 40,
+                  color: isDark ? Colors.grey[600] : Colors.grey[400],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Aucune transaction',
+                  style: TextStyle(
+                    color: isDark ? Colors.grey[400] : AppColors.textSecondary,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Vos gains et échanges de points apparaîtront ici',
+                  style: TextStyle(
+                    color: isDark ? Colors.grey[600] : Colors.grey[500],
+                    fontSize: 12,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          )
+        else
+          ...transactions.take(10).map((tx) {
+            final isEarned = tx.isEarned;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : Colors.grey.withValues(alpha: 0.08),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: (isEarned ? Colors.green : Colors.orange)
+                          .withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isEarned ? Icons.add_circle_outline : Icons.redeem,
+                      color: isEarned ? Colors.green : Colors.orange,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tx.description,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          dateFormat.format(tx.createdAt),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.grey[500] : AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    '${isEarned ? '+' : '-'}${tx.points}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: isEarned ? Colors.green : Colors.orange,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+      ],
+    );
   }
 }
 

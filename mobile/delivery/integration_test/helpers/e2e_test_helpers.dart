@@ -302,6 +302,7 @@ class MockWalletData {
 }
 
 /// Override des providers pour les tests wallet/dashboard.
+// ignore: strict_top_level_inference
 createWalletOverrides({WalletData? walletData}) {
   final data = walletData ?? MockWalletData.standard;
 

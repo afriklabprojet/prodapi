@@ -294,35 +294,40 @@ class _AddOnCallSheetState extends ConsumerState<AddOnCallSheet> {
     final isActive = _activeShortcut == label;
     return Container(
       margin: const EdgeInsets.only(right: 12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: isActive
-                ? Theme.of(context)
-                    .colorScheme
-                    .primary
-                    .withValues(alpha: 0.12)
-                : Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
+      child: AnimatedScale(
+        scale: isActive ? 1.08 : 1.0,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutBack,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
               color: isActive
-                  ? Theme.of(context).colorScheme.primary
-                  : Colors.grey.shade200,
-              width: isActive ? 1.5 : 1,
+                  ? Theme.of(context)
+                      .colorScheme
+                      .primary
+                      .withValues(alpha: 0.12)
+                  : Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isActive
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.grey.shade200,
+                width: isActive ? 1.5 : 1,
+              ),
             ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: isActive
-                  ? Theme.of(context).colorScheme.primary
-                  : Colors.grey.shade700,
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-              fontSize: 13,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isActive
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.grey.shade700,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                fontSize: 13,
+              ),
             ),
           ),
         ),

@@ -508,16 +508,3 @@ void main() {
   });
 }
 
-// Helper pour obtenir l'opacité du skeleton
-double _getSkeletonOpacity(WidgetTester tester) {
-  final animBuilder = tester.widget<AnimatedBuilder>(
-    find.byType(AnimatedBuilder),
-  );
-  final opacity = tester.widget<Opacity>(
-    find.descendant(
-      of: find.byWidget(animBuilder),
-      matching: find.byType(Opacity),
-    ),
-  );
-  return opacity.opacity;
-}

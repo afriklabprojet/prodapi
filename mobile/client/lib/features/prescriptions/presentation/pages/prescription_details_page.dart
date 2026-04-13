@@ -7,6 +7,7 @@ import '../../domain/entities/prescription_entity.dart';
 import '../providers/prescriptions_provider.dart';
 import '../../../../config/providers.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 
 class PrescriptionDetailsPage extends ConsumerStatefulWidget {
   final int prescriptionId;
@@ -180,9 +181,7 @@ class _PrescriptionDetailsPageState
                     ref
                         .read(prescriptionsProvider.notifier)
                         .payPrescription(p.id);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Paiement en cours...')),
-                    );
+                    AppSnackbar.info(context, 'Paiement en cours...');
                   },
                   child: const Text('Confirmer et Payer'),
                 ),

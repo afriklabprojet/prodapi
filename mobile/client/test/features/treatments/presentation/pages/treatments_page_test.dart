@@ -242,7 +242,7 @@ void main() {
   });
 
   group('TreatmentsPage Loaded State Tests', () {
-    TreatmentEntity _makeTreatment({
+    TreatmentEntity makeTreatment({
       String id = 't1',
       String name = 'Paracétamol 500mg',
       int productId = 1,
@@ -270,7 +270,7 @@ void main() {
         createTestWidget(
           initialState: TreatmentsState(
             status: TreatmentsStatus.loaded,
-            treatments: [_makeTreatment()],
+            treatments: [makeTreatment()],
           ),
         ),
       );
@@ -290,7 +290,7 @@ void main() {
         createTestWidget(
           initialState: TreatmentsState(
             status: TreatmentsStatus.loaded,
-            treatments: [_makeTreatment()],
+            treatments: [makeTreatment()],
           ),
         ),
       );
@@ -312,7 +312,7 @@ void main() {
         createTestWidget(
           initialState: TreatmentsState(
             status: TreatmentsStatus.loaded,
-            treatments: [_makeTreatment()],
+            treatments: [makeTreatment()],
           ),
         ),
       );
@@ -332,7 +332,7 @@ void main() {
         createTestWidget(
           initialState: TreatmentsState(
             status: TreatmentsStatus.loaded,
-            treatments: [_makeTreatment()],
+            treatments: [makeTreatment()],
           ),
         ),
       );
@@ -352,7 +352,7 @@ void main() {
         createTestWidget(
           initialState: TreatmentsState(
             status: TreatmentsStatus.loaded,
-            treatments: [_makeTreatment()],
+            treatments: [makeTreatment()],
           ),
         ),
       );
@@ -370,7 +370,7 @@ void main() {
         createTestWidget(
           initialState: TreatmentsState(
             status: TreatmentsStatus.loaded,
-            treatments: [_makeTreatment(renewalDays: 30)],
+            treatments: [makeTreatment(renewalDays: 30)],
           ),
         ),
       );
@@ -394,7 +394,7 @@ void main() {
         createTestWidget(
           initialState: TreatmentsState(
             status: TreatmentsStatus.loaded,
-            treatments: [_makeTreatment()],
+            treatments: [makeTreatment()],
           ),
         ),
       );

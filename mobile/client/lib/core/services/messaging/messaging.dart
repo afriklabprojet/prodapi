@@ -9,6 +9,7 @@
 ///   (success) => debugPrint('Sent via ${success.channelUsed}'),
 /// );
 /// ```
+library;
 
 export 'message_channel.dart';
 export 'message_templates.dart';

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/widgets/shimmer_loading.dart';
 import '../../domain/entities/notification_entity.dart';
 import '../providers/notifications_provider.dart';
@@ -39,19 +40,13 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
         notificationsState.errorMessage != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return; // Check if widget is still mounted
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(notificationsState.errorMessage!),
-            backgroundColor: AppColors.error,
-            action: SnackBarAction(
-              label: 'OK',
-              textColor: Colors.white,
-              onPressed: () {
-                if (!mounted) return;
-                ref.read(notificationsProvider.notifier).clearError();
-              },
-            ),
-          ),
+        AppSnackbar.error(
+          context,
+          notificationsState.errorMessage!,
+          onRetry: () {
+            if (!mounted) return;
+            ref.read(notificationsProvider.notifier).clearError();
+          },
         );
         if (mounted) {
           ref.read(notificationsProvider.notifier).clearError();
@@ -82,17 +77,72 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   }
 
   Widget _buildNotificationsList(List<NotificationEntity> notifications) {
+    // Group notifications by date
+    final grouped = <String, List<NotificationEntity>>{};
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    for (final n in notifications) {
+      final date = DateTime(n.createdAt.year, n.createdAt.month, n.createdAt.day);
+      String label;
+      if (date == today) {
+        label = "Aujourd'hui";
+      } else if (date == yesterday) {
+        label = 'Hier';
+      } else if (now.difference(date).inDays < 7) {
+        label = DateFormat('EEEE', 'fr_FR').format(date);
+        label = label[0].toUpperCase() + label.substring(1);
+      } else {
+        label = DateFormat('d MMMM yyyy', 'fr_FR').format(date);
+      }
+      grouped.putIfAbsent(label, () => []).add(n);
+    }
+
+    final sections = grouped.entries.toList();
+
     return RefreshIndicator(
       onRefresh: () async {
         await ref.read(notificationsProvider.notifier).loadNotifications();
       },
-      child: ListView.separated(
+      child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: notifications.length,
-        separatorBuilder: (context, index) => const Divider(height: 1),
+        itemCount: sections.fold<int>(0, (sum, s) => sum + 1 + s.value.length),
         itemBuilder: (context, index) {
-          final notification = notifications[index];
-          return _buildNotificationItem(notification);
+          int cursor = 0;
+          for (final section in sections) {
+            if (index == cursor) {
+              // Section header
+              return Padding(
+                padding: EdgeInsets.only(
+                  top: cursor == 0 ? 0 : 20,
+                  bottom: 8,
+                ),
+                child: Text(
+                  section.key,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              );
+            }
+            cursor++; // header
+            if (index < cursor + section.value.length) {
+              final notification = section.value[index - cursor];
+              return Column(
+                children: [
+                  _buildNotificationItem(notification),
+                  if (index - cursor < section.value.length - 1)
+                    const Divider(height: 1),
+                ],
+              );
+            }
+            cursor += section.value.length;
+          }
+          return const SizedBox.shrink();
         },
       ),
     );
@@ -370,11 +420,6 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   void _deleteNotification(String notificationId) {
     ref.read(notificationsProvider.notifier).deleteNotification(notificationId);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Notification supprimée'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    AppSnackbar.info(context, 'Notification supprimée');
   }
 }

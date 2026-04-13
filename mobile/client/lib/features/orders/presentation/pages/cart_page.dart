@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../providers/cart_provider.dart';
 import '../providers/cart_state.dart';
 import '../utils/cart_ui_guards.dart';
@@ -30,21 +31,13 @@ class CartPage extends ConsumerWidget {
     ref.read(cartProvider.notifier).removeItem(productId);
 
     // Afficher le snackbar avec option "Annuler"
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${product.name} retiré du panier'),
-        backgroundColor: AppColors.textSecondary,
-        duration: const Duration(seconds: 4),
-        action: SnackBarAction(
-          label: 'Annuler',
-          textColor: AppColors.primary,
-          onPressed: () {
-            // Restaurer l'article avec la même quantité
-            ref.read(cartProvider.notifier).addItem(product, quantity: quantity);
-          },
-        ),
-      ),
+    AppSnackbar.undo(
+      context,
+      message: '${product.name} retiré du panier',
+      onUndo: () {
+        // Restaurer l'article avec la même quantité
+        ref.read(cartProvider.notifier).addItem(product, quantity: quantity);
+      },
     );
   }
 
@@ -59,22 +52,9 @@ class CartPage extends ConsumerWidget {
 
     // Listen for error changes and show snackbar automatically
     ref.listen<CartState>(cartProvider, (previous, next) {
-      if (next.errorMessage != null && 
+      if (next.errorMessage != null &&
           (previous?.errorMessage != next.errorMessage)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(next.errorMessage!),
-            backgroundColor: AppColors.error,
-            duration: const Duration(seconds: 3),
-            action: SnackBarAction(
-              label: 'OK',
-              textColor: Colors.white,
-              onPressed: () {
-                ref.read(cartProvider.notifier).clearError();
-              },
-            ),
-          ),
-        );
+        AppSnackbar.error(context, next.errorMessage!);
         // Auto-clear error after showing
         Future.delayed(const Duration(seconds: 3), () {
           ref.read(cartProvider.notifier).clearError();
@@ -106,7 +86,12 @@ class CartPage extends ConsumerWidget {
                       itemCount: cartState.items.length,
                       itemBuilder: (context, index) {
                         final item = cartState.items[index];
-                        return _buildCartItem(context, ref, item, currencyFormat);
+                        return _buildCartItem(
+                          context,
+                          ref,
+                          item,
+                          currencyFormat,
+                        );
                       },
                     ),
                   ),
@@ -168,7 +153,8 @@ class CartPage extends ConsumerWidget {
 
     return Semantics(
       container: true,
-      label: '${product.name}, quantité ${item.quantity}, ${currencyFormat.format(product.price * item.quantity)}${!isAvailable ? ", stock insuffisant" : ""}',
+      label:
+          '${product.name}, quantité ${item.quantity}, ${currencyFormat.format(product.price * item.quantity)}${!isAvailable ? ", stock insuffisant" : ""}',
       child: Card(
         margin: const EdgeInsets.only(bottom: 12),
         child: Padding(
@@ -182,169 +168,196 @@ class CartPage extends ConsumerWidget {
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2C2C2C) : Colors.grey[200],
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFF2C2C2C)
+                        : Colors.grey[200],
                     borderRadius: BorderRadius.circular(8),
-              ),
-              child: product.imageUrl != null
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: CachedNetworkImage(
-                        imageUrl: product.imageUrl!,
-                        fit: BoxFit.cover,
-                        errorWidget: (context, url, error) =>
-                            const Icon(Icons.medication, size: 40, semanticLabel: 'Image non disponible'),
-                      ),
-                    )
-                  : const Icon(Icons.medication, size: 40, semanticLabel: 'Image non disponible'),
-            ),
-            ), // ExcludeSemantics
-            const SizedBox(width: 12),
-            // Product Info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product.name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    product.pharmacy.name,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (!isAvailable)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.error.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        'Stock insuffisant',
-                        style: TextStyle(
-                          color: AppColors.error,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Price
-                      Text(
-                        currencyFormat.format(product.price),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      // Quantity Controls
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF3C3C3C) : Colors.grey[300]!),
+                  child: product.imageUrl != null
+                      ? ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Semantics(
-                              button: true,
-                              label: item.quantity > 1 ? 'Diminuer la quantité' : 'Supprimer du panier',
-                              child: DebouncedIconButton(
-                                tooltip: item.quantity > 1 ? 'Diminuer la quantité' : 'Supprimer du panier',
-                                onPressed: () {
-                                  if (item.quantity > 1) {
-                                    ref
-                                        .read(cartProvider.notifier)
-                                        .updateQuantity(
-                                          product.id,
-                                          item.quantity - 1,
-                                        );
-                                  } else {
-                                    _removeItemWithUndo(
-                                      context: context,
-                                      ref: ref,
-                                      productId: product.id,
-                                    );
-                                  }
-                                },
-                                icon: Icon(
-                                  item.quantity > 1
-                                      ? Icons.remove
-                                      : Icons.delete_outline,
-                                  size: 20,
-                                  semanticLabel: item.quantity > 1 ? 'Diminuer' : 'Supprimer',
-                                ),
-                                padding: const EdgeInsets.all(4),
-                                constraints: const BoxConstraints(),
-                              ),
+                          child: CachedNetworkImage(
+                            imageUrl: product.imageUrl!,
+                            fit: BoxFit.cover,
+                            errorWidget: (context, url, error) => const Icon(
+                              Icons.medication,
+                              size: 40,
+                              semanticLabel: 'Image non disponible',
                             ),
-                            Semantics(
-                              label: 'Quantité: ${item.quantity}',
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.medication,
+                          size: 40,
+                          semanticLabel: 'Image non disponible',
+                        ),
+                ),
+              ), // ExcludeSemantics
+              const SizedBox(width: 12),
+              // Product Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      product.pharmacy.name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (!isAvailable)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'Stock insuffisant',
+                          style: TextStyle(
+                            color: AppColors.error,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Price
+                        Text(
+                          currencyFormat.format(product.price),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        // Quantity Controls
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color:
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? const Color(0xFF3C3C3C)
+                                  : Colors.grey[300]!,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Semantics(
+                                button: true,
+                                label: item.quantity > 1
+                                    ? 'Diminuer la quantité'
+                                    : 'Supprimer du panier',
+                                child: DebouncedIconButton(
+                                  tooltip: item.quantity > 1
+                                      ? 'Diminuer la quantité'
+                                      : 'Supprimer du panier',
+                                  onPressed: () {
+                                    if (item.quantity > 1) {
+                                      ref
+                                          .read(cartProvider.notifier)
+                                          .updateQuantity(
+                                            product.id,
+                                            item.quantity - 1,
+                                          );
+                                    } else {
+                                      _removeItemWithUndo(
+                                        context: context,
+                                        ref: ref,
+                                        productId: product.id,
+                                      );
+                                    }
+                                  },
+                                  icon: Icon(
+                                    item.quantity > 1
+                                        ? Icons.remove
+                                        : Icons.delete_outline,
+                                    size: 20,
+                                    semanticLabel: item.quantity > 1
+                                        ? 'Diminuer'
+                                        : 'Supprimer',
+                                  ),
+                                  padding: const EdgeInsets.all(4),
+                                  constraints: const BoxConstraints(),
                                 ),
-                                child: Text(
-                                  '${item.quantity}',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
+                              ),
+                              Semantics(
+                                label: 'Quantité: ${item.quantity}',
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
+                                  child: Text(
+                                    '${item.quantity}',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            Semantics(
-                              button: true,
-                              label: 'Augmenter la quantité',
-                              enabled: isAvailable && item.quantity < product.stockQuantity,
-                              child: DebouncedIconButton(
-                                tooltip: 'Augmenter la quantité',
-                                onPressed:
+                              Semantics(
+                                button: true,
+                                label: 'Augmenter la quantité',
+                                enabled:
                                     isAvailable &&
-                                        item.quantity < product.stockQuantity
-                                    ? () {
-                                        ref
-                                            .read(cartProvider.notifier)
-                                          .updateQuantity(
-                                            product.id,
-                                            item.quantity + 1,
-                                          );
-                                    }
-                                  : null,
-                              icon: const Icon(Icons.add, size: 20, semanticLabel: 'Augmenter'),
-                              padding: const EdgeInsets.all(4),
-                              constraints: const BoxConstraints(),
+                                    item.quantity < product.stockQuantity,
+                                child: DebouncedIconButton(
+                                  tooltip: 'Augmenter la quantité',
+                                  onPressed:
+                                      isAvailable &&
+                                          item.quantity < product.stockQuantity
+                                      ? () {
+                                          ref
+                                              .read(cartProvider.notifier)
+                                              .updateQuantity(
+                                                product.id,
+                                                item.quantity + 1,
+                                              );
+                                        }
+                                      : null,
+                                  icon: const Icon(
+                                    Icons.add,
+                                    size: 20,
+                                    semanticLabel: 'Augmenter',
+                                  ),
+                                  padding: const EdgeInsets.all(4),
+                                  constraints: const BoxConstraints(),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    ), // Semantics
+      ), // Semantics
     );
   }
 
@@ -419,15 +432,47 @@ class CartPage extends ConsumerWidget {
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => context.pushToCheckout(),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: const Text(
-                  'Passer la commande',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
+              child: Builder(
+                builder: (context) {
+                  final hasUnavailable = cartState.items.any((item) => !item.isAvailable);
+                  return Column(
+                    children: [
+                      if (hasUnavailable)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Certains articles sont en rupture de stock. Retirez-les pour continuer.',
+                                  style: TextStyle(
+                                    color: AppColors.error,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: hasUnavailable ? null : () => context.pushToCheckout(),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                          child: const Text(
+                            'Passer la commande',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ],

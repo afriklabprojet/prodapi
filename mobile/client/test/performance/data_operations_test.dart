@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Tests de performance pour les opérations de données
@@ -106,7 +105,7 @@ void main() {
       final stopwatch = Stopwatch()..start();
 
       final query = 'paracetamol';
-      final results = products
+      products
           .where((p) => p.name.toLowerCase().contains(query.toLowerCase()))
           .toList();
 
@@ -160,10 +159,8 @@ void main() {
       final stopwatch = Stopwatch()..start();
 
       var subtotal = 0;
-      var totalItems = 0;
       for (final item in cartItems) {
         subtotal += item.price * item.quantity;
-        totalItems += item.quantity;
       }
       final deliveryFee = subtotal > 10000 ? 0 : 1500;
       final total = subtotal + deliveryFee;

@@ -10,6 +10,7 @@ import '../../core/config/app_config.dart';
 import '../../data/models/courier_profile.dart';
 import '../../data/models/route_info.dart';
 import '../providers/delivery_providers.dart';
+import '../providers/courier_heatmap_provider.dart';
 import '../providers/profile_provider.dart';
 import '../../data/repositories/delivery_repository.dart';
 import '../../core/services/location_service.dart';
@@ -432,6 +433,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final isOnline = ref.watch(isOnlineProvider);
     final profileAsync = ref.watch(courierProfileProvider);
     final activeDeliveriesAsync = ref.watch(deliveriesProvider('active'));
+    final heatmapState = ref.watch(courierHeatmapProvider);
 
     // Update shared state when provider data changes (but not during toggle)
     ref.listen<AsyncValue<CourierProfile>>(courierProfileProvider, (
@@ -516,6 +518,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           Set<Marker> markers = {};
           // Use our calculated polylines (Directions API) instead of manual straight line
           Set<Polyline> polylines = _polylines;
+          Set<Circle> heatCircles = {};
 
           if (activeDelivery != null) {
             LatLng? pharmacyLoc;
@@ -587,12 +590,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             );
           }
 
+          // Overlay de zones chaudes (sans livraison active)
+          if (isOnline &&
+              !hasActiveDelivery &&
+              heatmapState.opportunities.isNotEmpty) {
+            for (final zone in heatmapState.opportunities.take(5)) {
+              final heatColor = _heatLevelColor(zone.heatLevel);
+              final radiusMeters = 350 + (zone.pendingOrders * 120);
+
+              heatCircles.add(
+                Circle(
+                  circleId: CircleId('heat_${zone.lat}_${zone.lng}'),
+                  center: LatLng(zone.lat, zone.lng),
+                  radius: radiusMeters.toDouble(),
+                  fillColor: heatColor.withValues(alpha: 0.18),
+                  strokeColor: heatColor.withValues(alpha: 0.65),
+                  strokeWidth: 2,
+                ),
+              );
+            }
+          }
+
           return Stack(
             children: [
               // 1. MAP BACKGROUND - Lazy load: pas de carte si offline sans livraison
               // Économise ~50-80 MB de RAM et évite le téléchargement de tiles
               if (isOnline || hasActiveDelivery)
-                _buildMap(markers: markers, polylines: polylines)
+                _buildMap(
+                  markers: markers,
+                  polylines: polylines,
+                  circles: heatCircles,
+                )
               else
                 _buildOfflineMapPlaceholder(),
 
@@ -723,10 +751,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   onToggle: () => _toggleAvailability(!isOnline),
                 ),
 
-              // 5. FINDING ORDERS + NEW ORDER ALERT
+              // 5. FINDING ORDERS + NEW ORDER ALERT (BROADCAST SYSTEM)
               if (isOnline && !hasActiveDelivery) ...[
                 _buildSearchingIndicator(),
-                const IncomingOrderCard(),
+                const BroadcastOffersOverlay(),
+                HeatmapOpportunitiesOverlay(onNavigateToZone: _focusOnHeatZone),
               ],
 
               // 6. ACTIVE DELIVERY PANEL
@@ -797,6 +826,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
       ),
     );
+  }
+
+  Future<void> _focusOnHeatZone(double lat, double lng) async {
+    final controller = await _controller.future;
+    setState(() => _isFollowingUser = false);
+    controller.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: LatLng(lat, lng), zoom: 13.8),
+      ),
+    );
+  }
+
+  Color _heatLevelColor(String level) {
+    switch (level) {
+      case 'extreme':
+        return const Color(0xFF7C3AED);
+      case 'hot':
+        return const Color(0xFFEF4444);
+      case 'warm':
+        return const Color(0xFFF59E0B);
+      default:
+        return const Color(0xFF3B82F6);
+    }
   }
 
   // Style de carte propre pour app de livraison
@@ -884,7 +936,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildMap({Set<Marker>? markers, Set<Polyline>? polylines}) {
+  Widget _buildMap({
+    Set<Marker>? markers,
+    Set<Polyline>? polylines,
+    Set<Circle>? circles,
+  }) {
     return GoogleMap(
       mapType: MapType.normal,
       style: _mapStyle,
@@ -894,6 +950,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       zoomControlsEnabled: false,
       markers: markers ?? {},
       polylines: polylines ?? {},
+      circles: circles ?? {},
       onCameraMoveStarted: () {
         _isFollowingUser = false; // L'utilisateur déplace la carte manuellement
       },

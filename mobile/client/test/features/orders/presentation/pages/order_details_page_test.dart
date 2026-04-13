@@ -17,7 +17,7 @@ import '../../../../helpers/fake_api_client.dart';
 class MockOrdersNotifier extends StateNotifier<OrdersState>
     with Mock
     implements OrdersNotifier {
-  MockOrdersNotifier(OrdersState state) : super(state);
+  MockOrdersNotifier(super.state);
 
   @override
   Future<void> loadOrderDetails(int orderId) async {}
@@ -360,7 +360,7 @@ void main() {
         createTestWidgetWithState(
           const OrdersState(
             status: OrdersStatus.error,
-            orders: const [],
+            orders: [],
             errorMessage: 'Commande introuvable',
           ),
         ),
@@ -378,7 +378,7 @@ void main() {
         createTestWidgetWithState(
           const OrdersState(
             status: OrdersStatus.error,
-            orders: const [],
+            orders: [],
             errorMessage: 'Erreur réseau',
           ),
         ),
@@ -396,7 +396,7 @@ void main() {
         createTestWidgetWithState(
           const OrdersState(
             status: OrdersStatus.error,
-            orders: const [],
+            orders: [],
             errorMessage: 'Erreur réseau',
           ),
         ),
@@ -414,7 +414,7 @@ void main() {
         createTestWidgetWithState(
           const OrdersState(
             status: OrdersStatus.error,
-            orders: const [],
+            orders: [],
             errorMessage: 'Commande introuvable',
           ),
         ),

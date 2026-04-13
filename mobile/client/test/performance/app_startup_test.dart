@@ -127,9 +127,9 @@ void main() {
           onGenerateRoute: (settings) {
             if (settings.name == '/detail') {
               return PageRouteBuilder(
-                pageBuilder: (_, __, ___) => const _TestDetailPage(),
+                pageBuilder: (_, _, _) => const _TestDetailPage(),
                 transitionDuration: const Duration(milliseconds: 300),
-                transitionsBuilder: (_, animation, __, child) {
+                transitionsBuilder: (_, animation, _, child) {
                   return FadeTransition(opacity: animation, child: child);
                 },
               );

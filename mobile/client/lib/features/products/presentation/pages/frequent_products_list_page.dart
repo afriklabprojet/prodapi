@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/widgets/cached_image.dart';
 import '../../../orders/presentation/providers/cart_provider.dart';
 import '../providers/frequent_products_provider.dart';
@@ -108,7 +109,7 @@ class FrequentProductsListPage extends ConsumerWidget {
         childAspectRatio: 0.72,
       ),
       itemCount: 6,
-      itemBuilder: (_, __) => Container(
+      itemBuilder: (_, _) => Container(
         decoration: BoxDecoration(
           color: isDark ? Colors.grey[800] : Colors.grey[200],
           borderRadius: BorderRadius.circular(14),
@@ -359,17 +360,11 @@ class _FrequentProductGridCard extends ConsumerWidget {
         .addItem(frequentProduct.product, quantity: 1);
 
     if (success && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${frequentProduct.product.name} ajouté au panier'),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          action: SnackBarAction(
-            label: 'Voir',
-            textColor: Colors.white,
-            onPressed: () => context.push(AppRoutes.cart),
-          ),
-        ),
+      AppSnackbar.success(
+        context,
+        '${frequentProduct.product.name} ajouté au panier',
+        actionLabel: 'Voir',
+        onAction: () => context.push(AppRoutes.cart),
       );
     }
   }

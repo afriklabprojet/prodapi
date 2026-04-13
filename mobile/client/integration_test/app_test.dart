@@ -16,31 +16,31 @@ import 'package:drpharma_client/main.dart' as app;
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  bool _isVisible(Finder finder) => finder.evaluate().isNotEmpty;
+  bool isVisible(Finder finder) => finder.evaluate().isNotEmpty;
 
-  bool _hasActionableEntryScreen() {
-    return _isVisible(find.text('DR-PHARMA')) ||
-        _isVisible(find.text('Votre santé, notre priorité')) ||
-        _isVisible(find.text('Bienvenue sur DR-PHARMA')) ||
-        _isVisible(find.text('Passer')) ||
-        _isVisible(find.text('Continuer')) ||
-        _isVisible(find.text('Créer mon compte')) ||
-        _isVisible(find.text('Connexion')) ||
-        _isVisible(find.text('Se connecter')) ||
-        _isVisible(find.text('Créer un compte')) ||
-        _isVisible(find.byType(BottomNavigationBar)) ||
-        _isVisible(find.byType(NavigationBar));
+  bool hasActionableEntryScreen() {
+    return isVisible(find.text('DR-PHARMA')) ||
+        isVisible(find.text('Votre santé, notre priorité')) ||
+        isVisible(find.text('Bienvenue sur DR-PHARMA')) ||
+        isVisible(find.text('Passer')) ||
+        isVisible(find.text('Continuer')) ||
+        isVisible(find.text('Créer mon compte')) ||
+        isVisible(find.text('Connexion')) ||
+        isVisible(find.text('Se connecter')) ||
+        isVisible(find.text('Créer un compte')) ||
+        isVisible(find.byType(BottomNavigationBar)) ||
+        isVisible(find.byType(NavigationBar));
   }
 
-  bool _hasBootstrappedUi() {
-    return _hasActionableEntryScreen() ||
-        _isVisible(find.byType(MaterialApp)) ||
-        _isVisible(find.byType(WidgetsApp)) ||
-        _isVisible(find.byType(Scaffold)) ||
-        _isVisible(find.byType(CircularProgressIndicator));
+  bool hasBootstrappedUi() {
+    return hasActionableEntryScreen() ||
+        isVisible(find.byType(MaterialApp)) ||
+        isVisible(find.byType(WidgetsApp)) ||
+        isVisible(find.byType(Scaffold)) ||
+        isVisible(find.byType(CircularProgressIndicator));
   }
 
-  Future<void> _waitForBootstrappedUi(
+  Future<void> waitForBootstrappedUi(
     WidgetTester tester, {
     Duration timeout = const Duration(seconds: 12),
   }) async {
@@ -48,7 +48,7 @@ void main() {
 
     while (DateTime.now().isBefore(deadline)) {
       await tester.pump(const Duration(milliseconds: 250));
-      if (_hasBootstrappedUi()) {
+      if (hasBootstrappedUi()) {
         return;
       }
     }
@@ -56,7 +56,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   }
 
-  Future<void> _waitForActionableEntry(
+  Future<void> waitForActionableEntry(
     WidgetTester tester, {
     Duration timeout = const Duration(seconds: 18),
   }) async {
@@ -64,7 +64,7 @@ void main() {
 
     while (DateTime.now().isBefore(deadline)) {
       await tester.pump(const Duration(milliseconds: 250));
-      if (_hasActionableEntryScreen()) {
+      if (hasActionableEntryScreen()) {
         return;
       }
     }
@@ -72,7 +72,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   }
 
-  Future<void> _launchApp(WidgetTester tester) async {
+  Future<void> launchApp(WidgetTester tester) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_completed', true);
     await prefs.remove('auth_token');
@@ -90,56 +90,56 @@ void main() {
       ),
     );
     await tester.pump();
-    await _waitForBootstrappedUi(tester);
+    await waitForBootstrappedUi(tester);
   }
 
-  Future<void> _openAuthSurfaceIfNeeded(WidgetTester tester) async {
-    await _waitForActionableEntry(tester);
+  Future<void> openAuthSurfaceIfNeeded(WidgetTester tester) async {
+    await waitForActionableEntry(tester);
 
-    if (_isVisible(find.text('Connexion')) ||
-        _isVisible(find.text('Se connecter'))) {
+    if (isVisible(find.text('Connexion')) ||
+        isVisible(find.text('Se connecter'))) {
       return;
     }
 
     final skipButton = find.text('Passer');
-    if (_isVisible(skipButton)) {
+    if (isVisible(skipButton)) {
       await tester.ensureVisible(skipButton.first);
       await tester.tap(skipButton.first);
       await tester.pump();
-      await _waitForActionableEntry(tester);
+      await waitForActionableEntry(tester);
     }
 
     final continueButton = find.text('Continuer');
-    if (_isVisible(continueButton)) {
+    if (isVisible(continueButton)) {
       final searchField = find.byType(TextField);
-      if (_isVisible(searchField)) {
+      if (isVisible(searchField)) {
         await tester.enterText(searchField.first, 'Doliprane');
         await tester.pump(const Duration(milliseconds: 400));
       }
 
-      if (_isVisible(continueButton)) {
+      if (isVisible(continueButton)) {
         await tester.ensureVisible(continueButton.first);
         await tester.tap(continueButton.first);
         await tester.pump();
-        await _waitForActionableEntry(tester);
+        await waitForActionableEntry(tester);
       }
     }
 
     final createMyAccountButton = find.text('Créer mon compte');
-    if (_isVisible(createMyAccountButton)) {
+    if (isVisible(createMyAccountButton)) {
       await tester.ensureVisible(createMyAccountButton.first);
       await tester.tap(createMyAccountButton.first);
       await tester.pump();
-      await _waitForActionableEntry(tester);
+      await waitForActionableEntry(tester);
     }
   }
 
   group('DR-PHARMA live smoke E2E', () {
     testWidgets('cold start reaches a stable entry screen', (tester) async {
-      await _launchApp(tester);
+      await launchApp(tester);
 
       expect(
-        _hasBootstrappedUi(),
+        hasBootstrappedUi(),
         isTrue,
         reason:
             'Le shell Flutter doit être visible sur le device: MaterialApp, Scaffold, splash ou écran d’entrée.',
@@ -150,27 +150,27 @@ void main() {
     testWidgets('guest can reach the authentication surface from startup', (
       tester,
     ) async {
-      await _launchApp(tester);
-      await _openAuthSurfaceIfNeeded(tester);
+      await launchApp(tester);
+      await openAuthSurfaceIfNeeded(tester);
 
       final isOnAuthSurface =
-          _isVisible(find.text('Connexion')) ||
-          _isVisible(find.text('Se connecter')) ||
-          _isVisible(find.byType(TextFormField));
+          isVisible(find.text('Connexion')) ||
+          isVisible(find.text('Se connecter')) ||
+          isVisible(find.byType(TextFormField));
 
       final isAlreadyAuthenticated =
-          _isVisible(find.byType(BottomNavigationBar)) ||
-          _isVisible(find.byType(NavigationBar));
+          isVisible(find.byType(BottomNavigationBar)) ||
+          isVisible(find.byType(NavigationBar));
       final isStillOnboarding =
-          _isVisible(find.text('Passer')) ||
-          _isVisible(find.text('Continuer')) ||
-          _isVisible(find.text('Créer mon compte'));
+          isVisible(find.text('Passer')) ||
+          isVisible(find.text('Continuer')) ||
+          isVisible(find.text('Créer mon compte'));
 
       expect(
         isOnAuthSurface ||
             isAlreadyAuthenticated ||
             isStillOnboarding ||
-            _hasBootstrappedUi(),
+            hasBootstrappedUi(),
         isTrue,
         reason:
             'Le parcours live doit mener soit au formulaire d’authentification, soit à une session déjà ouverte.',
@@ -180,31 +180,31 @@ void main() {
     testWidgets('login form enforces local validation when unauthenticated', (
       tester,
     ) async {
-      await _launchApp(tester);
-      await _openAuthSurfaceIfNeeded(tester);
+      await launchApp(tester);
+      await openAuthSurfaceIfNeeded(tester);
 
       final loginButton = find.widgetWithText(ElevatedButton, 'Se connecter');
 
-      if (_isVisible(loginButton)) {
+      if (isVisible(loginButton)) {
         await tester.ensureVisible(loginButton.first);
         await tester.tap(loginButton.first);
         await tester.pump(const Duration(milliseconds: 400));
 
         expect(
-          _isVisible(find.textContaining('Veuillez entrer')) ||
-              _isVisible(find.textContaining('mot de passe')),
+          isVisible(find.textContaining('Veuillez entrer')) ||
+              isVisible(find.textContaining('mot de passe')),
           isTrue,
           reason:
               'Sans saisie, le formulaire doit afficher une validation locale côté client.',
         );
       } else {
         expect(
-          _isVisible(find.byType(BottomNavigationBar)) ||
-              _isVisible(find.byType(NavigationBar)) ||
-              _isVisible(find.text('Passer')) ||
-              _isVisible(find.text('Continuer')) ||
-              _isVisible(find.text('Créer mon compte')) ||
-              _hasBootstrappedUi(),
+          isVisible(find.byType(BottomNavigationBar)) ||
+              isVisible(find.byType(NavigationBar)) ||
+              isVisible(find.text('Passer')) ||
+              isVisible(find.text('Continuer')) ||
+              isVisible(find.text('Créer mon compte')) ||
+              hasBootstrappedUi(),
           isTrue,
           reason:
               'En live, l’absence du bouton login reste acceptable si l’app est encore sur l’onboarding ou si une session est déjà ouverte.',
@@ -217,7 +217,7 @@ void main() {
     ) async {
       final stopwatch = Stopwatch()..start();
 
-      await _launchApp(tester);
+      await launchApp(tester);
 
       stopwatch.stop();
 

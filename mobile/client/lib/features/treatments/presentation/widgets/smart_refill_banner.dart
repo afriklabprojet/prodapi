@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../data/services/smart_refill_service.dart';
 import '../../../orders/presentation/providers/cart_provider.dart';
 import '../../../products/presentation/providers/products_provider.dart';
@@ -118,7 +119,7 @@ class _SmartRefillSectionState extends ConsumerState<SmartRefillSection> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,
             itemCount: state.suggestions.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               return _SmartRefillCard(
                 suggestion: state.suggestions[index],
@@ -218,11 +219,12 @@ class _SmartRefillCard extends ConsumerWidget {
               ),
               const Spacer(),
               // Bouton fermer
-              GestureDetector(
+              InkWell(
                 onTap: () {
                   HapticFeedback.lightImpact();
                   ref.read(smartRefillProvider.notifier).dismissSuggestion(treatment.id);
                 },
+                customBorder: const CircleBorder(),
                 child: Icon(
                   Icons.close_rounded,
                   size: 20,
@@ -303,12 +305,7 @@ class _SmartRefillCard extends ConsumerWidget {
 
       if (product == null) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Produit non trouvé'),
-              backgroundColor: Colors.orange,
-            ),
-          );
+          AppSnackbar.warning(context, 'Produit non trouvé');
         }
         return;
       }
@@ -327,38 +324,17 @@ class _SmartRefillCard extends ConsumerWidget {
         // Déclencher la célébration de renouvellement
         ref.read(celebrationProvider.notifier).triggerFirstRenewalCelebration();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white, size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    '${treatment.productName} ajouté au panier',
-                    style: const TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: AppColors.success,
-            behavior: SnackBarBehavior.floating,
-            action: SnackBarAction(
-              label: 'Voir panier',
-              textColor: Colors.white,
-              onPressed: () => context.push(AppRoutes.cart),
-            ),
-          ),
+        if (!context.mounted) return;
+        AppSnackbar.success(
+          context,
+          '${treatment.productName} ajouté au panier',
+          actionLabel: 'Voir panier',
+          onAction: () => context.push(AppRoutes.cart),
         );
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        AppSnackbar.error(context, 'Erreur: ${e.toString()}');
       }
     }
   }

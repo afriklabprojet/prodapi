@@ -1,4 +1,4 @@
-import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../../domain/entities/treatment_entity.dart';
 
 part 'treatment_model.g.dart';

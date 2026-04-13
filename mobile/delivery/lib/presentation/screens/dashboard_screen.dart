@@ -12,6 +12,7 @@ import '../../core/utils/app_exceptions.dart';
 import '../../core/utils/responsive.dart';
 import '../../core/router/route_names.dart';
 import '../widgets/common/kyc_banner.dart';
+import '../widgets/common/nav_badges.dart';
 import '../../data/repositories/delivery_repository.dart';
 import '../providers/delivery_providers.dart';
 import '../widgets/tutorial/tutorial_widgets.dart';
@@ -549,15 +550,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   /// Icône de navigation inactive
   Widget _buildNavIcon(IconData icon, int index) {
-    return Padding(
+    final baseIcon = Padding(
       padding: const EdgeInsets.only(bottom: 2),
       child: Icon(icon, size: 24),
     );
+    
+    // Ajouter badge selon l'index
+    return switch (index) {
+      1 => NavBadge(
+        count: ref.watch(pendingDeliveriesCountProvider),
+        type: NavBadgeType.info,
+        child: baseIcon,
+      ),
+      4 => NavBadge(
+        count: ref.watch(navNotificationsCountProvider),
+        type: NavBadgeType.notification,
+        child: baseIcon,
+      ),
+      _ => baseIcon,
+    };
   }
 
   /// Icône de navigation active avec indicateur vert
   Widget _buildActiveNavIcon(IconData icon, int index) {
-    return Column(
+    final baseIcon = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
@@ -570,5 +586,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ),
       ],
     );
+    
+    // Ajouter badge selon l'index (même actif, on montre le badge)
+    return switch (index) {
+      1 => NavBadge(
+        count: ref.watch(pendingDeliveriesCountProvider),
+        type: NavBadgeType.info,
+        offset: const Offset(0, -8),
+        child: baseIcon,
+      ),
+      4 => NavBadge(
+        count: ref.watch(navNotificationsCountProvider),
+        type: NavBadgeType.notification,
+        offset: const Offset(0, -8),
+        child: baseIcon,
+      ),
+      _ => baseIcon,
+    };
   }
 }

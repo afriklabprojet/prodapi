@@ -4,10 +4,12 @@
 ///
 /// Ce fichier fournit des utilitaires pour protéger l'UI du panier
 /// contre les clics rapides, fermetures brutales, etc.
+library;
 
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 
 /// Mixin pour protéger contre les clics rapides
 mixin CartOperationGuard<T extends ConsumerStatefulWidget>
@@ -201,28 +203,13 @@ extension CartResultHandler on Future<dynamic> {
       // Si c'est un Either (dartz), vérifier le résultat
       if (result != null && result.toString().contains('Left(')) {
         // Extraction du message d'erreur
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorPrefix ?? 'Erreur lors de l\'opération'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        AppSnackbar.error(context, errorPrefix ?? 'Erreur lors de l\'opération');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(successMessage),
-            backgroundColor: Colors.green,
-          ),
-        );
+        AppSnackbar.success(context, successMessage);
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        AppSnackbar.error(context, 'Erreur: $e');
       }
     }
   }

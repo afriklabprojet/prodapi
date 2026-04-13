@@ -5,7 +5,9 @@ import 'dart:ui';
 import '../../../../config/providers.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/url_launcher_service.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../providers/pharmacies_state.dart';
+import '../widgets/premium_info_card.dart';
 
 class PharmacyDetailsPage extends ConsumerStatefulWidget {
   final int pharmacyId;
@@ -84,11 +86,9 @@ class _PharmacyDetailsPageState extends ConsumerState<PharmacyDetailsPage>
     final success = await UrlLauncherService.makePhoneCall(phoneNumber);
 
     if (!success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Impossible de lancer l\'appel téléphonique'),
-          backgroundColor: AppColors.error,
-        ),
+      AppSnackbar.error(
+        context,
+        'Impossible de lancer l\'appel téléphonique',
       );
     }
   }
@@ -101,11 +101,9 @@ class _PharmacyDetailsPageState extends ConsumerState<PharmacyDetailsPage>
     );
 
     if (!success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Impossible d\'ouvrir l\'application email'),
-          backgroundColor: AppColors.error,
-        ),
+      AppSnackbar.error(
+        context,
+        'Impossible d\'ouvrir l\'application email',
       );
     }
   }
@@ -131,11 +129,9 @@ class _PharmacyDetailsPageState extends ConsumerState<PharmacyDetailsPage>
     }
 
     if (!success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Impossible d\'ouvrir l\'application de navigation'),
-          backgroundColor: AppColors.error,
-        ),
+      AppSnackbar.error(
+        context,
+        'Impossible d\'ouvrir l\'application de navigation',
       );
     }
   }
@@ -334,13 +330,13 @@ class _PharmacyDetailsPageState extends ConsumerState<PharmacyDetailsPage>
                     const SizedBox(height: 16),
 
                     // Premium Info Cards
-                    _buildPremiumInfoCard(
+                    PremiumInfoCard(
                       icon: Icons.location_on_rounded,
                       title: 'Adresse',
                       content: pharmacy.address,
-                      gradientColors: [
-                        const Color(0xFF3B82F6),
-                        const Color(0xFF2563EB),
+                      gradientColors: const [
+                        Color(0xFF3B82F6),
+                        Color(0xFF2563EB),
                       ],
                       onTap: () => _openMap(
                         address: pharmacy.address,
@@ -352,13 +348,13 @@ class _PharmacyDetailsPageState extends ConsumerState<PharmacyDetailsPage>
                     ),
 
                     if (pharmacy.phone.isNotEmpty)
-                      _buildPremiumInfoCard(
+                      PremiumInfoCard(
                         icon: Icons.phone_rounded,
                         title: 'Téléphone',
                         content: pharmacy.phone,
-                        gradientColors: [
-                          const Color(0xFF10B981),
-                          const Color(0xFF059669),
+                        gradientColors: const [
+                          Color(0xFF10B981),
+                          Color(0xFF059669),
                         ],
                         onTap: () => _makePhoneCall(pharmacy.phone),
                         actionIcon: Icons.call_rounded,
@@ -366,13 +362,13 @@ class _PharmacyDetailsPageState extends ConsumerState<PharmacyDetailsPage>
                       ),
 
                     if (pharmacy.email != null)
-                      _buildPremiumInfoCard(
+                      PremiumInfoCard(
                         icon: Icons.email_rounded,
                         title: 'Email',
                         content: pharmacy.email!,
-                        gradientColors: [
-                          const Color(0xFFF59E0B),
-                          const Color(0xFFD97706),
+                        gradientColors: const [
+                          Color(0xFFF59E0B),
+                          Color(0xFFD97706),
                         ],
                         onTap: () => _sendEmail(pharmacy.email!),
                         actionIcon: Icons.send_rounded,
@@ -873,137 +869,6 @@ class _PharmacyDetailsPageState extends ConsumerState<PharmacyDetailsPage>
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildPremiumInfoCard({
-    required IconData icon,
-    required String title,
-    required String content,
-    required List<Color> gradientColors,
-    VoidCallback? onTap,
-    IconData? actionIcon,
-    String? actionLabel,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? const Color(0xFF1E1E1E)
-            : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: gradientColors[0].withValues(alpha: 0.1),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: gradientColors[0].withValues(alpha: 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
-          splashColor: gradientColors[0].withValues(alpha: 0.1),
-          highlightColor: gradientColors[0].withValues(alpha: 0.05),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                // Icon with gradient background
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: gradientColors,
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: gradientColors[0].withValues(alpha: 0.3),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Icon(icon, color: Colors.white, size: 22),
-                ),
-                const SizedBox(width: 16),
-
-                // Content
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.grey[400]
-                              : Colors.grey[500],
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        content,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white
-                              : const Color(0xFF1A1A1A),
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Action button
-                if (onTap != null && actionIcon != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: gradientColors[0].withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(actionIcon, size: 16, color: gradientColors[0]),
-                        if (actionLabel != null) ...[
-                          const SizedBox(width: 4),
-                          Text(
-                            actionLabel,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: gradientColors[0],
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 

@@ -185,7 +185,7 @@ void main() {
   // LoyaltyEntity
   // ────────────────────────────────────────────────────────────────────────────
   group('LoyaltyEntity', () {
-    Map<String, dynamic> _entityJson({
+    Map<String, dynamic> entityJson({
       int totalPoints = 600,
       int availablePoints = 500,
       String tier = 'silver',
@@ -204,7 +204,7 @@ void main() {
     };
 
     test('fromJson parses all fields', () {
-      final entity = LoyaltyEntity.fromJson(_entityJson());
+      final entity = LoyaltyEntity.fromJson(entityJson());
       expect(entity.totalPoints, 600);
       expect(entity.availablePoints, 500);
       expect(entity.tier, LoyaltyTier.silver);
@@ -225,7 +225,7 @@ void main() {
 
     test('fromJson parses available_rewards', () {
       final entity = LoyaltyEntity.fromJson(
-        _entityJson(
+        entityJson(
           availableRewards: [
             <String, dynamic>{
               'id': 'r1',
@@ -244,14 +244,14 @@ void main() {
     group('progressToNextTier', () {
       test('platinum tier → 1.0', () {
         final entity = LoyaltyEntity.fromJson(
-          _entityJson(tier: 'platinum', totalPoints: 6000),
+          entityJson(tier: 'platinum', totalPoints: 6000),
         );
         expect(entity.progressToNextTier, 1.0);
       });
 
       test('silver: 600/500..2000 → 100/1500 ≈ 0.0667', () {
         final entity = LoyaltyEntity.fromJson(
-          _entityJson(tier: 'silver', totalPoints: 600),
+          entityJson(tier: 'silver', totalPoints: 600),
         );
         // progress = (600 - 500) / (2000 - 500) = 100/1500 ≈ 0.0667
         expect(entity.progressToNextTier, closeTo(100 / 1500, 0.001));
@@ -259,14 +259,14 @@ void main() {
 
       test('bronze: 200 points → 200/500 = 0.4', () {
         final entity = LoyaltyEntity.fromJson(
-          _entityJson(tier: 'bronze', totalPoints: 200),
+          entityJson(tier: 'bronze', totalPoints: 200),
         );
         expect(entity.progressToNextTier, closeTo(0.4, 0.001));
       });
 
       test('clamped to 0.0 when below tier min', () {
         final entity = LoyaltyEntity.fromJson(
-          _entityJson(tier: 'silver', totalPoints: 400),
+          entityJson(tier: 'silver', totalPoints: 400),
         );
         expect(entity.progressToNextTier, 0.0);
       });
@@ -275,7 +275,7 @@ void main() {
     test(
       'props contains totalPoints, availablePoints, tier, totalOrders, totalSpent',
       () {
-        final entity = LoyaltyEntity.fromJson(_entityJson());
+        final entity = LoyaltyEntity.fromJson(entityJson());
         expect(
           entity.props,
           containsAll([600, 500, LoyaltyTier.silver, 8, 15000.0]),

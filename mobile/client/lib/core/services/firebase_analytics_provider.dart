@@ -15,7 +15,7 @@
 ///   ],
 /// );
 /// ```
-library firebase_analytics_provider;
+library;
 
 // import 'package:firebase_analytics/firebase_analytics.dart';
 // 

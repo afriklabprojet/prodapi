@@ -186,7 +186,7 @@ void main() {
   // ProfileEntity
   // ────────────────────────────────────────────────────────────────────────────
   group('ProfileEntity', () {
-    ProfileEntity _make({
+    ProfileEntity make({
       String? phone,
       String? avatar,
       String? defaultAddress,
@@ -203,45 +203,45 @@ void main() {
     group('hasAvatar', () {
       test(
         'false when avatar is null',
-        () => expect(_make().hasAvatar, isFalse),
+        () => expect(make().hasAvatar, isFalse),
       );
       test(
         'false when avatar is empty',
-        () => expect(_make(avatar: '').hasAvatar, isFalse),
+        () => expect(make(avatar: '').hasAvatar, isFalse),
       );
       test(
         'true when avatar set',
-        () => expect(_make(avatar: 'https://img.png').hasAvatar, isTrue),
+        () => expect(make(avatar: 'https://img.png').hasAvatar, isTrue),
       );
     });
 
     group('hasPhone', () {
-      test('false when phone is null', () => expect(_make().hasPhone, isFalse));
+      test('false when phone is null', () => expect(make().hasPhone, isFalse));
       test(
         'false when phone is empty',
-        () => expect(_make(phone: '').hasPhone, isFalse),
+        () => expect(make(phone: '').hasPhone, isFalse),
       );
       test(
         'true when phone set',
-        () => expect(_make(phone: '+2250700').hasPhone, isTrue),
+        () => expect(make(phone: '+2250700').hasPhone, isTrue),
       );
     });
 
     group('hasDefaultAddress', () {
-      test('false when null', () => expect(_make().hasDefaultAddress, isFalse));
+      test('false when null', () => expect(make().hasDefaultAddress, isFalse));
       test(
         'false when empty',
-        () => expect(_make(defaultAddress: '').hasDefaultAddress, isFalse),
+        () => expect(make(defaultAddress: '').hasDefaultAddress, isFalse),
       );
       test(
         'true when set',
-        () => expect(_make(defaultAddress: 'Cocody').hasDefaultAddress, isTrue),
+        () => expect(make(defaultAddress: 'Cocody').hasDefaultAddress, isTrue),
       );
     });
 
     group('initials', () {
       test('two-word name → first letters uppercase', () {
-        expect(_make().initials, 'AK');
+        expect(make().initials, 'AK');
       });
 
       test('single-word name → first letter', () {
@@ -267,28 +267,28 @@ void main() {
 
     group('copyWith', () {
       test('copies with new name', () {
-        expect(_make().copyWith(name: 'Chantal').name, 'Chantal');
+        expect(make().copyWith(name: 'Chantal').name, 'Chantal');
       });
 
       test('clearPhone removes phone', () {
-        final e = _make(phone: '+22500').copyWith(clearPhone: true);
+        final e = make(phone: '+22500').copyWith(clearPhone: true);
         expect(e.phone, isNull);
       });
 
       test('clearAvatar removes avatar', () {
-        final e = _make(avatar: 'url').copyWith(clearAvatar: true);
+        final e = make(avatar: 'url').copyWith(clearAvatar: true);
         expect(e.avatar, isNull);
       });
 
       test('clearDefaultAddress removes address', () {
-        final e = _make(
+        final e = make(
           defaultAddress: 'Abidjan',
         ).copyWith(clearDefaultAddress: true);
         expect(e.defaultAddress, isNull);
       });
 
       test('unchanged fields carry over', () {
-        final original = _make(
+        final original = make(
           phone: '+22507',
           avatar: 'url',
           defaultAddress: 'Yop',

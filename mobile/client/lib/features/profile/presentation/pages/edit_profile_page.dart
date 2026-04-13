@@ -7,6 +7,7 @@ import '../../../../core/providers/ui_state_providers.dart';
 import '../../../../core/widgets/cached_image.dart';
 import '../../domain/entities/update_profile_entity.dart';
 import '../providers/profile_provider.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 
 // Provider IDs pour cette page
 const _obscureCurrentPwdId = 'edit_profile_obscure_current';
@@ -245,21 +246,11 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
 
     if (mounted) {
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profil mis à jour avec succès'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        AppSnackbar.success(context, 'Profil mis à jour avec succès');
         Navigator.of(context).pop();
       } else {
         final errorMessage = ref.read(profileProvider).errorMessage;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage ?? 'Erreur lors de la mise à jour'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppSnackbar.error(context, errorMessage ?? 'Erreur lors de la mise à jour');
       }
     }
   }

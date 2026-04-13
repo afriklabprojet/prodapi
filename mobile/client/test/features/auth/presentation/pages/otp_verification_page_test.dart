@@ -143,18 +143,18 @@ void main() {
       routes: [
         GoRoute(
           path: '/otp',
-          builder: (_, __) => OtpVerificationPage(
+          builder: (_, _) => OtpVerificationPage(
             phoneNumber: phoneNumber,
             sendOtpOnInit: false,
           ),
         ),
         GoRoute(
           path: '/login',
-          builder: (_, __) => const Scaffold(body: Text('Login Page')),
+          builder: (_, _) => const Scaffold(body: Text('Login Page')),
         ),
         GoRoute(
           path: '/home',
-          builder: (_, __) => const Scaffold(body: Text('Home Page')),
+          builder: (_, _) => const Scaffold(body: Text('Home Page')),
         ),
       ],
     );
