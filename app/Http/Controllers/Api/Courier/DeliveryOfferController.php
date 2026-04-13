@@ -233,29 +233,4 @@ class DeliveryOfferController extends Controller
             ],
         ]);
     }
-
-    /**
-     * Marquer une offre comme vue (analytics)
-     * 
-     * POST /api/courier/offers/{id}/view
-     */
-    public function view(Request $request, $id)
-    {
-        $courier = $request->user()->courier;
-
-        if (!$courier) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Profil livreur non trouvé',
-            ], 403);
-        }
-
-        $offer = DeliveryOffer::find($id);
-
-        if ($offer) {
-            $offer->markAsViewed($courier);
-        }
-
-        return response()->json(['success' => true]);
-    }
 }

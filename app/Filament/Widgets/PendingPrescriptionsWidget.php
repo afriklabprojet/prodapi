@@ -8,7 +8,7 @@ use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Filament\Forms;
 use Filament\Notifications\Notification;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\HtmlString;
 
 class PendingPrescriptionsWidget extends BaseWidget
 {
@@ -25,7 +25,6 @@ class PendingPrescriptionsWidget extends BaseWidget
         return $table
             ->query(
                 Prescription::query()
-                    ->with('customer')
                     ->where('status', 'pending')
                     ->orderBy('created_at', 'desc')
                     ->limit(10)
@@ -64,11 +63,40 @@ class PendingPrescriptionsWidget extends BaseWidget
                     ->color('info')
                     ->modalHeading(fn ($record) => 'Ordonnance #' . $record->id)
                     ->modalContent(function ($record) {
-                        return view('filament.modals.prescription-view', [
-                            'prescription' => $record,
-                            'customer' => $record->customer,
-                            'images' => $record->getRawImages(),
-                        ]);
+                        $images = $record->getRawImages();
+                        $customer = $record->customer;
+                        
+                        $html = '<div style="padding: 10px;">';
+                        
+                        // Info client
+                        $html .= '<div style="background: #f3f4f6; padding: 12px; border-radius: 8px; margin-bottom: 16px;">';
+                        $html .= '<strong>Client:</strong> ' . ($customer?->name ?? 'Inconnu') . '<br>';
+                        $html .= '<strong>Téléphone:</strong> ' . ($customer?->phone ?? 'N/A') . '<br>';
+                        $html .= '<strong>Email:</strong> ' . ($customer?->email ?? 'N/A') . '<br>';
+                        if ($record->notes) {
+                            $html .= '<strong>Notes:</strong> ' . e($record->notes);
+                        }
+                        $html .= '</div>';
+                        
+                        // Images
+                        if (empty($images)) {
+                            $html .= '<p style="text-align: center; color: #666;">Aucune image</p>';
+                        } else {
+                            $html .= '<div style="display: flex; flex-direction: column; gap: 16px; align-items: center;">';
+                            foreach ($images as $index => $image) {
+                                $url = route('admin.documents.view', ['path' => $image]);
+                                $html .= '<div style="text-align: center;">';
+                                $html .= '<a href="' . $url . '" target="_blank" title="Cliquer pour ouvrir dans un nouvel onglet">';
+                                $html .= '<img src="' . $url . '" style="max-width: 100%; max-height: 500px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.15);" />';
+                                $html .= '</a>';
+                                $html .= '</div>';
+                            }
+                            $html .= '</div>';
+                        }
+                        
+                        $html .= '</div>';
+                        
+                        return new HtmlString($html);
                     })
                     ->modalWidth('4xl')
                     ->modalSubmitAction(false)
@@ -84,7 +112,7 @@ class PendingPrescriptionsWidget extends BaseWidget
                         $record->update([
                             'status' => 'validated',
                             'validated_at' => now(),
-                            'validated_by' => Auth::id(),
+                            'validated_by' => auth()->user()?->getAuthIdentifier(),
                         ]);
                         Notification::make()
                             ->title('Ordonnance #' . $record->id . ' validée')
@@ -112,7 +140,7 @@ class PendingPrescriptionsWidget extends BaseWidget
                             'quote_amount' => $data['quote_amount'],
                             'admin_notes' => $data['notes'] ?? null,
                             'validated_at' => now(),
-                            'validated_by' => Auth::id(),
+                            'validated_by' => auth()->user()?->getAuthIdentifier(),
                         ]);
                         Notification::make()
                             ->title('Devis envoyé: ' . number_format($data['quote_amount'], 0, ',', ' ') . ' FCFA')

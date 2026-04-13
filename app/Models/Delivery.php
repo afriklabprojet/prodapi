@@ -96,14 +96,6 @@ class Delivery extends Model
     }
 
     /**
-     * Points de tracking GPS
-     */
-    public function trackingPoints(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(DeliveryTrackingPoint::class);
-    }
-
-    /**
      * Scope: livraisons en cours
      */
     public function scopeInProgress($query)

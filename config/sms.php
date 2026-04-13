@@ -53,11 +53,6 @@ return [
         // Configurer dans: Portail Infobip > Channels > SMS > Settings
         'notify_url' => env('INFOBIP_SMS_NOTIFY_URL', env('APP_URL') . '/api/webhooks/sms/delivery'),
 
-        // ─── Webhook Security ───────────────────────────────────────────────
-        // Secret partagé avec Infobip pour valider les webhooks (HMAC-SHA256)
-        // Configurer dans: Portail Infobip > Developer tools > Webhooks > Security
-        'webhook_secret' => env('INFOBIP_WEBHOOK_SECRET'),
-
         // ─── Translitération ────────────────────────────────────────────────
         // Convertir les caractères spéciaux pour économiser des SMS
         // Options: TURKISH, GREEK, CYRILLIC, SERBIAN_CYRILLIC, 

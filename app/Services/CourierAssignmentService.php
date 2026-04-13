@@ -69,13 +69,6 @@ class CourierAssignmentService
                     Log::error("Failed to send notification to courier {$courier->id}: " . $e->getMessage());
                 }
 
-                // Notifier la pharmacie qu'un livreur a été assigné
-                try {
-                    $pharmacy->user->notify(new \App\Notifications\CourierAssignedToPharmacyNotification($delivery, $order));
-                } catch (\Exception $e) {
-                    Log::error("Failed to send courier-assigned notification to pharmacy {$pharmacy->id}: " . $e->getMessage());
-                }
-
                 return $delivery;
             });
         } catch (\Exception $e) {

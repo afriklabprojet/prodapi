@@ -47,14 +47,15 @@ class CourierShiftsWidget extends BaseWidget
                 Tables\Columns\TextColumn::make('status')
                     ->label('Statut')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn ($state) => match($state) {
                         CourierShift::STATUS_IN_PROGRESS => 'success',
                         CourierShift::STATUS_CONFIRMED => 'info',
                         CourierShift::STATUS_COMPLETED => 'gray',
-                        CourierShift::STATUS_CANCELLED, CourierShift::STATUS_NO_SHOW => 'danger',
+                        CourierShift::STATUS_CANCELLED => 'danger',
+                        CourierShift::STATUS_NO_SHOW => 'danger',
                         default => 'gray',
                     })
-                    ->icon(fn (string $state): ?string => match ($state) {
+                    ->icon(fn ($state) => match($state) {
                         CourierShift::STATUS_IN_PROGRESS => 'heroicon-o-play',
                         CourierShift::STATUS_CONFIRMED => 'heroicon-o-check',
                         CourierShift::STATUS_COMPLETED => 'heroicon-o-check-badge',

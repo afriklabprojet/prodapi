@@ -15,14 +15,9 @@ class DispatchStatsWidget extends BaseWidget
 {
     protected static ?int $sort = 1;
     
-    protected static ?string $pollingInterval = '30s';
+    protected static ?string $pollingInterval = '10s';
 
     protected function getStats(): array
-    {
-        return $this->computeStats();
-    }
-
-    protected function computeStats(): array
     {
         // Offres en attente
         $pendingOffers = DeliveryOffer::where('status', DeliveryOffer::STATUS_PENDING)
@@ -36,18 +31,12 @@ class DispatchStatsWidget extends BaseWidget
         // Livreurs actifs (en shift)
         $activeShifts = CourierShift::where('status', CourierShift::STATUS_IN_PROGRESS)
             ->count();
-
-        // Stats d'aujourd'hui en 1 seule requête (au lieu de 3)
-        $todayStats = DeliveryOffer::query()
-            ->selectRaw('COUNT(*) as total')
-            ->selectRaw('SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as accepted', [DeliveryOffer::STATUS_ACCEPTED])
-            ->selectRaw('SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as no_courier', [DeliveryOffer::STATUS_NO_COURIER])
-            ->whereDate('created_at', today())
-            ->first();
-
-        $todayOffers = (int) $todayStats->total;
-        $acceptedToday = (int) $todayStats->accepted;
-        $noCourierToday = (int) $todayStats->no_courier;
+            
+        // Taux d'acceptation aujourd'hui
+        $todayOffers = DeliveryOffer::whereDate('created_at', today())->count();
+        $acceptedToday = DeliveryOffer::whereDate('created_at', today())
+            ->where('status', DeliveryOffer::STATUS_ACCEPTED)
+            ->count();
         $acceptanceRate = $todayOffers > 0 ? round(($acceptedToday / $todayOffers) * 100) : 0;
         
         // Temps moyen d'acceptation
@@ -57,6 +46,11 @@ class DispatchStatsWidget extends BaseWidget
             ->selectRaw('AVG(TIMESTAMPDIFF(SECOND, created_at, accepted_at)) as avg_time')
             ->value('avg_time');
         $avgAcceptTimeFormatted = $avgAcceptTime ? round($avgAcceptTime) . 's' : '-';
+        
+        // Offres sans livreur aujourd'hui
+        $noCourierToday = DeliveryOffer::whereDate('created_at', today())
+            ->where('status', DeliveryOffer::STATUS_NO_COURIER)
+            ->count();
 
         return [
             Stat::make('Offres en attente', $pendingOffers)

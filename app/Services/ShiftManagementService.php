@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Courier;
 use App\Models\CourierShift;
 use App\Models\CourierShiftSlot;
-use App\Services\GeoZoneService;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -13,13 +12,6 @@ use Illuminate\Support\Facades\Log;
 
 class ShiftManagementService
 {
-    protected GeoZoneService $geoZoneService;
-
-    public function __construct(GeoZoneService $geoZoneService)
-    {
-        $this->geoZoneService = $geoZoneService;
-    }
-
     /**
      * Types de shifts disponibles
      */
@@ -287,25 +279,7 @@ class ShiftManagementService
                 $this->recordViolation($shift, CourierShift::VIOLATION_GPS_STALE, 'Position GPS non mise à jour depuis 15 minutes');
             }
 
-            // Vérifier si le livreur est dans sa zone assignée
-            if ($courier->latitude && $courier->longitude && $shift->zone_id) {
-                $isInZone = $this->geoZoneService->isCourierInAssignedZone($courier, $shift->zone_id);
-                
-                if (!$isInZone) {
-                    $currentZone = $this->geoZoneService->getZoneIdFromCoordinates(
-                        $courier->latitude, 
-                        $courier->longitude
-                    );
-                    $expectedZone = $this->geoZoneService->getZoneInfo($shift->zone_id);
-                    $expectedZoneName = $expectedZone ? $expectedZone['name'] : $shift->zone_id;
-                    
-                    $this->recordViolation(
-                        $shift, 
-                        CourierShift::VIOLATION_OUT_OF_ZONE, 
-                        "Livreur hors de sa zone assignée ({$expectedZoneName}). Zone actuelle: {$currentZone}"
-                    );
-                }
-            }
+            // TODO: Vérifier si le livreur est dans la zone
         }
     }
 

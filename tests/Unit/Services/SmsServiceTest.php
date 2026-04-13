@@ -10,11 +10,9 @@ use Illuminate\Support\Facades\Log;
 use Mockery;
 use Tests\TestCase;
 use PHPUnit\Framework\Attributes\Test;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class SmsServiceTest extends TestCase
 {
-    use RefreshDatabase;
     protected function setUp(): void
     {
         parent::setUp();

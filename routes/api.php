@@ -28,16 +28,12 @@ Route::middleware('throttle:webhook')->group(function () {
     Route::get('/webhooks/jeko/health', [\App\Http\Controllers\Api\JekoWebhookController::class, 'health']);
 
     // WhatsApp Infobip webhooks
-    Route::middleware(\App\Http\Middleware\VerifyInfobipWebhook::class)->group(function () {
-        Route::post('/webhooks/whatsapp/delivery', [\App\Http\Controllers\Api\WhatsAppWebhookController::class, 'deliveryReport'])->name('webhooks.whatsapp.delivery');
-        Route::post('/webhooks/whatsapp/incoming', [\App\Http\Controllers\Api\WhatsAppWebhookController::class, 'incomingMessage'])->name('webhooks.whatsapp.incoming');
-    });
+    Route::post('/webhooks/whatsapp/delivery', [\App\Http\Controllers\Api\WhatsAppWebhookController::class, 'deliveryReport'])->name('webhooks.whatsapp.delivery');
+    Route::post('/webhooks/whatsapp/incoming', [\App\Http\Controllers\Api\WhatsAppWebhookController::class, 'incomingMessage'])->name('webhooks.whatsapp.incoming');
 
     // SMS Infobip webhooks
-    Route::middleware(\App\Http\Middleware\VerifyInfobipWebhook::class)->group(function () {
-        Route::post('/webhooks/sms/delivery', [\App\Http\Controllers\Api\SmsWebhookController::class, 'deliveryReport'])->name('webhooks.sms.delivery');
-        Route::post('/webhooks/sms/incoming', [\App\Http\Controllers\Api\SmsWebhookController::class, 'incomingMessage'])->name('webhooks.sms.incoming');
-    });
+    Route::post('/webhooks/sms/delivery', [\App\Http\Controllers\Api\SmsWebhookController::class, 'deliveryReport'])->name('webhooks.sms.delivery');
+    Route::post('/webhooks/sms/incoming', [\App\Http\Controllers\Api\SmsWebhookController::class, 'incomingMessage'])->name('webhooks.sms.incoming');
 });
 
 // JEKO Payment Callbacks (no auth required - redirect from JEKO)
@@ -425,10 +421,6 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         Route::get('/offers/{id}', [\App\Http\Controllers\Api\Courier\DeliveryOfferController::class, 'show']);
         Route::post('/offers/{id}/accept', [\App\Http\Controllers\Api\Courier\DeliveryOfferController::class, 'accept']);
         Route::post('/offers/{id}/reject', [\App\Http\Controllers\Api\Courier\DeliveryOfferController::class, 'reject']);
-        Route::post('/offers/{id}/view', [\App\Http\Controllers\Api\Courier\DeliveryOfferController::class, 'view']);
-
-        // Heatmap opportunites (Phase 7)
-        Route::get('/heatmap/opportunities', [\App\Http\Controllers\Api\Courier\HeatmapController::class, 'opportunities']);
 
         // === SHIFT MANAGEMENT (Phase 6) - Réservation de créneaux ===
         Route::get('/shifts', [\App\Http\Controllers\Api\Courier\ShiftController::class, 'index']);

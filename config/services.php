@@ -114,25 +114,4 @@ return [
         'api_key' => env('GOOGLE_VISION_API_KEY', env('GOOGLE_MAPS_API_KEY')),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Geo & Traffic Services Configuration
-    |--------------------------------------------------------------------------
-    */
-
-    'openweather' => [
-        'key' => env('OPENWEATHER_API_KEY'),
-        'cache_ttl' => env('OPENWEATHER_CACHE_TTL', 900), // 15 minutes
-    ],
-
-    'tomtom' => [
-        'key' => env('TOMTOM_API_KEY'),
-        'cache_ttl' => env('TOMTOM_CACHE_TTL', 300), // 5 minutes
-    ],
-
-    'osrm' => [
-        'url' => env('OSRM_URL', 'https://router.project-osrm.org'),
-        'timeout' => env('OSRM_TIMEOUT', 10), // seconds
-    ],
-
 ];

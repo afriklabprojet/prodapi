@@ -6,7 +6,6 @@ use App\Models\Order;
 use App\Models\Delivery;
 use Filament\Widgets\ChartWidget;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 
 class DeliveryPerformanceChart extends ChartWidget
 {
@@ -20,33 +19,34 @@ class DeliveryPerformanceChart extends ChartWidget
 
     protected function getData(): array
     {
-        $startDate = Carbon::now()->subDays(6)->startOfDay();
-        $endDate = Carbon::now()->endOfDay();
-
-        // 1 seule requête pour delivered + cancelled (au lieu de 14)
-        $orderStats = Order::query()
-            ->selectRaw('DATE(updated_at) as date')
-            ->selectRaw('SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as delivered_count', ['delivered'])
-            ->selectRaw('SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as cancelled_count', ['cancelled'])
-            ->whereBetween('updated_at', [$startDate, $endDate])
-            ->whereIn('status', ['delivered', 'cancelled'])
-            ->groupBy('date')
-            ->get()
-            ->keyBy('date');
-
-        // Construire les séries avec les 7 jours (même si certains n'ont pas de données)
         $dates = collect();
         $delivered = collect();
         $cancelled = collect();
+        $avgTime = collect();
 
         for ($i = 6; $i >= 0; $i--) {
             $date = Carbon::now()->subDays($i);
-            $dateKey = $date->format('Y-m-d');
             $dates->push($date->format('d/m'));
-
-            $dayStats = $orderStats->get($dateKey);
-            $delivered->push((int) ($dayStats->delivered_count ?? 0));
-            $cancelled->push((int) ($dayStats->cancelled_count ?? 0));
+            
+            // Commandes livrées
+            $deliveredCount = Order::whereDate('updated_at', $date)
+                ->where('status', 'delivered')
+                ->count();
+            $delivered->push($deliveredCount);
+            
+            // Commandes annulées
+            $cancelledCount = Order::whereDate('updated_at', $date)
+                ->where('status', 'cancelled')
+                ->count();
+            $cancelled->push($cancelledCount);
+            
+            // Temps moyen de livraison (en minutes) - Compatible MySQL
+            $avgDeliveryTime = Delivery::whereDate('delivered_at', $date)
+                ->whereNotNull('delivered_at')
+                ->whereNotNull('accepted_at')
+                ->selectRaw('AVG(TIMESTAMPDIFF(MINUTE, accepted_at, delivered_at)) as avg_time')
+                ->value('avg_time') ?? 0;
+            $avgTime->push(round($avgDeliveryTime));
         }
 
         return [

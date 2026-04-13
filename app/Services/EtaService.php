@@ -7,7 +7,6 @@ use App\Models\Delivery;
 use App\Models\DeliveryTrackingPoint;
 use App\Models\Order;
 use App\Models\Pharmacy;
-use App\Services\GeoZoneService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -15,13 +14,6 @@ use Illuminate\Support\Facades\Log;
 
 class EtaService
 {
-    protected GeoZoneService $geoZoneService;
-
-    public function __construct(GeoZoneService $geoZoneService)
-    {
-        $this->geoZoneService = $geoZoneService;
-    }
-
     /**
      * Vitesses moyennes par type de véhicule (km/h) selon les conditions
      */
@@ -284,9 +276,28 @@ class EtaService
      */
     protected function getTrafficCondition(float $latitude, float $longitude): string
     {
-        // Utiliser GeoZoneService pour les conditions de trafic
-        // Inclut TomTom API si configuré + fallback heuristiques intelligentes
-        return $this->geoZoneService->getTrafficCondition($latitude, $longitude);
+        // TODO: Intégrer une API de trafic (Google Maps, HERE, TomTom)
+        // Pour l'instant, utiliser des heuristiques basées sur l'heure
+        
+        $hour = (int) now()->format('H');
+        $dayOfWeek = (int) now()->format('N');
+        
+        // Week-end: trafic normal
+        if ($dayOfWeek >= 6) {
+            return 'normal';
+        }
+
+        // Heures de pointe
+        if (($hour >= 7 && $hour <= 9) || ($hour >= 17 && $hour <= 19)) {
+            return 'heavy_traffic';
+        }
+
+        // Heures de bureau
+        if ($hour >= 12 && $hour <= 14) {
+            return 'traffic';
+        }
+
+        return 'normal';
     }
 
     /**
@@ -296,34 +307,9 @@ class EtaService
         float $startLat, float $startLng,
         float $endLat, float $endLng
     ): ?string {
-        // Utiliser GeoZoneService pour le routing OSRM
-        $route = $this->geoZoneService->getRoutePolyline($startLat, $startLng, $endLat, $endLng);
-        
-        return $route['polyline'] ?? null;
-    }
-
-    /**
-     * Obtenir les détails complets de la route
-     */
-    public function getRouteDetails(
-        float $startLat, float $startLng,
-        float $endLat, float $endLng
-    ): ?array {
-        return $this->geoZoneService->getRoutePolyline($startLat, $startLng, $endLat, $endLng);
-    }
-
-    /**
-     * Calculer le temps de trajet avec trafic via routing API
-     */
-    public function getRoutingEta(
-        float $startLat, float $startLng,
-        float $endLat, float $endLng
-    ): ?int {
-        return $this->geoZoneService->getRoutingDuration(
-            $startLat, $startLng, 
-            $endLat, $endLng, 
-            includeTraffic: true
-        );
+        // TODO: Intégrer une API de routing (OSRM, Google Directions)
+        // Pour l'instant, retourner null
+        return null;
     }
 
     /**

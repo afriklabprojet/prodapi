@@ -6,9 +6,8 @@ use App\Filament\Widgets\DispatchStatsWidget;
 use App\Filament\Widgets\BroadcastOffersWidget;
 use App\Filament\Widgets\CourierShiftsWidget;
 use App\Filament\Widgets\AvailableCouriersWidget;
-use App\Filament\Widgets\LiveDeliveryMapWidget;
+use App\Models\User;
 use Filament\Pages\Page;
-use Illuminate\Support\Facades\Auth;
 
 class LiveDispatchDashboard extends Page
 {
@@ -28,9 +27,8 @@ class LiveDispatchDashboard extends Page
 
     public static function canAccess(): bool
     {
-        /** @var \App\Models\User|null $user */
-        $user = Auth::user();
-
+        /** @var User|null $user */
+        $user = auth()->user();
         return $user?->isAdmin() ?? false;
     }
     
@@ -38,7 +36,6 @@ class LiveDispatchDashboard extends Page
     {
         return [
             DispatchStatsWidget::class,
-            LiveDeliveryMapWidget::class,
         ];
     }
     
@@ -53,7 +50,7 @@ class LiveDispatchDashboard extends Page
     
     public function getHeaderWidgetsColumns(): int|array
     {
-        return 1;
+        return 6;
     }
     
     public function getFooterWidgetsColumns(): int|array
