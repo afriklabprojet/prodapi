@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\Setting;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -12,6 +13,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Concerns\InteractsWithForms;
+use Illuminate\Support\Facades\Cache;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -63,6 +65,7 @@ class LandingPageSettings extends Page implements HasForms
             'hero_phone_subtitle' => Setting::get('landing_hero_phone_subtitle', 'Votre pharmacie de poche'),
 
             // === STATS ===
+            'stats_auto' => Setting::get('landing_stats_auto', true),
             'stats' => Setting::get('landing_stats', [
                 ['value' => '500', 'suffix' => '+', 'label' => 'Pharmacies partenaires'],
                 ['value' => '10000', 'suffix' => '+', 'label' => 'Utilisateurs actifs'],
@@ -174,7 +177,9 @@ class LandingPageSettings extends Page implements HasForms
             'cta_highlight' => Setting::get('landing_cta_highlight', 'médicaments'),
             'cta_subtitle' => Setting::get('landing_cta_subtitle', 'Rejoignez des milliers d\'utilisateurs en Côte d\'Ivoire. Téléchargez l\'application gratuitement et commencez dès maintenant.'),
             'cta_appstore_url' => Setting::get('landing_cta_appstore_url', '#'),
+            'cta_appstore_text' => Setting::get('landing_cta_appstore_text', 'App Store'),
             'cta_playstore_url' => Setting::get('landing_cta_playstore_url', '#'),
+            'cta_playstore_text' => Setting::get('landing_cta_playstore_text', 'Google Play'),
             'cta_trust_1' => Setting::get('landing_cta_trust_1', '100% Sécurisé'),
             'cta_trust_2' => Setting::get('landing_cta_trust_2', 'Gratuit'),
             'cta_trust_3' => Setting::get('landing_cta_trust_3', 'Livraison < 45 min'),
@@ -280,8 +285,18 @@ class LandingPageSettings extends Page implements HasForms
                     ->icon('heroicon-o-chart-bar')
                     ->collapsible()
                     ->schema([
+                        Toggle::make('stats_auto')
+                            ->label('Stats automatiques (depuis la base de données)')
+                            ->helperText('Activé = les stats sont calculées automatiquement (pharmacies, commandes, coursiers...). Désactivé = vous saisissez les valeurs manuellement ci-dessous.')
+                            ->live()
+                            ->default(true),
+                        Placeholder::make('stats_info')
+                            ->label('')
+                            ->content('✅ Les statistiques sont calculées en temps réel depuis la base de données avec un cache de 10 minutes.')
+                            ->visible(fn ($get) => $get('stats_auto') === true),
                         Repeater::make('stats')
-                            ->label('Statistiques')
+                            ->label('Statistiques manuelles')
+                            ->visible(fn ($get) => $get('stats_auto') === false)
                             ->schema([
                                 TextInput::make('value')
                                     ->label('Valeur (nombre)')
@@ -573,6 +588,14 @@ class LandingPageSettings extends Page implements HasForms
                                 ->label('Lien Google Play')
                                 ->url(),
                         ]),
+                        Grid::make(2)->schema([
+                            TextInput::make('cta_appstore_text')
+                                ->label('Texte bouton App Store')
+                                ->default('App Store'),
+                            TextInput::make('cta_playstore_text')
+                                ->label('Texte bouton Google Play')
+                                ->default('Google Play'),
+                        ]),
                         Grid::make(4)->schema([
                             TextInput::make('cta_trust_1')->label('Trust 1'),
                             TextInput::make('cta_trust_2')->label('Trust 2'),
@@ -647,7 +670,11 @@ class LandingPageSettings extends Page implements HasForms
         Setting::set('landing_hero_phone_subtitle', $data['hero_phone_subtitle'], 'string');
 
         // Stats
+        Setting::set('landing_stats_auto', $data['stats_auto'] ? true : false, 'boolean');
         Setting::set('landing_stats', json_encode($data['stats']), 'json');
+
+        // Vider le cache des stats pour appliquer immédiatement
+        Cache::forget('landing_stats_live');
 
         // Features
         Setting::set('landing_features_badge', $data['features_badge'], 'string');
@@ -688,7 +715,9 @@ class LandingPageSettings extends Page implements HasForms
         Setting::set('landing_cta_highlight', $data['cta_highlight'], 'string');
         Setting::set('landing_cta_subtitle', $data['cta_subtitle'], 'string');
         Setting::set('landing_cta_appstore_url', $data['cta_appstore_url'], 'string');
+        Setting::set('landing_cta_appstore_text', $data['cta_appstore_text'] ?? 'App Store', 'string');
         Setting::set('landing_cta_playstore_url', $data['cta_playstore_url'], 'string');
+        Setting::set('landing_cta_playstore_text', $data['cta_playstore_text'] ?? 'Google Play', 'string');
         Setting::set('landing_cta_trust_1', $data['cta_trust_1'], 'string');
         Setting::set('landing_cta_trust_2', $data['cta_trust_2'], 'string');
         Setting::set('landing_cta_trust_3', $data['cta_trust_3'], 'string');

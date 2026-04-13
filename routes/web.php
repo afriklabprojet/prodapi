@@ -16,29 +16,38 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Admin\PrivateDocumentController;
 
 Route::get('/', function () {
-    // Stats dynamiques — cache 10 min pour éviter les requêtes à chaque visite
-    $stats = Cache::remember('landing_stats_live', 600, function () {
-        $pharmacyCount = Pharmacy::count();
-        $orderCount = Order::where('status', 'delivered')->count();
-        $productCount = Product::count();
-        $customerCount = Customer::count();
-        $courierCount = Courier::count();
+    // Stats : automatiques (BDD) ou manuelles (Filament)
+    $useAutoStats = Setting::get('landing_stats_auto', true);
+    if ($useAutoStats) {
+        $stats = Cache::remember('landing_stats_live', 600, function () {
+            $pharmacyCount = Pharmacy::count();
+            $orderCount = Order::where('status', 'delivered')->count();
+            $productCount = Product::count();
+            $customerCount = Customer::count();
+            $courierCount = Courier::count();
 
-        // Délai moyen de livraison (en minutes)
-        $avgDelivery = Delivery::where('status', 'delivered')
-            ->whereNotNull('assigned_at')
-            ->whereNotNull('delivered_at')
-            ->select(DB::raw('AVG(TIMESTAMPDIFF(MINUTE, assigned_at, delivered_at)) as avg_min'))
-            ->value('avg_min');
-        $avgMin = $avgDelivery ? round($avgDelivery) : 30;
+            $avgDelivery = Delivery::where('status', 'delivered')
+                ->whereNotNull('assigned_at')
+                ->whereNotNull('delivered_at')
+                ->select(DB::raw('AVG(TIMESTAMPDIFF(MINUTE, assigned_at, delivered_at)) as avg_min'))
+                ->value('avg_min');
+            $avgMin = $avgDelivery ? round($avgDelivery) : 30;
 
-        return [
-            ['value' => (string) $pharmacyCount, 'suffix' => '', 'label' => 'Pharmacies partenaires'],
-            ['value' => (string) ($orderCount ?: $customerCount), 'suffix' => '', 'label' => $orderCount ? 'Commandes livrées' : 'Utilisateurs inscrits'],
-            ['value' => (string) ($productCount ?: $courierCount), 'suffix' => '', 'label' => $productCount ? 'Médicaments disponibles' : 'Coursiers actifs'],
-            ['value' => (string) $avgMin, 'suffix' => ' min', 'label' => 'Délai moyen de livraison'],
-        ];
-    });
+            return [
+                ['value' => (string) $pharmacyCount, 'suffix' => '', 'label' => 'Pharmacies partenaires'],
+                ['value' => (string) ($orderCount ?: $customerCount), 'suffix' => '', 'label' => $orderCount ? 'Commandes livrées' : 'Utilisateurs inscrits'],
+                ['value' => (string) ($productCount ?: $courierCount), 'suffix' => '', 'label' => $productCount ? 'Médicaments disponibles' : 'Coursiers actifs'],
+                ['value' => (string) $avgMin, 'suffix' => ' min', 'label' => 'Délai moyen de livraison'],
+            ];
+        });
+    } else {
+        $stats = Setting::get('landing_stats', [
+            ['value' => '6', 'suffix' => '', 'label' => 'Pharmacies partenaires'],
+            ['value' => '1', 'suffix' => '', 'label' => 'Utilisateurs inscrits'],
+            ['value' => '2', 'suffix' => '', 'label' => 'Coursiers actifs'],
+            ['value' => '30', 'suffix' => ' min', 'label' => 'Délai moyen'],
+        ]);
+    }
 
     $landing = [
         // SEO
@@ -51,7 +60,9 @@ Route::get('/', function () {
         'hero_title_line2' => Setting::get('landing_hero_title_line2', 'livrés chez vous.'),
         'hero_subtitle' => Setting::get('landing_hero_subtitle', 'Commandez depuis votre téléphone, on s\'occupe de la livraison. Fini les files d\'attente en pharmacie.'),
         'hero_cta_appstore_url' => Setting::get('landing_hero_cta_appstore_url', '#telecharger'),
+        'hero_cta_appstore_text' => Setting::get('landing_hero_cta_appstore_text', 'App Store'),
         'hero_cta_playstore_url' => Setting::get('landing_hero_cta_playstore_url', '#telecharger'),
+        'hero_cta_playstore_text' => Setting::get('landing_hero_cta_playstore_text', 'Google Play'),
         'hero_trust_1' => Setting::get('landing_hero_trust_1', 'Téléchargement gratuit'),
         'hero_trust_2' => Setting::get('landing_hero_trust_2', 'Données protégées'),
         'hero_trust_3' => Setting::get('landing_hero_trust_3', 'Livraison rapide'),
@@ -125,7 +136,9 @@ Route::get('/', function () {
         'cta_highlight' => Setting::get('landing_cta_highlight', 'dès maintenant'),
         'cta_subtitle' => Setting::get('landing_cta_subtitle', 'Disponible gratuitement sur Android et bientôt sur iOS.'),
         'cta_appstore_url' => Setting::get('landing_cta_appstore_url', '#'),
+        'cta_appstore_text' => Setting::get('landing_cta_appstore_text', 'App Store'),
         'cta_playstore_url' => Setting::get('landing_cta_playstore_url', '#'),
+        'cta_playstore_text' => Setting::get('landing_cta_playstore_text', 'Google Play'),
         'cta_trust_1' => Setting::get('landing_cta_trust_1', 'Données chiffrées'),
         'cta_trust_2' => Setting::get('landing_cta_trust_2', 'App gratuite'),
         'cta_trust_3' => Setting::get('landing_cta_trust_3', 'Livraison à Abidjan'),
