@@ -114,4 +114,14 @@ return [
         'api_key' => env('GOOGLE_VISION_API_KEY', env('GOOGLE_MAPS_API_KEY')),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | OpenWeatherMap - Weather-based delivery pricing
+    |--------------------------------------------------------------------------
+    */
+
+    'openweather' => [
+        'key' => env('OPENWEATHER_API_KEY'),
+    ],
+
 ];
