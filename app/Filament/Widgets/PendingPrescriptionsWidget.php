@@ -25,6 +25,7 @@ class PendingPrescriptionsWidget extends BaseWidget
         return $table
             ->query(
                 Prescription::query()
+                    ->with('customer')
                     ->where('status', 'pending')
                     ->orderBy('created_at', 'desc')
                     ->limit(10)
