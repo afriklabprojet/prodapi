@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Services\WalletService;
 use App\Services\GoogleMapsService;
+use App\Services\DynamicPricingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -148,16 +149,30 @@ class DeliveryPricingController extends Controller
         $distanceFee = (int) ceil($distanceKm * $pricing['fee_per_km']);
         $rawTotal = $baseFee + $distanceFee;
 
+        // Surge pricing (majoration dynamique)
+        $surgeData = app(DynamicPricingService::class)->getSurgeMultiplier();
+        $surgeMultiplier = $surgeData['multiplier'];
+        $finalDeliveryFee = (int) ceil($deliveryFee * $surgeMultiplier);
+        $surgeAmount = $finalDeliveryFee - $deliveryFee;
+
         return response()->json([
             'distance_km' => round($distanceKm, 2),
-            'delivery_fee' => $deliveryFee,
+            'delivery_fee' => $finalDeliveryFee,
+            'base_delivery_fee' => $deliveryFee,
             'estimated_duration_minutes' => $durationMinutes ?? null,
             'distance_source' => $distanceSource ?? 'provided',
             'currency' => 'XOF',
+            'surge' => [
+                'active' => $surgeMultiplier > 1.0,
+                'multiplier' => $surgeMultiplier,
+                'level' => $surgeData['level'],
+                'amount' => $surgeAmount,
+            ],
             'breakdown' => [
                 'base_fee' => $baseFee,
                 'distance_fee' => $distanceFee,
                 'raw_total' => $rawTotal,
+                'surge_amount' => $surgeAmount,
                 'min_applied' => $rawTotal < $pricing['min_fee'],
                 'max_applied' => $rawTotal > $pricing['max_fee'],
             ],

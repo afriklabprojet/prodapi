@@ -3,11 +3,19 @@
 namespace App\Services;
 
 use App\Models\Order;
+use App\Services\GeoZoneService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class DynamicPricingService
 {
+    protected GeoZoneService $geoZoneService;
+
+    public function __construct(GeoZoneService $geoZoneService)
+    {
+        $this->geoZoneService = $geoZoneService;
+    }
+
     /**
      * Configuration du surge pricing
      */
@@ -84,18 +92,31 @@ class DynamicPricingService
     protected function getDemandSupplyRatio(?string $zoneId = null): float
     {
         // Compter les ordres en attente
-        $pendingOrders = Order::where('status', 'confirmed')
-            ->whereNull('courier_id')
-            ->when($zoneId, function ($q) use ($zoneId) {
-                // Filtrer par zone si spécifié
-                // TODO: Implémenter le filtrage par zone
-            })
-            ->count();
+        $pendingOrdersQuery = Order::where('status', 'confirmed')
+            ->whereNull('courier_id');
+        
+        // Filtrer par zone si spécifié
+        if ($zoneId && $zoneId !== 'default') {
+            $pendingOrdersQuery = $this->geoZoneService->filterOrdersByZone($pendingOrdersQuery, $zoneId);
+        }
+        
+        $pendingOrders = $pendingOrdersQuery->count();
 
-        // Compter les livreurs disponibles
+        // Compter les livreurs disponibles dans la zone
         $availableCouriers = \App\Models\Courier::available()
             ->whereNotNull('last_location_update')
             ->where('last_location_update', '>=', now()->subMinutes(10))
+            ->when($zoneId && $zoneId !== 'default', function ($q) use ($zoneId) {
+                return $q->get()->filter(function ($courier) use ($zoneId) {
+                    return $this->geoZoneService->isInZone(
+                        $courier->latitude, 
+                        $courier->longitude, 
+                        $zoneId
+                    );
+                });
+            }, function ($q) {
+                return $q->get();
+            })
             ->count();
 
         if ($availableCouriers === 0) {
@@ -126,9 +147,8 @@ class DynamicPricingService
      */
     protected function getWeatherMultiplier(?string $zoneId = null): float
     {
-        // TODO: Intégrer une API météo (OpenWeather, etc.)
-        // Pour l'instant, retourner la valeur par défaut
-        $weather = Cache::get("weather_{$zoneId}", 'clear');
+        // Utiliser GeoZoneService pour la météo (intègre OpenWeather API + fallback heuristiques)
+        $weather = $this->geoZoneService->getWeatherCondition($zoneId ?? 'cocody');
         
         return self::WEATHER_MULTIPLIERS[$weather] ?? 1.0;
     }
@@ -189,11 +209,27 @@ class DynamicPricingService
     /**
      * Obtenir l'ID de zone pour une commande
      */
-    protected function getZoneIdForOrder(Order $order): ?string
+    protected function getZoneIdForOrder(Order $order): string
     {
-        // TODO: Implémenter le système de zones géographiques
-        // Pour l'instant, utiliser la ville de la pharmacie
-        return $order->pharmacy?->city ?? 'default';
+        // Utiliser les coordonnées de la pharmacie ou du client
+        $pharmacy = $order->pharmacy;
+        
+        if ($pharmacy && $pharmacy->latitude && $pharmacy->longitude) {
+            return $this->geoZoneService->getZoneIdFromCoordinates(
+                $pharmacy->latitude,
+                $pharmacy->longitude
+            );
+        }
+        
+        // Fallback sur l'adresse de livraison si disponible
+        if ($order->delivery_latitude && $order->delivery_longitude) {
+            return $this->geoZoneService->getZoneIdFromCoordinates(
+                $order->delivery_latitude,
+                $order->delivery_longitude
+            );
+        }
+        
+        return 'default';
     }
 
     /**
@@ -238,8 +274,8 @@ class DynamicPricingService
      */
     public function getSurgePricingInfo(float $latitude, float $longitude): array
     {
-        // TODO: Convertir coordonnées en zone
-        $zoneId = 'default';
+        // Convertir coordonnées en zone via GeoZoneService
+        $zoneId = $this->geoZoneService->getZoneIdFromCoordinates($latitude, $longitude);
         
         $status = $this->getSurgeStatus($zoneId);
 
@@ -253,6 +289,8 @@ class DynamicPricingService
 
         return [
             ...$status,
+            'zone_id' => $zoneId,
+            'zone_info' => $this->geoZoneService->getZoneInfo($zoneId),
             'message' => $messages[$status['level']],
             'estimated_wait_minutes' => $this->estimateWaitTime($zoneId),
         ];

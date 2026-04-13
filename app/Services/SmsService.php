@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Services\Infobip\InfobipClientFactory;
+use App\Jobs\CheckSmsDeliveryJob;
 use Infobip\Api\SmsApi;
 use Infobip\Api\TfaApi;
 use Infobip\ApiException;
@@ -54,11 +55,36 @@ class SmsService
     }
 
     /**
-     * Vérifier si un numéro a demandé le opt-out SMS
+     * Vérifier si un numéro a demandé le opt-out SMS.
+     * Utilise la table sms_optouts (persistant) avec cache de 1h.
      */
     public function isOptedOut(string $phone): bool
     {
-        return \Illuminate\Support\Facades\Cache::has("sms_optout:{$phone}");
+        return Cache::remember("sms_optout:{$phone}", 3600, function () use ($phone) {
+            return \App\Models\SmsOptout::where('phone', $phone)->exists();
+        });
+    }
+
+    /**
+     * Enregistrer un opt-out SMS (persistant en DB).
+     */
+    public function optOut(string $phone, ?string $reason = null): void
+    {
+        \App\Models\SmsOptout::updateOrCreate(
+            ['phone' => $this->normalizePhone($phone)],
+            ['reason' => $reason, 'opted_out_at' => now()],
+        );
+        Cache::put("sms_optout:{$this->normalizePhone($phone)}", true, 3600);
+    }
+
+    /**
+     * Annuler un opt-out SMS.
+     */
+    public function optIn(string $phone): void
+    {
+        $phone = $this->normalizePhone($phone);
+        \App\Models\SmsOptout::where('phone', $phone)->delete();
+        Cache::forget("sms_optout:{$phone}");
     }
 
     public function sendViaInfobip(string $phone, string $message, array $options = []): bool
@@ -123,16 +149,10 @@ class SmsService
                         'status'   => $statusGroupName,
                     ], now()->addHours(48));
 
-                    // Verify delivery report after a short delay
-                    // Infobip may accept (PENDING) then reject async (NOT_ENOUGH_CREDITS)
-                    usleep(1500000); // 1.5 seconds
-                    if ($this->isMessageRejected($messageId)) {
-                        Log::error('Infobip SMS rejected after delivery check', [
-                            'phone' => $phone,
-                            'messageId' => $messageId,
-                        ]);
-                        return false;
-                    }
+                    // Dispatch async job to check delivery report
+                    // Replaces blocking usleep(1.5s) — checks at 5s, 30s, 2min
+                    CheckSmsDeliveryJob::dispatch($messageId, $phone, $bulkId)
+                        ->delay(now()->addSeconds(5));
                 }
 
                 return true;

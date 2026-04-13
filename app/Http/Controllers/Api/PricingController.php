@@ -39,7 +39,7 @@ class PricingController extends Controller
         ]);
 
         $subtotal = $request->subtotal;
-        $distanceKm = $request->get('distance_km', 0);
+        $distanceKm = $request->input('distance_km', 0);
 
         $deliveryBaseFee = (int) Setting::get('delivery_base_fee', 500);
         $deliveryPerKm = (int) Setting::get('delivery_per_km', 200);
@@ -77,13 +77,27 @@ class PricingController extends Controller
 
         $deliveryBaseFee = (int) Setting::get('delivery_base_fee', 500);
         $deliveryPerKm = (int) Setting::get('delivery_per_km', 200);
-        $fee = $deliveryBaseFee + ($deliveryPerKm * $distance);
+        $baseFee = $deliveryBaseFee + ($deliveryPerKm * $distance);
+
+        // Surge pricing
+        $surge = app(\App\Services\DynamicPricingService::class)
+            ->getSurgeMultiplier($request->origin_lat, $request->origin_lng);
+        
+        $finalFee = round($baseFee * $surge['multiplier']);
+        $surgeAmount = $finalFee - round($baseFee);
 
         return response()->json([
             'success' => true,
             'data' => [
                 'distance_km' => round($distance, 2),
-                'estimated_fee' => round($fee),
+                'base_fee' => round($baseFee),
+                'estimated_fee' => $finalFee,
+                'surge' => [
+                    'active' => $surge['multiplier'] > 1.0,
+                    'multiplier' => $surge['multiplier'],
+                    'level' => $surge['level'],
+                    'amount' => $surgeAmount,
+                ],
                 'estimated_minutes' => max(10, round($distance * 4)),
                 'currency' => 'XOF',
             ],
