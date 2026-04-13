@@ -42,7 +42,7 @@ class PharmaciesRemoteDataSource {
       queryParameters: {
         'latitude': latitude,
         'longitude': longitude,
-        if (radius != null) 'radius': radius,
+        'radius': ?radius,
       },
     );
     final List<dynamic> data = response.data['data'] ?? [];
@@ -57,9 +57,9 @@ class PharmaciesRemoteDataSource {
       final response = await apiClient.get(
         ApiConstants.onDutyPharmacies,
         queryParameters: {
-          if (latitude != null) 'latitude': latitude,
-          if (longitude != null) 'longitude': longitude,
-          if (radius != null) 'radius': radius,
+          'latitude': ?latitude,
+          'longitude': ?longitude,
+          'radius': ?radius,
         },
       );
       final List<dynamic> data = response.data['data'] ?? [];

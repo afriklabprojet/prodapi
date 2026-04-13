@@ -81,7 +81,7 @@ class WalletRemoteDataSource {
       data: {
         'amount': amount,
         'payment_method': paymentMethod,
-        if (paymentReference != null) 'payment_reference': paymentReference,
+        'payment_reference': ?paymentReference,
       },
     );
 

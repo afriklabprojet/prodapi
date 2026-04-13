@@ -34,10 +34,10 @@ dependencies:
     sdk: flutter
 
   # UI & Icons
-  cupertino_icons: ^1.0.8
+  cupertino_icons: ^1.0.9
   shimmer: ^3.0.0
   cached_network_image: ^3.3.1
-  badges: ^3.1.2
+  badges: ^3.2.0
   lottie: ^3.1.0
   confetti: ^0.7.0
 
@@ -45,10 +45,10 @@ dependencies:
   flutter_riverpod: ^2.5.1
 
   # Routing
-  go_router: ^14.2.0
+  go_router: ^14.8.1
 
   # Network
-  dio: ^5.4.0
+  dio: ^5.9.2
 
   # Share
   share_plus: ^10.1.4
@@ -59,13 +59,13 @@ dependencies:
 
   # Functional Programming
   dartz: ^0.10.1
-  equatable: ^2.0.5
+  equatable: ^2.0.8
 
   # JSON Serialization
   json_annotation: ^4.8.1
 
   # Location & Maps (for delivery address)
-  geolocator: ^11.0.0
+  geolocator: ^11.1.0
   geocoding: ^3.0.0
 
   # URL Launcher (for phone calls, emails, maps)
@@ -85,6 +85,9 @@ dependencies:
   cloud_firestore: ^5.5.0
   flutter_local_notifications: ^18.0.1
 
+  # NOTE: Firebase 4.x/6.x requires riverpod 3.x migration first.
+  # Upgrade planned in next sprint.
+
   # Utils
   intl: ^0.20.2
   logger: ^2.0.2+1
@@ -97,13 +100,13 @@ dependencies:
   local_auth: ^2.3.0
 
   # Maps
-  google_maps_flutter: ^2.5.0
+  google_maps_flutter: ^2.17.0
   flutter_polyline_points: ^2.1.0
   flutter_secure_storage: ^10.0.0
 
   # WebView for payment pages
   webview_flutter: ^4.10.0
-  connectivity_plus: ^7.0.0
+  connectivity_plus: ^7.1.1
   package_info_plus: ^8.0.0
   sms_autofill: ^2.4.1
 

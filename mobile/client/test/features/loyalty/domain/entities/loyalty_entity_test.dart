@@ -200,7 +200,7 @@ void main() {
       'total_orders': totalOrders,
       'total_spent': totalSpent,
       'points_to_next_tier': pointsToNextTier,
-      if (availableRewards != null) 'available_rewards': availableRewards,
+      'available_rewards': ?availableRewards,
     };
 
     test('fromJson parses all fields', () {

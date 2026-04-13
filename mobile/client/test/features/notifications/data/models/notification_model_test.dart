@@ -22,7 +22,7 @@ Map<String, dynamic> _notifJson({
         'title': 'Commande mise à jour',
         'message': 'Votre commande est confirmée.',
       },
-  if (readAt != null) 'read_at': readAt,
+  'read_at': ?readAt,
   'created_at': createdAt,
 };
 

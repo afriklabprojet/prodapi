@@ -157,7 +157,7 @@ class AnalyticsService implements AnalyticsContract {
     await track(AnalyticsEvents.errorOccurred, properties: {
       AnalyticsProperties.errorType: errorType,
       AnalyticsProperties.errorMessage: errorMessage,
-      if (errorCode != null) AnalyticsProperties.errorCode: errorCode,
+      AnalyticsProperties.errorCode: ?errorCode,
       ...?properties,
     });
   }

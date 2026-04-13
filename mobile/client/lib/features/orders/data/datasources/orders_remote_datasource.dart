@@ -80,10 +80,10 @@ class OrdersRemoteDataSource {
       if ((deliveryAddress['delivery_longitude'] ?? deliveryAddress['longitude']) != null)
         'delivery_longitude': deliveryAddress['delivery_longitude'] ?? deliveryAddress['longitude'],
       'payment_mode': paymentMode,
-      if (prescriptionImage != null) 'prescription_image': prescriptionImage,
-      if (prescriptionId != null) 'prescription_id': prescriptionId,
-      if (customerNotes != null) 'customer_notes': customerNotes,
-      if (promoCode != null) 'promo_code': promoCode,
+      'prescription_image': ?prescriptionImage,
+      'prescription_id': ?prescriptionId,
+      'customer_notes': ?customerNotes,
+      'promo_code': ?promoCode,
     };
 
     AppLogger.debug('[CreateOrder] Creating order for pharmacy $pharmacyId with ${items.length} items');
@@ -167,7 +167,7 @@ class OrdersRemoteDataSource {
       data: {
         'type': 'order',
         'order_id': orderId,
-        if (paymentMethod != null) 'payment_method': paymentMethod,
+        'payment_method': ?paymentMethod,
       },
     );
 

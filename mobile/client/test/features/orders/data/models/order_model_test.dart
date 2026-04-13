@@ -17,7 +17,7 @@ Map<String, dynamic> _pharmacyBasicJson({
 }) => <String, dynamic>{
   'id': id,
   'name': name,
-  if (phone != null) 'phone': phone,
+  'phone': ?phone,
 };
 
 Map<String, dynamic> _orderItemJson({
@@ -28,9 +28,9 @@ Map<String, dynamic> _orderItemJson({
   dynamic unitPrice = 1500.0,
   dynamic totalPrice = 3000.0,
 }) => <String, dynamic>{
-  if (productId != null) 'product_id': productId,
-  if (name != null) 'name': name,
-  if (productName != null) 'product_name': productName,
+  'product_id': ?productId,
+  'name': ?name,
+  'product_name': ?productName,
   'quantity': quantity,
   'unit_price': unitPrice,
   'total_price': totalPrice,
@@ -61,16 +61,16 @@ Map<String, dynamic> _orderJson({
   'payment_status': paymentStatus,
   'payment_mode': paymentMode,
   'total_amount': totalAmount,
-  if (subtotal != null) 'subtotal': subtotal,
-  if (deliveryFee != null) 'delivery_fee': deliveryFee,
+  'subtotal': ?subtotal,
+  'delivery_fee': ?deliveryFee,
   'delivery_address': deliveryAddress,
-  if (deliveryCity != null) 'delivery_city': deliveryCity,
-  if (deliveryLatitude != null) 'delivery_latitude': deliveryLatitude,
-  if (deliveryLongitude != null) 'delivery_longitude': deliveryLongitude,
+  'delivery_city': ?deliveryCity,
+  'delivery_latitude': ?deliveryLatitude,
+  'delivery_longitude': ?deliveryLongitude,
   'items': items ?? [],
-  if (pharmacy != null) 'pharmacy': pharmacy,
-  if (pharmacyId != null) 'pharmacy_id': pharmacyId,
-  if (cancellationReason != null) 'cancellation_reason': cancellationReason,
+  'pharmacy': ?pharmacy,
+  'pharmacy_id': ?pharmacyId,
+  'cancellation_reason': ?cancellationReason,
   'created_at': createdAt,
 };
 

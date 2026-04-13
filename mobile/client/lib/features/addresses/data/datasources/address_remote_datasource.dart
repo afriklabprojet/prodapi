@@ -58,12 +58,12 @@ class AddressRemoteDataSource {
       data: {
         'label': label,
         'address': address,
-        if (city != null) 'city': city,
-        if (district != null) 'district': district,
-        if (phone != null) 'phone': phone,
-        if (instructions != null) 'instructions': instructions,
-        if (latitude != null) 'latitude': latitude,
-        if (longitude != null) 'longitude': longitude,
+        'city': ?city,
+        'district': ?district,
+        'phone': ?phone,
+        'instructions': ?instructions,
+        'latitude': ?latitude,
+        'longitude': ?longitude,
         'is_default': isDefault,
       },
     );
@@ -86,15 +86,15 @@ class AddressRemoteDataSource {
     final response = await _apiClient.put(
       ApiConstants.addressDetails(id),
       data: {
-        if (label != null) 'label': label,
-        if (address != null) 'address': address,
-        if (city != null) 'city': city,
-        if (district != null) 'district': district,
-        if (phone != null) 'phone': phone,
-        if (instructions != null) 'instructions': instructions,
-        if (latitude != null) 'latitude': latitude,
-        if (longitude != null) 'longitude': longitude,
-        if (isDefault != null) 'is_default': isDefault,
+        'label': ?label,
+        'address': ?address,
+        'city': ?city,
+        'district': ?district,
+        'phone': ?phone,
+        'instructions': ?instructions,
+        'latitude': ?latitude,
+        'longitude': ?longitude,
+        'is_default': ?isDefault,
       },
     );
     return AddressModel.fromJson(response.data['data']);

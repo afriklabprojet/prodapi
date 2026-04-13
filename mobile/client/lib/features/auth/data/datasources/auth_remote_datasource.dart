@@ -117,7 +117,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         'phone': phone,
         'password': password,
         'password_confirmation': password,
-        if (address != null) 'address': address,
+        'address': ?address,
       },
     );
 

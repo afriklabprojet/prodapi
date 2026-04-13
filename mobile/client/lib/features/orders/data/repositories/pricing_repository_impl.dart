@@ -34,7 +34,7 @@ class PricingRepositoryImpl {
           'subtotal': subtotal,
           'delivery_fee': deliveryFee,
           'payment_mode': paymentMode,
-          if (serviceFeeAmount != null) 'service_fee': serviceFeeAmount,
+          'service_fee': ?serviceFeeAmount,
         },
       );
       final data = response.data['data'] as Map<String, dynamic>;
@@ -68,7 +68,7 @@ class PricingRepositoryImpl {
         '/pricing/delivery',
         data: {
           'distance_km': distanceKm,
-          if (pharmacyId != null) 'pharmacy_id': pharmacyId,
+          'pharmacy_id': ?pharmacyId,
         },
       );
       final data = response.data['data'] as Map<String, dynamic>;

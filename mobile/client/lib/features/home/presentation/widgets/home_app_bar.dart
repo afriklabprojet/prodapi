@@ -430,7 +430,7 @@ class SectionTitle extends StatelessWidget {
             ),
           ],
         ),
-        if (trailing != null) trailing!,
+        ?trailing,
       ],
     );
   }

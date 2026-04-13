@@ -24,8 +24,8 @@ class UrlLauncherService {
       scheme: 'mailto',
       path: email,
       queryParameters: {
-        if (subject != null) 'subject': subject,
-        if (body != null) 'body': body,
+        'subject': ?subject,
+        'body': ?body,
       },
     );
 

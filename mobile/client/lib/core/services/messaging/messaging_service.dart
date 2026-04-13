@@ -115,7 +115,7 @@ class MessagingService {
   }) {
     _trackEvent('courier_contacted', {
       'channel': 'whatsapp',
-      if (orderReference != null) 'order_reference': orderReference,
+      'order_reference': ?orderReference,
     });
     return send(
       phoneNumber: courierPhone,
@@ -134,7 +134,7 @@ class MessagingService {
   }) {
     _trackEvent('pharmacy_contacted', {
       'channel': 'whatsapp',
-      if (orderReference != null) 'order_reference': orderReference,
+      'order_reference': ?orderReference,
     });
     return send(
       phoneNumber: pharmacyPhone,

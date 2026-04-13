@@ -26,8 +26,8 @@ Map<String, dynamic> _userJson({
   'name': name,
   'email': email,
   'phone': phone,
-  if (address != null) 'address': address,
-  if (avatar != null) 'avatar': avatar,
+  'address': ?address,
+  'avatar': ?avatar,
   'email_verified_at': emailVerifiedAt,
   'phone_verified_at': phoneVerifiedAt,
   'created_at': createdAt,
@@ -40,7 +40,7 @@ Map<String, dynamic> _authResponseJson({String? firebaseToken}) =>
     <String, dynamic>{
       'user': _userJson(),
       'token': 'tok_abc123',
-      if (firebaseToken != null) 'firebase_token': firebaseToken,
+      'firebase_token': ?firebaseToken,
     };
 
 void main() {
