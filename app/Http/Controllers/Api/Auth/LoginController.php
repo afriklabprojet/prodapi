@@ -234,6 +234,36 @@ class LoginController extends Controller
     }
 
     /**
+     * Refresh Firebase custom token for the authenticated user.
+     * Used by mobile apps when Firebase auth session is missing/expired.
+     */
+    public function refreshFirebaseToken(Request $request)
+    {
+        $user = $request->user();
+
+        try {
+            $firebaseTokenService = app(FirebaseTokenService::class);
+            $firebaseToken = $firebaseTokenService->generateCustomToken(
+                $user->id,
+                $user->role,
+                $user->role === 'courier' && $user->courier
+                    ? ['courier_id' => $user->courier->id]
+                    : []
+            );
+
+            return response()->json([
+                'success' => true,
+                'firebase_token' => $firebaseToken,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Impossible de générer le token Firebase',
+            ], 500);
+        }
+    }
+
+    /**
      * Get authenticated user
      */
     public function me(Request $request)

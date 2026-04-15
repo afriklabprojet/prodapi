@@ -134,6 +134,7 @@ Route::prefix('auth')->group(function () {
         Route::post('/password', [\App\Http\Controllers\Api\Auth\PasswordResetController::class, 'updatePassword']);
         Route::get('/sessions', [LoginController::class, 'sessions']);
         Route::post('/sessions/revoke-others', [LoginController::class, 'revokeOtherSessions']);
+        Route::get('/firebase-token', [LoginController::class, 'refreshFirebaseToken']);
     });
 });
 
@@ -365,6 +366,7 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
 
         // Dashboard Stats
         Route::get('/stats/week', [\App\Http\Controllers\Api\Pharmacy\PharmacyDashboardController::class, 'weekStats']);
+        Route::get('/stats/daily', [\App\Http\Controllers\Api\Pharmacy\PharmacyDashboardController::class, 'dailyStats']);
 
         // Reports & Analytics
         Route::prefix('reports')->group(function () {
