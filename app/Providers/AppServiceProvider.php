@@ -179,6 +179,18 @@ class AppServiceProvider extends ServiceProvider
                 });
         });
 
+        // Chat endpoints - Anti-spam pour messagerie temps réel
+        // 60 messages/min par utilisateur pour permettre conversations fluides
+        RateLimiter::for('chat', function (Request $request) {
+            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip())
+                ->response(function () {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Trop de messages envoyés. Veuillez ralentir.',
+                    ], 429);
+                });
+        });
+
         // Webhook endpoints - Limité par IP source
         RateLimiter::for('webhook', function (Request $request) {
             return Limit::perMinute(100)->by($request->ip())

@@ -119,4 +119,72 @@ class PharmacyDashboardController extends Controller
             'expired_products_count'  => $expiredProductsCount,
         ]);
     }
+
+    /**
+     * Statistiques quotidiennes pour le widget de performance quotidienne.
+     * Retourne commandes/revenus aujourd'hui vs hier.
+     */
+    public function dailyStats(): JsonResponse
+    {
+        /** @var User|null $user */
+        $user = Auth::user();
+
+        if (! $user instanceof User) {
+            abort(401, 'Unauthenticated.');
+        }
+
+        $pharmacy = $user->pharmacies()->firstOrFail();
+        $pharmacyId = $pharmacy->id;
+
+        $now = Carbon::now();
+        $startOfToday = $now->copy()->startOfDay();
+        $startOfYesterday = $startOfToday->copy()->subDay();
+        $endOfYesterday = $startOfToday->copy()->subSecond();
+
+        // Commandes aujourd'hui
+        $ordersToday = Order::where('pharmacy_id', $pharmacyId)
+            ->where('created_at', '>=', $startOfToday)
+            ->count();
+
+        // Revenus aujourd'hui
+        $revenueToday = Order::where('pharmacy_id', $pharmacyId)
+            ->where('created_at', '>=', $startOfToday)
+            ->whereIn('status', ['completed', 'delivered'])
+            ->sum('total_amount');
+
+        // Commandes hier
+        $ordersYesterday = Order::where('pharmacy_id', $pharmacyId)
+            ->whereBetween('created_at', [$startOfYesterday, $endOfYesterday])
+            ->count();
+
+        // Revenus hier
+        $revenueYesterday = Order::where('pharmacy_id', $pharmacyId)
+            ->whereBetween('created_at', [$startOfYesterday, $endOfYesterday])
+            ->whereIn('status', ['completed', 'delivered'])
+            ->sum('total_amount');
+
+        // Prescriptions aujourd'hui (si modèle existe)
+        $prescriptionsToday = 0;
+        $prescriptionsYesterday = 0;
+        
+        if (class_exists(\App\Models\Prescription::class)) {
+            $prescriptionsToday = \App\Models\Prescription::where('pharmacy_id', $pharmacyId)
+                ->where('created_at', '>=', $startOfToday)
+                ->count();
+            
+            $prescriptionsYesterday = \App\Models\Prescription::where('pharmacy_id', $pharmacyId)
+                ->whereBetween('created_at', [$startOfYesterday, $endOfYesterday])
+                ->count();
+        }
+
+        return response()->json([
+            'orders_today'           => $ordersToday,
+            'orders_yesterday'       => $ordersYesterday,
+            'revenue_today'          => (float) $revenueToday,
+            'revenue_yesterday'      => (float) $revenueYesterday,
+            'prescriptions_today'    => $prescriptionsToday,
+            'prescriptions_yesterday'=> $prescriptionsYesterday,
+            'daily_goal'             => 20, // TODO: Configurable par pharmacie
+        ]);
+    }
 }

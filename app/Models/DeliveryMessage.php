@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use App\Enums\MessageType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class DeliveryMessage extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'delivery_id',
         'sender_type',
@@ -14,45 +18,23 @@ class DeliveryMessage extends Model
         'receiver_type',
         'receiver_id',
         'message',
+        'type',
+        'metadata',
         'read_at',
     ];
 
     protected $casts = [
         'read_at' => 'datetime',
+        'metadata' => 'array',
+        'type' => MessageType::class,
     ];
 
     /**
-     * Livraison associée
+     * Livraison associée (avec eager loading optimisé)
      */
     public function delivery(): BelongsTo
     {
         return $this->belongsTo(Delivery::class);
-    }
-
-    /**
-     * Destinataire (résolution manuelle car types non-standard)
-     */
-    public function receiver()
-    {
-        return match ($this->receiver_type) {
-            'courier' => \App\Models\Courier::find($this->receiver_id),
-            'pharmacy' => \App\Models\Pharmacy::find($this->receiver_id),
-            'client' => \App\Models\User::find($this->receiver_id),
-            default => null,
-        };
-    }
-
-    /**
-     * Expéditeur (résolution manuelle car types non-standard)
-     */
-    public function sender()
-    {
-        return match ($this->sender_type) {
-            'courier' => \App\Models\Courier::find($this->sender_id),
-            'pharmacy' => \App\Models\Pharmacy::find($this->sender_id),
-            'client' => \App\Models\User::find($this->sender_id),
-            default => null,
-        };
     }
 
     /**
@@ -74,5 +56,53 @@ class DeliveryMessage extends Model
                         ->where('receiver_id', $userId);
                 });
             });
+    }
+
+    /**
+     * Scope: messages non lus pour un utilisateur
+     */
+    public function scopeUnreadFor($query, string $type, int $id)
+    {
+        return $query->where('receiver_type', $type)
+            ->where('receiver_id', $id)
+            ->whereNull('read_at');
+    }
+
+    /**
+     * Scope: messages d'une livraison
+     */
+    public function scopeForDelivery($query, int $deliveryId)
+    {
+        return $query->where('delivery_id', $deliveryId);
+    }
+
+    /**
+     * Vérifier si le message est lu
+     */
+    public function isRead(): bool
+    {
+        return $this->read_at !== null;
+    }
+
+    /**
+     * Vérifier si c'est un message système
+     */
+    public function isSystemMessage(): bool
+    {
+        return $this->type === MessageType::SYSTEM || $this->sender_type === 'system';
+    }
+
+    /**
+     * Obtenir le label du type d'expéditeur
+     */
+    public function getSenderLabelAttribute(): string
+    {
+        return match ($this->sender_type) {
+            'courier' => 'Livreur',
+            'pharmacy' => 'Pharmacie',
+            'client' => 'Client',
+            'system' => 'Système',
+            default => 'Utilisateur',
+        };
     }
 }

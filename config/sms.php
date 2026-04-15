@@ -126,6 +126,19 @@ return [
             // Placeholders additionnels (key => value)
             'placeholders' => [],
         ],
+
+        // ─── Webhook Security ───────────────────────────────────────────────
+        // SECURITY: Au moins une méthode doit être configurée en production!
+        //
+        // Option 1: Secret HMAC (recommandé)
+        // Configuré dans le portail Infobip > Channels > SMS/WhatsApp > Webhooks
+        'webhook_secret' => env('INFOBIP_WEBHOOK_SECRET'),
+
+        // Option 2: IP Whitelist (alternative)
+        // Liste des IPs Infobip autorisées (séparées par virgule)
+        // Supporte la notation CIDR (ex: 192.168.1.0/24)
+        // Docs: https://www.infobip.com/docs/essentials/security/ip-whitelisting
+        'webhook_allowed_ips' => env('INFOBIP_WEBHOOK_IPS'),
     ],
 
     /*

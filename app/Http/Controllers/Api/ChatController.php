@@ -2,69 +2,100 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\MessageType;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\MessageCollection;
+use App\Http\Resources\MessageResource;
 use App\Models\Delivery;
 use App\Models\DeliveryMessage;
-use App\Notifications\NewChatMessageNotification;
+use App\Services\ChatService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rules\Enum;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
+/**
+ * Chat Controller - Version Production SaaS
+ * 
+ * Sécurisé, optimisé et prêt pour le temps réel.
+ * 
+ * @security Toutes les méthodes vérifient que l'utilisateur est participant de la livraison
+ * @performance Pagination, cache, eager loading
+ * @realtime Events broadcast pour WebSocket
+ */
 class ChatController extends Controller
 {
+    public function __construct(
+        private readonly ChatService $chatService
+    ) {}
+
     /**
-     * Récupérer les messages d'une conversation
+     * Récupérer les messages d'une conversation (avec pagination)
+     * 
+     * @queryParam participant_type string Type de l'autre participant. Exemple: courier
+     * @queryParam participant_id int ID de l'autre participant. Exemple: 1
+     * @queryParam before_id int Pour pagination cursor-based (infinite scroll)
+     * @queryParam per_page int Messages par page (max 100). Exemple: 50
      */
     public function getMessages(Request $request, Delivery $delivery): JsonResponse
     {
-        $request->validate([
-            'participant_type' => 'required|in:courier,pharmacy,client',
-            'participant_id' => 'required|integer',
+        $validated = $request->validate([
+            'participant_type' => 'sometimes|in:courier,pharmacy,client',
+            'participant_id' => 'sometimes|integer|min:1',
+            'before_id' => 'sometimes|integer|min:1',
+            'per_page' => 'sometimes|integer|min:1|max:100',
         ]);
 
-        // Déterminer l'utilisateur courant
-        $currentUser = $this->getCurrentUser($request);
-        if (!$currentUser) {
-            return response()->json(['error' => 'Non autorisé'], 401);
+        // Résoudre l'utilisateur courant
+        $currentUser = $this->chatService->resolveCurrentUser($request->user());
+
+        // SECURITY: Vérifier l'accès à cette livraison
+        $this->chatService->assertIsDeliveryParticipant($delivery, $currentUser);
+
+        $beforeId = $validated['before_id'] ?? null;
+        $perPage = $validated['per_page'] ?? 50;
+
+        // Récupérer les messages (avec ou sans filtre de conversation)
+        if (isset($validated['participant_type'], $validated['participant_id'])) {
+            $messages = $this->chatService->getConversationMessages(
+                $delivery,
+                $currentUser,
+                $validated['participant_type'],
+                (int) $validated['participant_id'],
+                $beforeId,
+                $perPage
+            );
+        } else {
+            $messages = $this->chatService->getMessages(
+                $delivery,
+                $currentUser,
+                $beforeId,
+                $perPage
+            );
         }
 
-        $participantType = $request->participant_type;
-        $participantId = $request->participant_id;
+        // Marquer comme lus (optionnel, selon flag)
+        if ($request->boolean('mark_read', false) && isset($validated['participant_type'])) {
+            $this->chatService->markAsRead(
+                $delivery,
+                $currentUser,
+                $validated['participant_type'],
+                (int) $validated['participant_id']
+            );
+        }
 
-        // Récupérer les messages de la conversation
-        $messages = DeliveryMessage::forConversation(
-            $delivery->id,
-            $currentUser['type'],
-            $currentUser['id'],
-            $participantType,
-            $participantId
-        )
-        ->orderBy('created_at', 'asc')
-        ->get()
-        ->map(function ($message) use ($currentUser) {
-            return [
-                'id' => $message->id,
-                'message' => $message->message,
-                'sender_type' => $message->sender_type,
-                'sender_id' => $message->sender_id,
-                'is_mine' => $message->sender_type === $currentUser['type'] && $message->sender_id === $currentUser['id'],
-                'read_at' => $message->read_at?->toIso8601String(),
-                'created_at' => $message->created_at->toIso8601String(),
-            ];
-        });
-
-        // Marquer les messages reçus comme lus
-        DeliveryMessage::where('delivery_id', $delivery->id)
-            ->where('receiver_type', $currentUser['type'])
-            ->where('receiver_id', $currentUser['id'])
-            ->where('sender_type', $participantType)
-            ->where('sender_id', $participantId)
-            ->whereNull('read_at')
-            ->update(['read_at' => now()]);
+        $collection = (new MessageCollection($messages))->setCurrentUser($currentUser);
 
         return response()->json([
             'success' => true,
-            'messages' => $messages,
+            'data' => $collection,
+            'meta' => [
+                'current_page' => $messages->currentPage(),
+                'last_page' => $messages->lastPage(),
+                'per_page' => $messages->perPage(),
+                'total' => $messages->total(),
+                'has_more' => $messages->hasMorePages(),
+            ],
             'delivery' => [
                 'id' => $delivery->id,
                 'status' => $delivery->status,
@@ -74,63 +105,67 @@ class ChatController extends Controller
 
     /**
      * Envoyer un message
+     * 
+     * @bodyParam receiver_type string required Type du destinataire. Exemple: courier
+     * @bodyParam receiver_id int required ID du destinataire. Exemple: 1
+     * @bodyParam message string required Contenu du message (max 2000 caractères)
+     * @bodyParam type string Type de message: text, image, file, location. Défaut: text
+     * @bodyParam metadata object Métadonnées (URL fichier, coordonnées, etc.)
      */
     public function sendMessage(Request $request, Delivery $delivery): JsonResponse
     {
-        $request->validate([
+        $validated = $request->validate([
             'receiver_type' => 'required|in:courier,pharmacy,client',
-            'receiver_id' => 'required|integer',
-            'message' => 'required|string|max:1000',
+            'receiver_id' => 'required|integer|min:1',
+            'message' => 'required|string|max:2000',
+            'type' => ['sometimes', new Enum(MessageType::class)],
+            'metadata' => 'sometimes|array',
+            'metadata.url' => 'sometimes|url|max:500',
+            'metadata.filename' => 'sometimes|string|max:255',
+            'metadata.latitude' => 'sometimes|numeric|between:-90,90',
+            'metadata.longitude' => 'sometimes|numeric|between:-180,180',
         ]);
 
-        // Déterminer l'utilisateur courant
-        $currentUser = $this->getCurrentUser($request);
-        if (!$currentUser) {
-            return response()->json(['error' => 'Non autorisé'], 401);
-        }
+        // Résoudre l'utilisateur courant
+        $currentUser = $this->chatService->resolveCurrentUser($request->user());
 
-        // Créer le message
-        $message = DeliveryMessage::create([
-            'delivery_id' => $delivery->id,
-            'sender_type' => $currentUser['type'],
-            'sender_id' => $currentUser['id'],
-            'receiver_type' => $request->receiver_type,
-            'receiver_id' => $request->receiver_id,
-            'message' => $request->message,
-        ]);
+        // SECURITY: Vérifier l'accès à cette livraison
+        $this->chatService->assertIsDeliveryParticipant($delivery, $currentUser);
 
-        // Envoyer notification push au destinataire
-        $this->notifyReceiver($message, $currentUser);
+        $messageType = isset($validated['type']) 
+            ? MessageType::from($validated['type']) 
+            : MessageType::TEXT;
+
+        // Envoyer le message
+        $message = $this->chatService->sendMessage(
+            $delivery,
+            $currentUser,
+            $validated['receiver_type'],
+            (int) $validated['receiver_id'],
+            $validated['message'],
+            $messageType,
+            $validated['metadata'] ?? null
+        );
+
+        $resource = (new MessageResource($message))->setCurrentUser($currentUser);
 
         return response()->json([
             'success' => true,
-            'message' => [
-                'id' => $message->id,
-                'message' => $message->message,
-                'sender_type' => $message->sender_type,
-                'sender_id' => $message->sender_id,
-                'is_mine' => true,
-                'read_at' => null,
-                'created_at' => $message->created_at->toIso8601String(),
-            ],
-        ]);
+            'data' => $resource,
+        ], 201);
     }
 
     /**
-     * Récupérer le nombre de messages non lus
+     * Récupérer le nombre de messages non lus (avec cache)
      */
     public function getUnreadCount(Request $request, Delivery $delivery): JsonResponse
     {
-        $currentUser = $this->getCurrentUser($request);
-        if (!$currentUser) {
-            return response()->json(['error' => 'Non autorisé'], 401);
-        }
+        $currentUser = $this->chatService->resolveCurrentUser($request->user());
 
-        $count = DeliveryMessage::where('delivery_id', $delivery->id)
-            ->where('receiver_type', $currentUser['type'])
-            ->where('receiver_id', $currentUser['id'])
-            ->whereNull('read_at')
-            ->count();
+        // SECURITY: Vérifier l'accès
+        $this->chatService->assertIsDeliveryParticipant($delivery, $currentUser);
+
+        $count = $this->chatService->getUnreadCount($delivery, $currentUser);
 
         return response()->json([
             'success' => true,
@@ -140,117 +175,83 @@ class ChatController extends Controller
 
     /**
      * Marquer tous les messages comme lus
+     * 
+     * @bodyParam sender_type string Type de l'expéditeur à marquer comme lu
+     * @bodyParam sender_id int ID de l'expéditeur
      */
     public function markAllAsRead(Request $request, Delivery $delivery): JsonResponse
     {
-        $request->validate([
-            'sender_type' => 'required|in:courier,pharmacy,client',
-            'sender_id' => 'required|integer',
+        $validated = $request->validate([
+            'sender_type' => 'sometimes|in:courier,pharmacy,client',
+            'sender_id' => 'sometimes|integer|min:1',
         ]);
 
-        $currentUser = $this->getCurrentUser($request);
-        if (!$currentUser) {
-            return response()->json(['error' => 'Non autorisé'], 401);
-        }
-        // SECURITY: Vérifier que l'utilisateur est un participant de cette livraison
-        if (!$this->isDeliveryParticipant($delivery, $currentUser)) {
-            return response()->json(['error' => 'Accès interdit à cette conversation'], 403);
-        }
-        DeliveryMessage::where('delivery_id', $delivery->id)
-            ->where('receiver_type', $currentUser['type'])
-            ->where('receiver_id', $currentUser['id'])
-            ->where('sender_type', $request->sender_type)
-            ->where('sender_id', $request->sender_id)
-            ->whereNull('read_at')
-            ->update(['read_at' => now()]);
+        $currentUser = $this->chatService->resolveCurrentUser($request->user());
 
-        return response()->json(['success' => true]);
+        // SECURITY: Vérifier l'accès
+        $this->chatService->assertIsDeliveryParticipant($delivery, $currentUser);
+
+        // Marquer comme lu (tous ou spécifique)
+        if (isset($validated['sender_type'], $validated['sender_id'])) {
+            $count = $this->chatService->markAsRead(
+                $delivery,
+                $currentUser,
+                $validated['sender_type'],
+                (int) $validated['sender_id']
+            );
+        } else {
+            $count = $this->chatService->markAllAsRead($delivery, $currentUser);
+        }
+
+        return response()->json([
+            'success' => true,
+            'marked_count' => $count,
+        ]);
     }
 
     /**
-     * Déterminer l'utilisateur courant basé sur le token
+     * Récupérer les participants de la conversation
      */
-    private function getCurrentUser(Request $request): ?array
+    public function getParticipants(Request $request, Delivery $delivery): JsonResponse
     {
-        $user = $request->user();
-        
-        if (!$user) {
-            return null;
-        }
+        $currentUser = $this->chatService->resolveCurrentUser($request->user());
 
-        // Vérifier si c'est un coursier
-        if ($user->courier) {
-            return [
-                'type' => 'courier',
-                'id' => $user->courier->id,
-                'name' => $user->name,
-            ];
-        }
+        // SECURITY: Vérifier l'accès
+        $this->chatService->assertIsDeliveryParticipant($delivery, $currentUser);
 
-        // Vérifier si c'est une pharmacie
-        if ($user->pharmacy) {
-            return [
-                'type' => 'pharmacy',
-                'id' => $user->pharmacy->id,
-                'name' => $user->pharmacy->name ?? $user->name,
-            ];
-        }
+        $participants = $this->chatService->getParticipants($delivery);
 
-        // C'est un client
-        return [
-            'type' => 'client',
-            'id' => $user->id,
-            'name' => $user->name,
-        ];
+        return response()->json([
+            'success' => true,
+            'participants' => $participants,
+            'me' => [
+                'type' => $currentUser['type'],
+                'id' => $currentUser['id'],
+                'name' => $currentUser['name'],
+            ],
+        ]);
     }
 
     /**
-     * SECURITY: Vérifier que l'utilisateur courant est un participant de la livraison
+     * Supprimer un message (soft delete, expéditeur uniquement, max 15 min)
      */
-    private function isDeliveryParticipant(Delivery $delivery, array $currentUser): bool
+    public function deleteMessage(Request $request, Delivery $delivery, DeliveryMessage $message): JsonResponse
     {
-        $order = $delivery->order;
-        if (!$order) return false;
+        $currentUser = $this->chatService->resolveCurrentUser($request->user());
 
-        return match($currentUser['type']) {
-            'courier' => $delivery->courier_id === $currentUser['id'],
-            'pharmacy' => $order->pharmacy_id === $currentUser['id'],
-            'client' => $order->customer_id === $currentUser['id'],
-            default => false,
-        };
-    }
+        // SECURITY: Vérifier l'accès à la livraison
+        $this->chatService->assertIsDeliveryParticipant($delivery, $currentUser);
 
-    /**
-     * Notifier le destinataire d'un nouveau message
-     */
-    private function notifyReceiver(DeliveryMessage $message, array $sender): void
-    {
-        $receiver = $message->receiver();
-        
-        if (!$receiver) {
-            return;
+        // Vérifier que le message appartient à cette livraison
+        if ($message->delivery_id !== $delivery->id) {
+            throw new AccessDeniedHttpException('Message introuvable dans cette conversation');
         }
 
-        // Récupérer l'utilisateur associé au destinataire
-        $user = match($message->receiver_type) {
-            'courier' => $receiver->user ?? null,
-            'pharmacy' => $receiver->user ?? null,
-            'client' => $receiver,
-            default => null,
-        };
+        $this->chatService->deleteMessage($message, $currentUser);
 
-        if ($user && method_exists($user, 'notify')) {
-            try {
-                $user->notify(new NewChatMessageNotification(
-                    $message->delivery,
-                    $sender['name'],
-                    $sender['type'],
-                    $message->message
-                ));
-            } catch (\Exception $e) {
-                // Log l'erreur mais ne pas bloquer l'envoi du message
-                \Log::warning("Erreur notification chat: " . $e->getMessage());
-            }
-        }
+        return response()->json([
+            'success' => true,
+            'message' => 'Message supprimé',
+        ]);
     }
 }

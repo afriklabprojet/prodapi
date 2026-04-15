@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table) {
             if (!Schema::hasColumn('users', 'courier_rating')) {
-                $table->decimal('courier_rating', 3, 2)->nullable()->after('must_change_password');
+                $table->decimal('courier_rating', 3, 2)->nullable();
             }
         });
     }

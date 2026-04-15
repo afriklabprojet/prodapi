@@ -86,11 +86,8 @@ class Product extends Model
             return $value;
         }
 
-        // Use the proxy route to ensure CORS headers are present in dev
-        $relativePath = str_replace('storage/', '', $value);
-        return url('/img-proxy/' . $relativePath);
-
-        // return asset($value);
+        // Use direct storage URL - symlink serves static files via Nginx
+        return url('/storage/' . $value);
     }
 
     /**

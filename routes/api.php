@@ -27,13 +27,16 @@ Route::middleware('throttle:webhook')->group(function () {
     Route::post('/webhooks/jeko', [\App\Http\Controllers\Api\JekoWebhookController::class, 'handle'])->name('webhooks.jeko');
     Route::get('/webhooks/jeko/health', [\App\Http\Controllers\Api\JekoWebhookController::class, 'health']);
 
-    // WhatsApp Infobip webhooks
-    Route::post('/webhooks/whatsapp/delivery', [\App\Http\Controllers\Api\WhatsAppWebhookController::class, 'deliveryReport'])->name('webhooks.whatsapp.delivery');
-    Route::post('/webhooks/whatsapp/incoming', [\App\Http\Controllers\Api\WhatsAppWebhookController::class, 'incomingMessage'])->name('webhooks.whatsapp.incoming');
+    // Infobip webhooks (WhatsApp + SMS) - Protected by signature/IP verification
+    Route::middleware(\App\Http\Middleware\VerifyInfobipWebhook::class)->group(function () {
+        // WhatsApp Infobip webhooks
+        Route::post('/webhooks/whatsapp/delivery', [\App\Http\Controllers\Api\WhatsAppWebhookController::class, 'deliveryReport'])->name('webhooks.whatsapp.delivery');
+        Route::post('/webhooks/whatsapp/incoming', [\App\Http\Controllers\Api\WhatsAppWebhookController::class, 'incomingMessage'])->name('webhooks.whatsapp.incoming');
 
-    // SMS Infobip webhooks
-    Route::post('/webhooks/sms/delivery', [\App\Http\Controllers\Api\SmsWebhookController::class, 'deliveryReport'])->name('webhooks.sms.delivery');
-    Route::post('/webhooks/sms/incoming', [\App\Http\Controllers\Api\SmsWebhookController::class, 'incomingMessage'])->name('webhooks.sms.incoming');
+        // SMS Infobip webhooks
+        Route::post('/webhooks/sms/delivery', [\App\Http\Controllers\Api\SmsWebhookController::class, 'deliveryReport'])->name('webhooks.sms.delivery');
+        Route::post('/webhooks/sms/incoming', [\App\Http\Controllers\Api\SmsWebhookController::class, 'incomingMessage'])->name('webhooks.sms.incoming');
+    });
 });
 
 // JEKO Payment Callbacks (no auth required - redirect from JEKO)
@@ -227,11 +230,15 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
             Route::get('/history', [\App\Http\Controllers\Api\Customer\LoyaltyController::class, 'history']);
         });
         
-        // Chat avec le livreur (via delivery)
-        Route::get('/deliveries/{delivery}/chat', [\App\Http\Controllers\Api\ChatController::class, 'getMessages']);
-        Route::post('/deliveries/{delivery}/chat', [\App\Http\Controllers\Api\ChatController::class, 'sendMessage']);
-        Route::get('/deliveries/{delivery}/chat/unread', [\App\Http\Controllers\Api\ChatController::class, 'getUnreadCount']);
-        Route::post('/deliveries/{delivery}/chat/read', [\App\Http\Controllers\Api\ChatController::class, 'markAllAsRead']);
+        // Chat avec le livreur (via delivery) - SECURITY: Rate limiting anti-spam
+        Route::prefix('deliveries/{delivery}/chat')->middleware('throttle:chat')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\ChatController::class, 'getMessages']);
+            Route::post('/', [\App\Http\Controllers\Api\ChatController::class, 'sendMessage']);
+            Route::get('/unread', [\App\Http\Controllers\Api\ChatController::class, 'getUnreadCount']);
+            Route::post('/read', [\App\Http\Controllers\Api\ChatController::class, 'markAllAsRead']);
+            Route::get('/participants', [\App\Http\Controllers\Api\ChatController::class, 'getParticipants']);
+            Route::delete('/messages/{message}', [\App\Http\Controllers\Api\ChatController::class, 'deleteMessage']);
+        });
         
         // Orders - Actions sensibles nécessitent téléphone vérifié et rate limiting
         Route::middleware(['verified.phone', 'throttle:orders', 'idempotent'])->group(function () {
@@ -395,11 +402,15 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         Route::post('/statement-preferences', [\App\Http\Controllers\Api\Pharmacy\StatementPreferenceController::class, 'store']);
         Route::delete('/statement-preferences', [\App\Http\Controllers\Api\Pharmacy\StatementPreferenceController::class, 'disable']);
         
-        // Chat V2 (via delivery)
-        Route::get('/deliveries/{delivery}/chat', [\App\Http\Controllers\Api\ChatController::class, 'getMessages']);
-        Route::post('/deliveries/{delivery}/chat', [\App\Http\Controllers\Api\ChatController::class, 'sendMessage']);
-        Route::get('/deliveries/{delivery}/chat/unread', [\App\Http\Controllers\Api\ChatController::class, 'getUnreadCount']);
-        Route::post('/deliveries/{delivery}/chat/read', [\App\Http\Controllers\Api\ChatController::class, 'markAllAsRead']);
+        // Chat V2 (via delivery) - SECURITY: Rate limiting anti-spam
+        Route::prefix('deliveries/{delivery}/chat')->middleware('throttle:chat')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\ChatController::class, 'getMessages']);
+            Route::post('/', [\App\Http\Controllers\Api\ChatController::class, 'sendMessage']);
+            Route::get('/unread', [\App\Http\Controllers\Api\ChatController::class, 'getUnreadCount']);
+            Route::post('/read', [\App\Http\Controllers\Api\ChatController::class, 'markAllAsRead']);
+            Route::get('/participants', [\App\Http\Controllers\Api\ChatController::class, 'getParticipants']);
+            Route::delete('/messages/{message}', [\App\Http\Controllers\Api\ChatController::class, 'deleteMessage']);
+        });
     });
     
     // Courier routes - Middleware 'courier' vérifie le profil coursier
@@ -464,15 +475,19 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         Route::post('/location/update', [DeliveryController::class, 'updateLocation']);
         Route::post('/availability/toggle', [DeliveryController::class, 'toggleAvailability']);
         
-        // Chat
+        // Chat (Legacy - à déprécier)
         Route::get('/orders/{id}/messages', [\App\Http\Controllers\Api\Courier\ChatController::class, 'index']);
         Route::post('/orders/{id}/messages', [\App\Http\Controllers\Api\Courier\ChatController::class, 'store']);
         
-        // Chat V2 (via delivery)
-        Route::get('/deliveries/{delivery}/chat', [\App\Http\Controllers\Api\ChatController::class, 'getMessages']);
-        Route::post('/deliveries/{delivery}/chat', [\App\Http\Controllers\Api\ChatController::class, 'sendMessage']);
-        Route::get('/deliveries/{delivery}/chat/unread', [\App\Http\Controllers\Api\ChatController::class, 'getUnreadCount']);
-        Route::post('/deliveries/{delivery}/chat/read', [\App\Http\Controllers\Api\ChatController::class, 'markAllAsRead']);
+        // Chat V2 (via delivery) - SECURITY: Rate limiting anti-spam
+        Route::prefix('deliveries/{delivery}/chat')->middleware('throttle:chat')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\ChatController::class, 'getMessages']);
+            Route::post('/', [\App\Http\Controllers\Api\ChatController::class, 'sendMessage']);
+            Route::get('/unread', [\App\Http\Controllers\Api\ChatController::class, 'getUnreadCount']);
+            Route::post('/read', [\App\Http\Controllers\Api\ChatController::class, 'markAllAsRead']);
+            Route::get('/participants', [\App\Http\Controllers\Api\ChatController::class, 'getParticipants']);
+            Route::delete('/messages/{message}', [\App\Http\Controllers\Api\ChatController::class, 'deleteMessage']);
+        });
         
         // JEKO Payments
         // SECURITY V-003: Rate limiting - max 10 initiations de paiement par minute par utilisateur

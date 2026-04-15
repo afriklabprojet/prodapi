@@ -13,6 +13,8 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Concerns\InteractsWithForms;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
@@ -41,12 +43,18 @@ class LandingPageSettings extends Page implements HasForms
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        /** @var User|null $user */
+        $user = Auth::user();
+
+        return $user?->isAdmin() ?? false;
     }
 
     public function mount(): void
     {
-        abort_unless(auth()->user()?->isAdmin(), 403, 'Accès réservé à l\'administrateur');
+        /** @var User|null $user */
+        $user = Auth::user();
+
+        abort_unless($user?->isAdmin(), 403, 'Accès réservé à l\'administrateur');
 
         $this->form->fill([
             // === HERO ===
