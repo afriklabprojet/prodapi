@@ -115,9 +115,11 @@ class ChatController extends Controller
     public function sendMessage(Request $request, Delivery $delivery): JsonResponse
     {
         $validated = $request->validate([
-            'receiver_type' => 'required|in:courier,pharmacy,client',
-            'receiver_id' => 'required|integer|min:1',
             'message' => 'required|string|max:2000',
+            // Accepte target OU receiver_type+receiver_id
+            'target' => 'sometimes|in:courier,pharmacy,client,customer',
+            'receiver_type' => 'sometimes|in:courier,pharmacy,client',
+            'receiver_id' => 'sometimes|integer|min:1',
             'type' => ['sometimes', new Enum(MessageType::class)],
             'metadata' => 'sometimes|array',
             'metadata.url' => 'sometimes|url|max:500',
@@ -132,6 +134,32 @@ class ChatController extends Controller
         // SECURITY: Vérifier l'accès à cette livraison
         $this->chatService->assertIsDeliveryParticipant($delivery, $currentUser);
 
+        // Résoudre receiver depuis target si receiver_type/receiver_id absents
+        $receiverType = $validated['receiver_type'] ?? null;
+        $receiverId = $validated['receiver_id'] ?? null;
+
+        if (!$receiverType && isset($validated['target'])) {
+            $order = $delivery->order;
+            $target = $validated['target'];
+            if ($target === 'pharmacy') {
+                $receiverType = 'pharmacy';
+                $receiverId = $order->pharmacy_id;
+            } elseif (in_array($target, ['customer', 'client'])) {
+                $receiverType = 'client';
+                $receiverId = $order->customer_id;
+            } elseif ($target === 'courier') {
+                $receiverType = 'courier';
+                $receiverId = $delivery->courier_id;
+            }
+        }
+
+        if (!$receiverType || !$receiverId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Destinataire requis (target ou receiver_type+receiver_id)',
+            ], 422);
+        }
+
         $messageType = isset($validated['type']) 
             ? MessageType::from($validated['type']) 
             : MessageType::TEXT;
@@ -140,8 +168,8 @@ class ChatController extends Controller
         $message = $this->chatService->sendMessage(
             $delivery,
             $currentUser,
-            $validated['receiver_type'],
-            (int) $validated['receiver_id'],
+            $receiverType,
+            (int) $receiverId,
             $validated['message'],
             $messageType,
             $validated['metadata'] ?? null
