@@ -26,8 +26,7 @@ class ViewDelivery extends ViewRecord
                         ->label('Nouveau livreur')
                         ->options(function () {
                             return \App\Models\Courier::with('user')
-                                ->where('status', 'approved')
-                                ->where('is_available', true)
+                                ->where('status', 'available')
                                 ->get()
                                 ->pluck('user.name', 'id');
                         })
