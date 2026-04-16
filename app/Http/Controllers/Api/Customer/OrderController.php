@@ -377,6 +377,7 @@ class OrderController extends Controller
                     'estimated_distance' => (float) $order->delivery->estimated_distance,
                     'estimated_duration' => $order->delivery->estimated_duration, // e.g., "15 min" or integer
                     'courier' => $order->delivery->courier ? [
+                        'id' => (int) $order->delivery->courier->id,
                         'name' => $order->delivery->courier->user->name ?? 'Coursier',
                         'phone' => $order->delivery->courier->user->phone ?? '', 
                         'phone_courier' => $order->delivery->courier->phone,

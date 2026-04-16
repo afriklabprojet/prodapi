@@ -95,6 +95,14 @@ final class ChatService
     }
 
     /**
+     * SECURITY: Vérifier que l'utilisateur est participant d'une session de chat persistante
+     */
+    public function isChatSessionParticipant(\App\Models\ChatSession $session, array $currentUser): bool
+    {
+        return $session->isParticipant($currentUser);
+    }
+
+    /**
      * SECURITY: Vérifier que le destinataire est un participant valide de la livraison
      */
     public function isValidReceiver(Delivery $delivery, string $receiverType, int $receiverId): bool

@@ -49,6 +49,7 @@ class NewChatMessageNotification extends Notification implements ShouldQueue
             'data' => array_merge($fcmConfig['data'], [
                 'type' => 'chat_message',
                 'delivery_id' => (string) $this->delivery->id,
+                'order_id' => (string) $this->delivery->order_id,
                 'sender_type' => $this->senderType,
                 'sender_name' => $this->senderName,
             ]),
@@ -62,6 +63,7 @@ class NewChatMessageNotification extends Notification implements ShouldQueue
         return [
             'type' => 'chat_message',
             'delivery_id' => $this->delivery->id,
+            'order_id' => $this->delivery->order_id,
             'sender_type' => $this->senderType,
             'sender_name' => $this->senderName,
             'message' => $this->message,

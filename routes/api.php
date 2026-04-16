@@ -239,6 +239,12 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
             Route::get('/participants', [\App\Http\Controllers\Api\ChatController::class, 'getParticipants']);
             Route::delete('/messages/{message}', [\App\Http\Controllers\Api\ChatController::class, 'deleteMessage']);
         });
+
+        // Chat via order ID (résout la delivery automatiquement) - pour les cas où deliveryId n'est pas connu côté client
+        Route::prefix('orders/{order}/chat')->middleware('throttle:chat')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\ChatController::class, 'getMessagesByOrder']);
+            Route::post('/', [\App\Http\Controllers\Api\ChatController::class, 'sendMessageByOrder']);
+        });
         
         // Orders - Actions sensibles nécessitent téléphone vérifié et rate limiting
         Route::middleware(['verified.phone', 'throttle:orders', 'idempotent'])->group(function () {
@@ -316,6 +322,7 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         Route::post('/orders/{id}/reject', [PharmacyOrderController::class, 'reject']);
         Route::post('/orders/{id}/notes', [PharmacyOrderController::class, 'addNotes']);
         Route::get('/orders/{id}/delivery-waiting-status', [PharmacyOrderController::class, 'deliveryWaitingStatus']);
+        Route::post('/orders/{id}/rate-courier', [PharmacyOrderController::class, 'rateCourier']);
 
         // Inventory
         Route::get('/inventory/categories', [InventoryController::class, 'categories']);
@@ -410,6 +417,19 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
             Route::post('/read', [\App\Http\Controllers\Api\ChatController::class, 'markAllAsRead']);
             Route::get('/participants', [\App\Http\Controllers\Api\ChatController::class, 'getParticipants']);
             Route::delete('/messages/{message}', [\App\Http\Controllers\Api\ChatController::class, 'deleteMessage']);
+        });
+
+        // Chat Sessions persistantes pharmacie ↔ client
+        Route::prefix('chat-sessions')->middleware('throttle:chat')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\Pharmacy\ChatSessionController::class, 'index']);
+            Route::post('/', [\App\Http\Controllers\Api\Pharmacy\ChatSessionController::class, 'getOrCreate']);
+            Route::prefix('{chatSession}')->group(function () {
+                Route::get('/messages', [\App\Http\Controllers\Api\Pharmacy\ChatSessionController::class, 'getMessages']);
+                Route::post('/messages', [\App\Http\Controllers\Api\Pharmacy\ChatSessionController::class, 'sendMessage']);
+                Route::post('/read', [\App\Http\Controllers\Api\Pharmacy\ChatSessionController::class, 'markAsRead']);
+                Route::get('/unread', [\App\Http\Controllers\Api\Pharmacy\ChatSessionController::class, 'unreadCount']);
+                Route::patch('/status', [\App\Http\Controllers\Api\Pharmacy\ChatSessionController::class, 'updateStatus']);
+            });
         });
     });
     

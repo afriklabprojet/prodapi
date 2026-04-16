@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Api\Pharmacy;
 
 use App\Http\Controllers\Controller;
+use App\Models\Courier;
 use App\Models\Order;
 use App\Models\Pharmacy;
+use App\Models\Rating;
 use App\Services\WaitingFeeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
@@ -376,15 +379,93 @@ class OrderController extends Controller
         // Notifier le client
         if ($order->customer) {
             try {
-                $order->customer->notify(new \App\Notifications\OrderCancelledNotification($order, 'pharmacy'));
+                $order->customer->notify(new \App\Notifications\OrderStatusNotification($order, 'cancelled'));
             } catch (\Throwable $e) {
-                \Log::warning('Notification rejet commande échouée', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+                Log::warning('Notification rejet commande échouée', ['order_id' => $order->id, 'error' => $e->getMessage()]);
             }
         }
 
         return response()->json([
             'success' => true,
             'message' => 'Commande rejetée avec succès',
+        ]);
+    }
+
+    /**
+     * Rate the courier for a delivered order.
+     *
+     * POST /api/pharmacy/orders/{id}/rate-courier
+     */
+    public function rateCourier(Request $request, int $id): \Illuminate\Http\JsonResponse
+    {
+        $request->validate([
+            'rating' => 'required|integer|min:1|max:5',
+            'comment' => 'nullable|string|max:500',
+            'tags' => 'nullable|array',
+            'tags.*' => 'string|max:50',
+        ]);
+
+        $pharmacy = $request->user()->pharmacies()->approved()->first();
+
+        if (!$pharmacy) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucune pharmacie approuvée trouvée',
+            ], 403);
+        }
+
+        $order = $pharmacy->orders()
+            ->where('status', 'delivered')
+            ->with('delivery.courier')
+            ->findOrFail($id);
+
+        if (!$order->delivery || !$order->delivery->courier_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucun livreur associé à cette commande.',
+            ], 422);
+        }
+
+        // Check if already rated by this pharmacy
+        $alreadyRated = Rating::where('user_id', $request->user()->id)
+            ->where('order_id', $order->id)
+            ->where('rateable_type', Courier::class)
+            ->where('rateable_id', $order->delivery->courier_id)
+            ->exists();
+
+        if ($alreadyRated) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vous avez déjà noté ce livreur pour cette commande.',
+            ], 422);
+        }
+
+        $rating = DB::transaction(function () use ($request, $order, $pharmacy) {
+            $rating = Rating::create([
+                'user_id' => $request->user()->id,
+                'order_id' => $order->id,
+                'rateable_type' => Courier::class,
+                'rateable_id' => $order->delivery->courier_id,
+                'rating' => $request->rating,
+                'comment' => $request->comment,
+                'tags' => $request->tags,
+            ]);
+
+            // Update courier average rating
+            if ($order->delivery->courier) {
+                $avg = Rating::where('rateable_type', Courier::class)
+                    ->where('rateable_id', $order->delivery->courier_id)
+                    ->avg('rating');
+                $order->delivery->courier->update(['rating' => round($avg, 2)]);
+            }
+
+            return $rating;
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Merci pour votre évaluation du livreur !',
+            'data' => $rating,
         ]);
     }
 }

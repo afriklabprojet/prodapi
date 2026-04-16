@@ -282,4 +282,37 @@ class ChatController extends Controller
             'message' => 'Message supprimé',
         ]);
     }
+
+    /**
+     * Résoudre la delivery d'une commande (helper)
+     */
+    private function resolveDeliveryFromOrder(int $orderId): Delivery
+    {
+        $order = \App\Models\Order::findOrFail($orderId);
+        $delivery = $order->delivery;
+
+        if (!$delivery) {
+            abort(404, 'Aucune livraison associée à cette commande. Le chat sera disponible une fois la commande confirmée.');
+        }
+
+        return $delivery;
+    }
+
+    /**
+     * Récupérer les messages via order ID (résout la delivery automatiquement)
+     */
+    public function getMessagesByOrder(Request $request, int $order): JsonResponse
+    {
+        $delivery = $this->resolveDeliveryFromOrder($order);
+        return $this->getMessages($request, $delivery);
+    }
+
+    /**
+     * Envoyer un message via order ID (résout la delivery automatiquement)
+     */
+    public function sendMessageByOrder(Request $request, int $order): JsonResponse
+    {
+        $delivery = $this->resolveDeliveryFromOrder($order);
+        return $this->sendMessage($request, $delivery);
+    }
 }

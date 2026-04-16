@@ -33,8 +33,8 @@ class DeliveryOfferController extends Controller
 
         // Offres actives pour ce livreur
         $offers = $courier->deliveryOffers()
-            ->where('status', DeliveryOffer::STATUS_PENDING)
-            ->where('expires_at', '>', now())
+            ->where('delivery_offers.status', DeliveryOffer::STATUS_PENDING)
+            ->where('delivery_offers.expires_at', '>', now())
             ->with(['order.pharmacy'])
             ->orderBy('expires_at')
             ->get();

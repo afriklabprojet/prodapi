@@ -44,6 +44,24 @@ Broadcast::channel('chat.{type}.{id}', function ($user, string $type, int $id) {
 });
 
 /**
+ * Canal de chat pour une session persistante (pharmacie ↔ client)
+ * Accessible uniquement par les participants de la session.
+ */
+Broadcast::channel('chat-session.{sessionId}', function ($user, int $sessionId) {
+    $chatService = app(ChatService::class);
+    $currentUser = $chatService->resolveCurrentUser($user);
+
+    // Cherche la session et vérifie que l'utilisateur en est participant.
+    $session = \App\Models\ChatSession::find($sessionId);
+
+    if (!$session) {
+        return false;
+    }
+
+    return $chatService->isChatSessionParticipant($session, $currentUser);
+});
+
+/**
  * Canal de présence pour une livraison (voir qui est en ligne)
  */
 Broadcast::channel('delivery.{deliveryId}.presence', function ($user, int $deliveryId) {
