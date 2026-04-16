@@ -211,13 +211,15 @@ class WalletController extends Controller
         }
 
         try {
-            $transaction = $this->walletService->requestWithdrawal(
+            $result = $this->walletService->requestWithdrawal(
                 $courier,
                 $validated['amount'],
                 $validated['payment_method'],
                 $validated['phone_number']
             );
 
+            $transaction = $result['transaction'];
+            $withdrawalRequest = $result['withdrawal_request'];
             $balance = $this->walletService->getBalance($courier);
 
             return response()->json([
@@ -225,6 +227,11 @@ class WalletController extends Controller
                 'status' => 'success',
                 'message' => 'Demande de retrait enregistrée',
                 'data' => [
+                    'withdrawal_request' => [
+                        'id' => $withdrawalRequest->id,
+                        'reference' => $withdrawalRequest->reference,
+                        'status' => $withdrawalRequest->status,
+                    ],
                     'transaction' => [
                         'id' => $transaction->id,
                         'amount' => (float) $transaction->amount,

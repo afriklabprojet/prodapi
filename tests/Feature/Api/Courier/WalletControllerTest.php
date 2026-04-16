@@ -175,10 +175,22 @@ class WalletControllerTest extends TestCase
             'status' => 'pending',
         ]);
 
-        $this->mock(WalletService::class, function ($mock) use ($transaction) {
+        $withdrawalRequest = \App\Models\WithdrawalRequest::factory()->create([
+            'wallet_id' => $wallet->id,
+            'requestable_type' => \App\Models\Courier::class,
+            'requestable_id' => $this->courier->id,
+            'amount' => 3000,
+            'reference' => 'WD-123',
+            'status' => 'pending',
+        ]);
+
+        $this->mock(WalletService::class, function ($mock) use ($transaction, $withdrawalRequest) {
             $mock->shouldReceive('requestWithdrawal')
                 ->once()
-                ->andReturn($transaction);
+                ->andReturn([
+                    'transaction' => $transaction,
+                    'withdrawal_request' => $withdrawalRequest,
+                ]);
             $mock->shouldReceive('getBalance')
                 ->andReturn([
                     'balance' => 2000,
@@ -198,7 +210,8 @@ class WalletControllerTest extends TestCase
             ]);
 
         $response->assertOk()
-            ->assertJsonPath('status', 'success');
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('data.withdrawal_request.id', $withdrawalRequest->id);
     }
 
     #[Test]

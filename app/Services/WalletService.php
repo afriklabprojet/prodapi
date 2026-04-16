@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use App\Models\WithdrawalRequest;
 use App\Models\Courier;
 use App\Models\Delivery;
 use App\Models\Setting;
@@ -469,13 +470,16 @@ class WalletService
 
     /**
      * Demander un retrait vers Mobile Money
+     * Crée une WithdrawalRequest + WalletTransaction
+     * 
+     * @return array{transaction: WalletTransaction, withdrawal_request: WithdrawalRequest}
      */
     public function requestWithdrawal(
         Courier $courier,
         float $amount,
         string $paymentMethod,
         string $phoneNumber
-    ): WalletTransaction {
+    ): array {
         $wallet = $this->getOrCreateWallet($courier);
         $minWithdrawal = self::getMinimumWithdrawalAmount();
         
@@ -489,7 +493,8 @@ class WalletService
 
         $reference = 'WTH-' . strtoupper(Str::random(8));
 
-        return DB::transaction(function () use ($wallet, $amount, $reference, $paymentMethod, $phoneNumber) {
+        return DB::transaction(function () use ($wallet, $courier, $amount, $reference, $paymentMethod, $phoneNumber) {
+            // Débiter le wallet
             $transaction = $wallet->debit(
                 $amount,
                 $reference,
@@ -503,10 +508,25 @@ class WalletService
             $transaction->update([
                 'category' => 'withdrawal',
                 'payment_method' => $paymentMethod,
-                'status' => 'pending', // En attente de traitement par l'admin
+                'status' => 'pending',
             ]);
 
-            return $transaction->fresh();
+            // Créer la demande de retrait (visible dans le panel admin)
+            $withdrawalRequest = WithdrawalRequest::create([
+                'wallet_id' => $wallet->id,
+                'requestable_type' => Courier::class,
+                'requestable_id' => $courier->id,
+                'amount' => $amount,
+                'payment_method' => $paymentMethod,
+                'phone' => $phoneNumber,
+                'reference' => $reference,
+                'status' => 'pending',
+            ]);
+
+            return [
+                'transaction' => $transaction->fresh(),
+                'withdrawal_request' => $withdrawalRequest,
+            ];
         });
     }
 

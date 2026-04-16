@@ -8,6 +8,7 @@ use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Filament\Forms;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\HtmlString;
 
 class PendingPrescriptionsWidget extends BaseWidget
@@ -112,7 +113,7 @@ class PendingPrescriptionsWidget extends BaseWidget
                         $record->update([
                             'status' => 'validated',
                             'validated_at' => now(),
-                            'validated_by' => auth()->user()?->getAuthIdentifier(),
+                            'validated_by' => Auth::id(),
                         ]);
                         Notification::make()
                             ->title('Ordonnance #' . $record->id . ' validée')
@@ -140,7 +141,7 @@ class PendingPrescriptionsWidget extends BaseWidget
                             'quote_amount' => $data['quote_amount'],
                             'admin_notes' => $data['notes'] ?? null,
                             'validated_at' => now(),
-                            'validated_by' => auth()->user()?->getAuthIdentifier(),
+                            'validated_by' => Auth::id(),
                         ]);
                         Notification::make()
                             ->title('Devis envoyé: ' . number_format($data['quote_amount'], 0, ',', ' ') . ' FCFA')

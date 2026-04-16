@@ -193,16 +193,28 @@ class WalletServiceTest extends TestCase
     #[Test]
     public function it_requests_withdrawal()
     {
-        $transaction = $this->walletService->requestWithdrawal(
+        $result = $this->walletService->requestWithdrawal(
             $this->courier,
             2000,
             'orange_money',
             '0787654321'
         );
         
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('transaction', $result);
+        $this->assertArrayHasKey('withdrawal_request', $result);
+        
+        $transaction = $result['transaction'];
+        $withdrawalRequest = $result['withdrawal_request'];
+        
         $this->assertInstanceOf(WalletTransaction::class, $transaction);
         $this->assertEquals('pending', $transaction->status);
         $this->assertEquals(2000, $transaction->amount);
+        
+        $this->assertInstanceOf(\App\Models\WithdrawalRequest::class, $withdrawalRequest);
+        $this->assertEquals('pending', $withdrawalRequest->status);
+        $this->assertEquals(2000, $withdrawalRequest->amount);
+        $this->assertEquals($this->courier->id, $withdrawalRequest->requestable_id);
     }
 
     #[Test]

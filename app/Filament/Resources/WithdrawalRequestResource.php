@@ -169,7 +169,144 @@ class WithdrawalRequestResource extends Resource
                     }),
             ])
             ->defaultSort('created_at', 'desc')
-            ->striped();
+            ->striped()
+            ->actions([
+                Tables\Actions\Action::make('approve')
+                    ->label('Approuver')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('Approuver le retrait')
+                    ->modalDescription(fn (WithdrawalRequest $record): string => 
+                        "Vous allez approuver le retrait de " . number_format($record->amount, 0, ',', ' ') . " FCFA vers {$record->phone}. Le paiement sera initié via JEKO Pay.")
+                    ->visible(fn (WithdrawalRequest $record): bool => $record->status === 'pending')
+                    ->action(function (WithdrawalRequest $record): void {
+                        // Déclencher le paiement JEKO
+                        try {
+                            $jekoService = app(\App\Services\JekoPaymentService::class);
+                            $amountCents = (int) ($record->amount * 100);
+                            
+                            $jekoPayment = $jekoService->createPayout(
+                                $record,
+                                $amountCents,
+                                $record->phone,
+                                $record->payment_method,
+                                null, // user optionnel
+                                "Retrait {$record->requester_type} - {$record->requester_name}"
+                            );
+                            
+                            $record->update([
+                                'status' => 'processing',
+                                'jeko_reference' => $jekoPayment->reference,
+                                'jeko_payment_id' => $jekoPayment->id,
+                                'processed_at' => now(),
+                            ]);
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->title('Retrait approuvé')
+                                ->body("Paiement JEKO initié: {$jekoPayment->reference}")
+                                ->success()
+                                ->send();
+                        } catch (\Exception $e) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Erreur JEKO')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
+                Tables\Actions\Action::make('complete')
+                    ->label('Marquer complété')
+                    ->icon('heroicon-o-check-badge')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('Marquer comme complété')
+                    ->modalDescription('Confirmer que le paiement a bien été effectué ?')
+                    ->visible(fn (WithdrawalRequest $record): bool => $record->status === 'processing')
+                    ->action(function (WithdrawalRequest $record): void {
+                        $record->update([
+                            'status' => 'completed',
+                            'completed_at' => now(),
+                        ]);
+                        
+                        // Mettre à jour la transaction wallet associée
+                        \App\Models\WalletTransaction::where('reference', $record->reference)
+                            ->update(['status' => 'completed']);
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->title('Retrait complété')
+                            ->success()
+                            ->send();
+                    }),
+                Tables\Actions\Action::make('reject')
+                    ->label('Rejeter')
+                    ->icon('heroicon-o-x-circle')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Rejeter le retrait')
+                    ->form([
+                        Forms\Components\Textarea::make('reason')
+                            ->label('Motif du rejet')
+                            ->required()
+                            ->rows(3),
+                    ])
+                    ->visible(fn (WithdrawalRequest $record): bool => in_array($record->status, ['pending', 'processing']))
+                    ->action(function (WithdrawalRequest $record, array $data): void {
+                        // Recréditer le wallet
+                        $wallet = $record->wallet;
+                        if ($wallet) {
+                            $wallet->credit(
+                                $record->amount,
+                                'REF-' . $record->reference,
+                                "Remboursement retrait annulé: {$data['reason']}"
+                            );
+                        }
+                        
+                        $record->update([
+                            'status' => 'failed',
+                            'error_message' => $data['reason'],
+                            'admin_notes' => "Rejeté par admin: {$data['reason']}",
+                        ]);
+                        
+                        // Mettre à jour la transaction wallet
+                        \App\Models\WalletTransaction::where('reference', $record->reference)
+                            ->update(['status' => 'failed']);
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->title('Retrait rejeté')
+                            ->body('Le montant a été recrédité au wallet.')
+                            ->warning()
+                            ->send();
+                    }),
+                Tables\Actions\ViewAction::make()
+                    ->label('Détails'),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\BulkAction::make('bulk_approve')
+                        ->label('Approuver sélection')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->deselectRecordsAfterCompletion()
+                        ->action(function (\Illuminate\Database\Eloquent\Collection $records): void {
+                            $approved = 0;
+                            foreach ($records as $record) {
+                                if ($record->status === 'pending') {
+                                    $record->update([
+                                        'status' => 'processing',
+                                        'processed_at' => now(),
+                                    ]);
+                                    $approved++;
+                                }
+                            }
+                            \Filament\Notifications\Notification::make()
+                                ->title("{$approved} retrait(s) approuvé(s)")
+                                ->success()
+                                ->send();
+                        }),
+                ]),
+            ]);
     }
 
     public static function getRelations(): array
@@ -181,6 +318,7 @@ class WithdrawalRequestResource extends Resource
     {
         return [
             'index' => WithdrawalRequestResource\Pages\ListWithdrawalRequests::route('/'),
+            'view' => WithdrawalRequestResource\Pages\ViewWithdrawalRequest::route('/{record}'),
         ];
     }
 
