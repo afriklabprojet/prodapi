@@ -53,11 +53,11 @@ class PharmacyProfileController extends Controller
         }
 
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'phone' => 'required|string|max:20',
+            'name' => 'sometimes|required|string|max:255',
+            'phone' => 'sometimes|required|string|max:20',
             'email' => 'nullable|email|max:255',
-            'address' => 'required|string|max:255',
-            'city' => 'required|string|max:100',
+            'address' => 'sometimes|required|string|max:255',
+            'city' => 'sometimes|required|string|max:100',
             'duty_zone_id' => 'nullable|exists:duty_zones,id',
             'license_number' => 'nullable|string|max:100',
             'latitude' => 'nullable|numeric|between:-90,90',
