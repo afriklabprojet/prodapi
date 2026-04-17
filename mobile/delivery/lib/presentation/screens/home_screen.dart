@@ -259,6 +259,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     WidgetsBinding.instance.removeObserver(this);
     _geofenceSubscription?.cancel();
     _geofenceSubscription = null;
+    // H7: Nettoyer les zones geofence pour éviter la persistence après destruction
+    try {
+      ref.read(geofencingServiceProvider).clearAllZones();
+    } catch (_) {}
     // Libérer le controller natif Google Maps pour éviter les fuites mémoire
     _controller.future.then((c) => c.dispose()).catchError((_) {});
     super.dispose();

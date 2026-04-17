@@ -100,11 +100,14 @@ android {
     // Cible uniquement arm64 (99% des devices modernes) = ~35 MB au lieu de 79 MB
     // ============================================================================
     
-    // Les splits APK sont désactivés car Flutter gère automatiquement via ndk
-    // Utiliser App Bundle pour la production (meilleure optimisation)
+    // APK splits per ABI pour réduire la taille par architecture
+    // AAB reste recommandé en prod (Play Store) ; splits utiles pour distribution directe
     splits {
         abi {
-            isEnable = false  // Désactivé - utiliser flutter build appbundle
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86_64")
+            isUniversalApk = false
         }
     }
 }
