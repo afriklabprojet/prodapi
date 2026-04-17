@@ -378,6 +378,9 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         Route::put('/on-calls/{id}', [\App\Http\Controllers\Api\Pharmacy\OnCallController::class, 'update']);
         Route::delete('/on-calls/{id}', [\App\Http\Controllers\Api\Pharmacy\OnCallController::class, 'destroy']);
 
+        // Duty Zone self-service (pharmacie crée sa propre zone)
+        Route::post('/duty-zones', [\App\Http\Controllers\Api\Pharmacy\DutyZoneController::class, 'storeForPharmacy']);
+
         // Dashboard Stats
         Route::get('/stats/week', [\App\Http\Controllers\Api\Pharmacy\PharmacyDashboardController::class, 'weekStats']);
         Route::get('/stats/daily', [\App\Http\Controllers\Api\Pharmacy\PharmacyDashboardController::class, 'dailyStats']);
