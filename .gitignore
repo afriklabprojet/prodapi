@@ -46,3 +46,16 @@ create_test_courier.php
 composer.lock
 bootstrap/cache/*.php
 nohup.out
+
+# Pollution prevention
+/mobile/
+/builds/
+/api/
+/assets/
+/.vite/
+/.agents/
+*.zip
+*.apk
+*.aab
+*.keystore
+/skills-lock.json
