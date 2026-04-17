@@ -90,13 +90,7 @@ class OnCallController extends Controller
             ], 403);
         }
 
-        if (!$pharmacy->duty_zone_id) {
-            return response()->json([
-                'success' => false,
-                'status' => 'error',
-                'message' => 'Veuillez configurer une zone de garde avant de programmer une garde.',
-            ], 422);
-        }
+        // Zone de garde optionnelle : si la pharmacie n'en a pas, la garde est créée sans zone.
 
         $startAt = Carbon::parse($request->start_at);
         $endAt   = Carbon::parse($request->end_at);
