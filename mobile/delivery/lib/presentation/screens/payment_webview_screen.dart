@@ -134,20 +134,17 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen>
     final uri = Uri.tryParse(url);
     final path = uri?.path ?? '';
 
-    // Callback succès JEKO
-    for (final successPath in _successPaths) {
-      if (path.contains(successPath) || url.contains(successPath)) {
-        _complete(true);
-        return NavigationDecision.prevent;
-      }
+    // Callback succès JEKO — match strict sur path (pas url complet)
+    // pour éviter qu'un attaquant injecte un chemin via query/fragment.
+    if (uri != null && _matchesPaymentPath(path, _successPaths)) {
+      _complete(true);
+      return NavigationDecision.prevent;
     }
 
-    // Callback erreur JEKO
-    for (final errorPath in _errorPaths) {
-      if (path.contains(errorPath) || url.contains(errorPath)) {
-        _complete(false);
-        return NavigationDecision.prevent;
-      }
+    // Callback erreur JEKO — match strict
+    if (uri != null && _matchesPaymentPath(path, _errorPaths)) {
+      _complete(false);
+      return NavigationDecision.prevent;
     }
 
     // Deep links de notre app
@@ -202,6 +199,25 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen>
       }
     } catch (_) {}
     return null;
+  }
+
+  /// Match strict sur le path de l'URL : compare soit égalité exacte,
+  /// soit fin de path (pour gérer les variantes `/api/...` vs `/...`).
+  /// N'utilise PAS `.contains()` sur l'URL complète pour éviter qu'un
+  /// attaquant injecte un chemin de succès via query/fragment.
+  bool _matchesPaymentPath(String path, List<String> candidates) {
+    if (path.isEmpty) return false;
+    for (final candidate in candidates) {
+      if (candidate.startsWith('/')) {
+        // Path absolu : égalité exacte ou suffixe après normalisation
+        if (path == candidate || path.endsWith(candidate)) return true;
+      } else {
+        // Path relatif (ex: "payment/success") : doit terminer l'URL path
+        // précédé d'un séparateur `/` pour éviter collision partielle
+        if (path.endsWith('/$candidate') || path == '/$candidate') return true;
+      }
+    }
+    return false;
   }
 
   /// Affiche un overlay indiquant d'attendre la confirmation mobile money

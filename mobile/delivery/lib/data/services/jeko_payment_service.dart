@@ -109,8 +109,15 @@ class JekoPaymentService {
   // Protégé : seul initiateWalletTopup() écrit, le callback lit puis efface
   static String? _pendingPaymentReference;
 
+  // Verrou synchrone contre les double-tap pendant l'await backend.
+  // Dart étant single-threaded (event loop), ce flag bool mis à true
+  // AVANT tout await empêche deux appels simultanés d'initier
+  // deux requêtes backend parallèles.
+  static bool _isInitiating = false;
+
   /// Vérifier si un paiement est déjà en cours
-  static bool get hasActivePendingPayment => _pendingPaymentReference != null;
+  static bool get hasActivePendingPayment =>
+      _pendingPaymentReference != null || _isInitiating;
 
   // Configuration depuis AppConfig
   static int get maxRetries => AppConfig.paymentMaxRetries;
@@ -257,7 +264,8 @@ class JekoPaymentService {
     onStatusChange(status);
 
     // Protéger contre les paiements concurrents
-    if (_pendingPaymentReference != null) {
+    // Protéger contre les paiements concurrents (double-tap + pending actif)
+    if (_pendingPaymentReference != null || _isInitiating) {
       status = status.copyWith(
         state: PaymentFlowState.failed,
         errorMessage: 'Un paiement est déjà en cours. Veuillez patienter.',
@@ -265,6 +273,9 @@ class JekoPaymentService {
       onStatusChange(status);
       return status;
     }
+
+    // Verrou synchrone AVANT tout await pour bloquer les double-tap
+    _isInitiating = true;
 
     try {
       // 1. Appeler le backend pour initier le paiement
@@ -274,6 +285,7 @@ class JekoPaymentService {
       );
 
       _pendingPaymentReference = response.reference;
+      _isInitiating = false;
 
       status = status.copyWith(
         state: PaymentFlowState.redirecting,
@@ -318,6 +330,9 @@ class JekoPaymentService {
         initialStatus: status,
       );
     } catch (e) {
+      // Libérer les verrous en cas d'échec pour permettre une nouvelle tentative
+      _isInitiating = false;
+      _pendingPaymentReference = null;
       status = status.copyWith(
         state: PaymentFlowState.failed,
         errorMessage: _cleanErrorMessage(e),
