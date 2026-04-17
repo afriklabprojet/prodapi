@@ -59,3 +59,4 @@ nohup.out
 *.aab
 *.keystore
 /skills-lock.json
+*.md
