@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "ci.drpharma.drpharma_client",
+    "sha256_cert_fingerprints": [
+      "D6:2A:CF:2C:8D:AF:57:BB:76:30:0E:C8:EA:B6:32:42:7C:9D:F5:64:6E:33:9D:2A:41:14:25:C8:63:DA:42:BF"
+    ]
+  }
+}]

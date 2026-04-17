@@ -190,7 +190,7 @@ class WithdrawalRequestResource extends Resource
                                 $record,
                                 $amountCents,
                                 $record->phone,
-                                $record->payment_method,
+                                \App\Enums\JekoPaymentMethod::from($record->payment_method),
                                 null, // user optionnel
                                 "Retrait {$record->requester_type} - {$record->requester_name}"
                             );

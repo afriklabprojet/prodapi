@@ -1,0 +1,107 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.role == 'admin';
+    }
+    
+    function isCourier() {
+      return isAuthenticated() && request.auth.token.role == 'courier';
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ============================================
+    // COURIERS - Position en temps réel des livreurs
+    // ============================================
+    match /couriers/{courierId} {
+      // Seul le coursier propriétaire ou les utilisateurs autorisés peuvent lire
+      allow read: if isAuthenticated();
+      // Seul le coursier propriétaire peut écrire sa position
+      // Note: isOwner suffit car l'ID Firebase Auth correspond à l'ID coursier
+      allow write: if isOwner(courierId);
+    }
+
+    // ============================================
+    // DELIVERIES - Tracking d'une livraison spécifique
+    // ============================================
+    match /deliveries/{deliveryId} {
+      // Seuls les participants (coursier assigné, client, pharmacie) peuvent lire
+      allow read: if isAuthenticated()
+        && (resource == null
+            || resource.data.courierId == request.auth.uid
+            || resource.data.clientId == request.auth.uid
+            || resource.data.pharmacyId == request.auth.uid
+            || isAdmin());
+      // Les livreurs assignés et admins peuvent écrire
+      allow write: if (isCourier() && resource.data.courierId == request.auth.uid)
+        || isAdmin();
+    }
+
+    // ============================================
+    // LIVE TRACKING - Sessions de tracking partagées
+    // ============================================
+    match /live_tracking/{trackingId} {
+      // Seuls les participants de la livraison peuvent lire/écrire
+      allow read: if isAuthenticated()
+        && (resource == null
+            || resource.data.courierId == request.auth.uid
+            || resource.data.clientId == request.auth.uid
+            || resource.data.pharmacyId == request.auth.uid
+            || isAdmin());
+      allow write: if (isCourier() && resource.data.courierId == request.auth.uid)
+        || isAdmin();
+      // Création autorisée pour les livreurs
+      allow create: if isCourier();
+    }
+
+    // ============================================
+    // CHAT - Messages de commande
+    // ============================================
+    match /orders/{orderId}/messages/{messageId} {
+      // Tout utilisateur authentifié peut lire les messages d'une commande
+      allow read: if isAuthenticated();
+      // Les utilisateurs authentifiés peuvent créer des messages
+      allow create: if isAuthenticated()
+        && request.resource.data.keys().hasAll(['content', 'sender_type', 'target', 'created_at']);
+      // L'auteur peut modifier/supprimer son message
+      allow update, delete: if isAuthenticated();
+    }
+
+    // ============================================
+    // TYPING STATUS - Indicateurs de saisie
+    // ============================================
+    match /typing_status/{statusId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ============================================
+    // COURIER CONVERSATIONS - Conversations du livreur
+    // ============================================
+    match /courier_conversations/{courierId} {
+      // Le propriétaire peut accéder à ses conversations
+      allow read, write: if isOwner(courierId);
+      
+      match /conversations/{conversationId} {
+        allow read, write: if isOwner(courierId);
+      }
+    }
+
+    // Bloquer tout le reste par défaut
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

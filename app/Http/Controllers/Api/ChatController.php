@@ -284,7 +284,10 @@ class ChatController extends Controller
     }
 
     /**
-     * Résoudre la delivery d'une commande (helper)
+     * Résoudre ou créer la delivery d'une commande (helper)
+     * 
+     * Si la commande n'a pas de livraison, on en crée une automatiquement
+     * pour permettre le chat pharmacie ↔ client avant l'assignation d'un livreur.
      */
     private function resolveDeliveryFromOrder(int $orderId): Delivery
     {
@@ -292,7 +295,21 @@ class ChatController extends Controller
         $delivery = $order->delivery;
 
         if (!$delivery) {
-            abort(404, 'Aucune livraison associée à cette commande. Le chat sera disponible une fois la commande confirmée.');
+            // Créer automatiquement une livraison pour permettre le chat
+            $delivery = Delivery::create([
+                'order_id' => $order->id,
+                'pharmacy_id' => $order->pharmacy_id,
+                'customer_id' => $order->user_id,
+                'status' => 'pending',
+                'pickup_address' => $order->pharmacy?->address ?? 'Pharmacie',
+                'delivery_address' => $order->delivery_address ?? $order->user?->address ?? 'Client',
+                'pickup_lat' => $order->pharmacy?->latitude,
+                'pickup_lng' => $order->pharmacy?->longitude,
+                'delivery_lat' => $order->delivery_lat,
+                'delivery_lng' => $order->delivery_lng,
+            ]);
+            
+            \Log::info("[Chat] Auto-created delivery #{$delivery->id} for order #{$orderId} to enable chat");
         }
 
         return $delivery;

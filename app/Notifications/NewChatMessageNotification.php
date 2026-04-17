@@ -43,6 +43,14 @@ class NewChatMessageNotification extends Notification implements ShouldQueue
 
         $fcmConfig = \App\Services\NotificationSettingsService::getFcmConfig('chat_message');
 
+        // Récupérer l'ID du sender pour la navigation
+        $senderId = match($this->senderType) {
+            'courier' => $this->delivery->courier_id,
+            'pharmacy' => $this->delivery->pharmacy_id,
+            'client' => $this->delivery->customer_id,
+            default => null,
+        };
+
         return [
             'title' => "💬 Nouveau message - {$senderLabel}",
             'body' => "{$this->senderName}: " . substr($this->message, 0, 100) . (strlen($this->message) > 100 ? '...' : ''),
@@ -52,6 +60,9 @@ class NewChatMessageNotification extends Notification implements ShouldQueue
                 'order_id' => (string) $this->delivery->order_id,
                 'sender_type' => $this->senderType,
                 'sender_name' => $this->senderName,
+                'participant_type' => $this->senderType,
+                'participant_id' => (string) $senderId,
+                'participant_name' => $this->senderName,
             ]),
             'android' => $fcmConfig['android'],
             'apns' => $fcmConfig['apns'],

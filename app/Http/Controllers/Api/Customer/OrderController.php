@@ -358,6 +358,8 @@ class OrderController extends Controller
                     'address' => $order->pharmacy->address ?? '',
                 ],
                 'items' => $order->items->map(fn($item) => [
+                    'product_id' => $item->product_id,
+                    'name' => $item->product_name,
                     'product_name' => $item->product_name,
                     'quantity' => (int) $item->quantity,
                     'unit_price' => (float) $item->unit_price,

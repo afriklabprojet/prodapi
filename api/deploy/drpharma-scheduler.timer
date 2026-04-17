@@ -1,0 +1,11 @@
+# /etc/systemd/system/drpharma-scheduler.timer
+[Unit]
+Description=DR-PHARMA Laravel Scheduler (chaque minute)
+Requires=drpharma-scheduler.service
+
+[Timer]
+OnCalendar=minutely
+Persistent=true
+
+[Install]
+WantedBy=timers.target

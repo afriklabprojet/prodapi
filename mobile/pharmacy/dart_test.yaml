@@ -1,0 +1,5 @@
+# Test configuration for DrPharma Pharmacy.
+#
+# Integration tests (requiring a live API) live in test_integration/
+# and must be run manually:
+#   flutter test test_integration/

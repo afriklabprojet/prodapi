@@ -1,0 +1,14 @@
+# Android Keystore Configuration — DR-PHARMA Coursier
+# Copier ce fichier: cp key.properties.example key.properties
+# Puis renseigner les valeurs avec votre keystore
+#
+# Générer un keystore:
+#   keytool -genkey -v -keystore drpharma-courier.keystore \
+#     -alias drpharma-courier -keyalg RSA -keysize 2048 -validity 10000 \
+#     -storepass YOUR_STORE_PASSWORD -keypass YOUR_KEY_PASSWORD \
+#     -dname "CN=DR-PHARMA Coursier, OU=Mobile, O=DRL NEGOCE SARL, L=Abidjan, C=CI"
+
+storePassword=YOUR_STORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=drpharma-courier
+storeFile=keystores/drpharma-courier.keystore

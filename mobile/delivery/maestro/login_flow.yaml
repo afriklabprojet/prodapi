@@ -1,0 +1,100 @@
+# Maestro Test - Flow de connexion coursier
+# 
+# Exécution:
+#   maestro test maestro/login_flow.yaml
+#   maestro test maestro/login_flow.yaml --env EMAIL=test@example.com --env PASSWORD=Test123
+
+appId: com.drpharma.delivery
+
+---
+
+env:
+  EMAIL: "leadouce0@gmail.com"
+  PASSWORD: "Paris2026"
+
+---
+
+# ═══════════════════════════════════════════════════════════════
+# ÉTAPE 1: Lancement de l'app
+# ═══════════════════════════════════════════════════════════════
+- launchApp:
+    clearState: true
+    clearKeychain: false
+
+- extendedWaitUntil:
+    visible: "Passer|Se connecter|Bon retour"
+    timeout: 20000
+
+---
+
+# ═══════════════════════════════════════════════════════════════
+# ÉTAPE 2: Passer l'onboarding si présent
+# ═══════════════════════════════════════════════════════════════
+- runFlow:
+    when:
+      visible: "Passer"
+    commands:
+      - tapOn: "Passer"
+      - waitForAnimationToEnd
+
+---
+
+# ═══════════════════════════════════════════════════════════════
+# ÉTAPE 3: Écran de connexion
+# ═══════════════════════════════════════════════════════════════
+- assertVisible: "Bon retour"
+- assertVisible: "Se connecter"
+
+- takeScreenshot: "login_screen"
+
+---
+
+# ═══════════════════════════════════════════════════════════════
+# ÉTAPE 4: Saisir les identifiants
+# ═══════════════════════════════════════════════════════════════
+# Email
+- tapOn:
+    text: "Entrez votre email"
+- inputText: ${EMAIL}
+- hideKeyboard
+
+# Mot de passe
+- tapOn:
+    text: "Votre mot de passe"
+- inputText: ${PASSWORD}
+- hideKeyboard
+
+- takeScreenshot: "credentials_entered"
+
+---
+
+# ═══════════════════════════════════════════════════════════════
+# ÉTAPE 5: Soumettre le formulaire
+# ═══════════════════════════════════════════════════════════════
+- tapOn: "Se connecter"
+
+# Attendre la réponse (loading + navigation)
+- extendedWaitUntil:
+    visible: "Disponible|Carte|Profil"
+    timeout: 25000
+
+---
+
+# ═══════════════════════════════════════════════════════════════
+# ÉTAPE 6: Vérifier la connexion réussie
+# ═══════════════════════════════════════════════════════════════
+# Vérifier qu'on est sur l'écran principal
+- assertVisible:
+    text: "Carte|Livraisons|Stats|Wallet|Profil"
+
+# Vérifier le statut du coursier
+- assertVisible:
+    text: "Disponible|Hors ligne"
+
+- takeScreenshot: "login_successful"
+
+---
+
+# ═══════════════════════════════════════════════════════════════
+# ✅ TEST CONNEXION RÉUSSI
+# ═══════════════════════════════════════════════════════════════
