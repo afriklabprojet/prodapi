@@ -7,6 +7,6 @@ After=network.target mysql.service
 Type=oneshot
 User=drpharma
 WorkingDirectory=/var/www/drpharma
-ExecStart=/usr/bin/php8.2 artisan schedule:run
+ExecStart=/usr/bin/php8.3 artisan schedule:run
 StandardOutput=append:/var/www/drpharma/storage/logs/scheduler.log
 StandardError=append:/var/www/drpharma/storage/logs/scheduler.log
