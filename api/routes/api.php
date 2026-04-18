@@ -69,6 +69,9 @@ Route::middleware('throttle:public')->group(function () {
     Route::post('/pricing/calculate', [\App\Http\Controllers\Api\PricingController::class, 'calculate']);
     Route::post('/pricing/delivery', [\App\Http\Controllers\Api\PricingController::class, 'estimateDelivery']);
     
+    // Trust stats (home consumer — promesse + badges)
+    Route::get('/trust-stats', [\App\Http\Controllers\Api\TrustStatsController::class, 'index']);
+
     // Support Settings (public - apps need contact info)
     Route::get('/support/settings', [\App\Http\Controllers\Api\SupportSettingsController::class, 'index']);
     Route::get('/support/faq/courier', [\App\Http\Controllers\Api\SupportSettingsController::class, 'courierFaq']);
