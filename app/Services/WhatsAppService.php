@@ -41,7 +41,7 @@ class WhatsAppService
         if ($factory->isWhatsAppConfigured()) {
             $this->whatsAppApi = $factory->whatsAppApi();
         }
-        $this->senderNumber = config('whatsapp.sender_number', '');
+        $this->senderNumber = config('whatsapp.sender_number') ?? '';
         $this->enabled = config('whatsapp.enabled', false);
     }
 

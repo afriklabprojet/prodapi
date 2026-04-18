@@ -298,7 +298,7 @@ class JekoPaymentController extends Controller
 
         $payments = JekoPayment::where('user_id', $user->id)
             ->orderByDesc('created_at')
-            ->paginate($request->get('per_page', 20));
+            ->paginate($request->input('per_page', 20));
 
         return $this->paginated($payments, $payments->map(fn($p) => [
             'reference' => $p->reference,

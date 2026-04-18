@@ -27,14 +27,14 @@ class InfobipClientFactory
     {
         // Configuration SMS (peut avoir un base_url/api_key différent de WhatsApp)
         $this->smsConfiguration = new Configuration(
-            host: config('sms.infobip.base_url', ''),
-            apiKey: config('sms.infobip.api_key', ''),
+            host: config('sms.infobip.base_url') ?? '',
+            apiKey: config('sms.infobip.api_key') ?? '',
         );
 
         // Configuration WhatsApp
         $this->whatsAppConfiguration = new Configuration(
-            host: config('whatsapp.base_url', ''),
-            apiKey: config('whatsapp.api_key', ''),
+            host: config('whatsapp.base_url') ?? '',
+            apiKey: config('whatsapp.api_key') ?? '',
         );
     }
 
