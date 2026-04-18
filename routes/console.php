@@ -193,3 +193,37 @@ Schedule::call(function () {
         \Illuminate\Support\Facades\Log::warning("Scheduler: Livraison #{$delivery->id} - attente auto-stoppée (>30min)");
     }
 })->everyTenMinutes()->name('auto-stop-delivery-waiting-timeout')->withoutOverlapping()->onOneServer();
+
+// ============================================
+// E-COMMERCE & LIVRAISON — JOBS MÉTIER P0
+// ============================================
+
+// Désactiver les promotions produits expirées (discount_price + promotion_end_date)
+// Évite que les prix soldés restent actifs après la date de fin
+Schedule::job(new \App\Jobs\DeactivateExpiredPromotionsJob)->hourly()
+    ->withoutOverlapping()
+    ->onOneServer();
+
+// Alertes DLC lots d'inventaire pharmacie (30j / 7j avant expiration)
+// Conformité pharmacie : retirer les produits périmés du circuit de vente
+Schedule::job(new \App\Jobs\InventoryBatchExpiryAlertJob)->dailyAt('09:00')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+// Relance panier abandonné (commandes non payées entre 10 et 25 min)
+// Avant annulation automatique à 30min — améliore le taux de conversion
+Schedule::job(new \App\Jobs\AbandonedCartReminderJob)->everyFifteenMinutes()
+    ->withoutOverlapping()
+    ->onOneServer();
+
+// Recalcul quotidien des métriques livreurs (acceptance/completion/on_time/reliability/tier)
+// Sur fenêtre glissante de 30 jours — maintient les scores à jour pour l'algorithme d'attribution
+Schedule::job(new \App\Jobs\RecalcCourierMetricsJob)->dailyAt('01:30')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+// Rappel notation livraison (3h après livraison, si pas encore noté)
+// Alimente le score de fiabilité des livreurs et la confiance plateforme
+Schedule::job(new \App\Jobs\RatingReminderJob)->hourly()
+    ->withoutOverlapping()
+    ->onOneServer();
