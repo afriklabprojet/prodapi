@@ -83,7 +83,7 @@ supervisorctl restart drpharma-workers:* || warn "Supervisor non disponible — 
 
 # 9. Rechargement PHP-FPM (vide l'OPcache)
 log "Rechargement PHP-FPM..."
-systemctl reload php8.2-fpm || warn "Impossible de recharger PHP-FPM"
+systemctl reload php8.3-fpm || warn "Impossible de recharger PHP-FPM"
 
 # 10. Mode maintenance OFF
 log "Désactivation du mode maintenance..."
