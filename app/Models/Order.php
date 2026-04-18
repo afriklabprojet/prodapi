@@ -169,6 +169,18 @@ class Order extends Model
     }
 
     /**
+     * Scope: commandes comptabilisables dans les statistiques pharmacie.
+     * Exclut les commandes abandonnées / non terminées :
+     *  - 'pending'   → panier non confirmé/payé, potentiellement annulé par le cron
+     *  - 'cancelled' → annulée (manuellement ou par le sweeper automatique)
+     * Seules les commandes réellement acceptées par la pharmacie sont comptées.
+     */
+    public function scopeForStats($query)
+    {
+        return $query->whereNotIn('status', ['pending', 'cancelled']);
+    }
+
+    /**
      * Scope: commandes d'une pharmacie
      */
     public function scopeForPharmacy($query, int $pharmacyId)

@@ -37,12 +37,15 @@ class PharmacyDashboardController extends Controller
         $startOfLastWeek = $startOfThisWeek->copy()->subWeek();
         $endOfLastWeek   = $startOfThisWeek->copy()->subSecond();
 
-        // Comptes de commandes
-        $thisWeekOrders = Order::where('pharmacy_id', $pharmacyId)
+        // Comptes de commandes — on exclut les commandes non terminées (pending/cancelled)
+        // pour ne pas fausser les statistiques avec des paniers abandonnés
+        $thisWeekOrders = Order::forStats()
+            ->where('pharmacy_id', $pharmacyId)
             ->where('created_at', '>=', $startOfThisWeek)
             ->count();
 
-        $lastWeekOrders = Order::where('pharmacy_id', $pharmacyId)
+        $lastWeekOrders = Order::forStats()
+            ->where('pharmacy_id', $pharmacyId)
             ->whereBetween('created_at', [$startOfLastWeek, $endOfLastWeek])
             ->count();
 
@@ -60,7 +63,8 @@ class PharmacyDashboardController extends Controller
         $driver = DB::getDriverName();
         if ($driver === 'sqlite') {
             // strftime('%w'): 0=dimanche, 1=lundi, …, 6=samedi
-            $ordersByDay = Order::where('pharmacy_id', $pharmacyId)
+            $ordersByDay = Order::forStats()
+                ->where('pharmacy_id', $pharmacyId)
                 ->where('created_at', '>=', $fourWeeksAgo)
                 ->selectRaw("CAST(strftime('%w', created_at) AS INTEGER) as dow, COUNT(*) as cnt")
                 ->groupBy('dow')
@@ -72,7 +76,8 @@ class PharmacyDashboardController extends Controller
                 $peakDayLabel = $days[$ordersByDay->dow] ?? null;
             }
         } else {
-            $ordersByDay = Order::where('pharmacy_id', $pharmacyId)
+            $ordersByDay = Order::forStats()
+                ->where('pharmacy_id', $pharmacyId)
                 ->where('created_at', '>=', $fourWeeksAgo)
                 ->selectRaw('DAYOFWEEK(created_at) as dow, COUNT(*) as cnt')
                 ->groupBy('dow')
@@ -141,24 +146,28 @@ class PharmacyDashboardController extends Controller
         $startOfYesterday = $startOfToday->copy()->subDay();
         $endOfYesterday = $startOfToday->copy()->subSecond();
 
-        // Commandes aujourd'hui
-        $ordersToday = Order::where('pharmacy_id', $pharmacyId)
+        // Commandes aujourd'hui — exclut pending/cancelled (non terminées)
+        $ordersToday = Order::forStats()
+            ->where('pharmacy_id', $pharmacyId)
             ->where('created_at', '>=', $startOfToday)
             ->count();
 
         // Revenus aujourd'hui
-        $revenueToday = Order::where('pharmacy_id', $pharmacyId)
+        $revenueToday = Order::forStats()
+            ->where('pharmacy_id', $pharmacyId)
             ->where('created_at', '>=', $startOfToday)
             ->whereIn('status', ['completed', 'delivered'])
             ->sum('total_amount');
 
-        // Commandes hier
-        $ordersYesterday = Order::where('pharmacy_id', $pharmacyId)
+        // Commandes hier — exclut pending/cancelled
+        $ordersYesterday = Order::forStats()
+            ->where('pharmacy_id', $pharmacyId)
             ->whereBetween('created_at', [$startOfYesterday, $endOfYesterday])
             ->count();
 
         // Revenus hier
-        $revenueYesterday = Order::where('pharmacy_id', $pharmacyId)
+        $revenueYesterday = Order::forStats()
+            ->where('pharmacy_id', $pharmacyId)
             ->whereBetween('created_at', [$startOfYesterday, $endOfYesterday])
             ->whereIn('status', ['completed', 'delivered'])
             ->sum('total_amount');

@@ -31,8 +31,9 @@ Schedule::call(function () {
     }
 })->everyTwoMinutes()->name('expire-stale-wallet-payments')->withoutOverlapping()->onOneServer();
 
-// Annuler les commandes non payées après 30 minutes (toutes les 5 min)
-Schedule::job(new \App\Jobs\CancelStaleOrdersJob)->everyFiveMinutes()
+// Annuler les commandes non payées après 30 minutes (toutes les 2 min)
+// Balayage fréquent pour nettoyer rapidement les commandes abandonnées (non terminées)
+Schedule::job(new \App\Jobs\CancelStaleOrdersJob)->everyTwoMinutes()
     ->withoutOverlapping()
     ->onOneServer();
 
