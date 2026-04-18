@@ -227,3 +227,37 @@ Schedule::job(new \App\Jobs\RecalcCourierMetricsJob)->dailyAt('01:30')
 Schedule::job(new \App\Jobs\RatingReminderJob)->hourly()
     ->withoutOverlapping()
     ->onOneServer();
+
+// ============================================
+// E-COMMERCE & LIVRAISON — JOBS MÉTIER P1
+// ============================================
+
+// Expiration des points de fidélité inactifs depuis > 12 mois
+// Insère une ligne "expired" pour remettre le solde à zéro + avertit 30j avant
+Schedule::job(new \App\Jobs\LoyaltyPointsExpiryJob)->weeklyOn(1, '05:00')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+// Maintenance quotidienne des streaks livreurs (série de jours actifs consécutifs)
+// Reset à 0 si inactif hier, sinon +1 + bonus XP aux jalons 7/14/30/60/100j
+Schedule::job(new \App\Jobs\CourierStreakJob)->dailyAt('00:05')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+// Fermeture automatique des shifts in_progress dont l'heure de fin est dépassée (+ 30min de grâce)
+// Évite les shifts bloqués indéfiniment en cas d'oubli de clôture manuelle
+Schedule::job(new \App\Jobs\ShiftAutoCloseJob)->everyThirtyMinutes()
+    ->withoutOverlapping()
+    ->onOneServer();
+
+// Rapport hebdomadaire stock bas envoyé à chaque pharmacie concernée (lundi 08h)
+// Permet aux pharmaciens d'anticiper les réapprovisionnements en début de semaine
+Schedule::job(new \App\Jobs\PharmacyLowStockWeeklyAlertJob)->weeklyOn(1, '08:00')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+// Rapport métier hebdomadaire consolidé pour l'admin (lundi 07h)
+// CA, commandes, livreurs actifs, top produits, taux annulation, fidélisation
+Schedule::job(new \App\Jobs\WeeklyBusinessReportJob)->weeklyOn(1, '07:00')
+    ->withoutOverlapping()
+    ->onOneServer();
