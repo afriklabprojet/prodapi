@@ -34,9 +34,19 @@ class OrderController extends Controller
         }
 
         $status = $request->query('status');
+        $includeUnpaid = filter_var($request->query('include_unpaid', false), FILTER_VALIDATE_BOOLEAN);
         $perPage = min($request->input('per_page', 20), 50);
 
         $query = $pharmacy->orders()->with(['customer:id,name,phone', 'items']);
+
+        // Exclure par défaut les commandes non payées / échouées (cash = payé à la livraison, donc inclus)
+        if (!$includeUnpaid) {
+            $query->where(function ($q) {
+                $q->where('payment_status', 'paid')
+                  ->orWhere('payment_mode', 'cash')
+                  ->orWhereNotNull('paid_at');
+            });
+        }
 
         if ($status) {
             $query->where('status', $status);
