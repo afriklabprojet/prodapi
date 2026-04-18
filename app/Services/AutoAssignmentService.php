@@ -79,8 +79,9 @@ class AutoAssignmentService
      */
     protected function findBestCourier(float $lat, float $lng, array $excludeIds = []): ?Courier
     {
-        $query = Courier::where('is_available', true)
-            ->where('is_active', true)
+        // Filtre status='available' via scopeAvailable() — aligné avec
+        // CourierAssignmentService (pas de colonnes is_available/is_active).
+        $query = Courier::available()
             ->whereNotNull('latitude')
             ->whereNotNull('longitude');
 

@@ -37,24 +37,27 @@ final class ChatService
         if ($user->courier) {
             return [
                 'type' => 'courier',
-                'id' => $user->courier->id,
+                'id' => (int) $user->courier->id,
                 'name' => $user->name,
                 'entity' => $user->courier,
             ];
         }
 
-        if ($user->pharmacy) {
+        // HasOneThrough peut retourner null si le pivot n'est pas chargé;
+        // fallback sur la relation BelongsToMany directe.
+        $pharmacy = $user->pharmacy ?? $user->pharmacies()->first();
+        if ($pharmacy) {
             return [
                 'type' => 'pharmacy',
-                'id' => $user->pharmacy->id,
-                'name' => $user->pharmacy->name ?? $user->name,
-                'entity' => $user->pharmacy,
+                'id' => (int) $pharmacy->id,
+                'name' => $pharmacy->name ?? $user->name,
+                'entity' => $pharmacy,
             ];
         }
 
         return [
             'type' => 'client',
-            'id' => $user->id,
+            'id' => (int) $user->id,
             'name' => $user->name,
             'entity' => $user,
         ];
@@ -87,9 +90,9 @@ final class ChatService
         }
 
         return match ($currentUser['type']) {
-            'courier' => $delivery->courier_id === $currentUser['id'],
-            'pharmacy' => $order->pharmacy_id === $currentUser['id'],
-            'client' => $order->customer_id === $currentUser['id'],
+            'courier' => (int) $delivery->courier_id === (int) $currentUser['id'],
+            'pharmacy' => (int) $order->pharmacy_id === (int) $currentUser['id'],
+            'client' => (int) $order->customer_id === (int) $currentUser['id'],
             default => false,
         };
     }

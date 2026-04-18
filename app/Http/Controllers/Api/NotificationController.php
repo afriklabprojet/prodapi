@@ -213,11 +213,24 @@ class NotificationController extends Controller
      */
     private function formatNotification(DatabaseNotification $notification): array
     {
-        $data = $notification->data ?? [];
+        // $notification->data peut parfois revenir sous forme de string JSON
+        // (anciennes notifications, accessor cassé, etc.) — on normalise en array.
+        $rawData = $notification->data ?? [];
+        if (is_string($rawData)) {
+            $decoded = json_decode($rawData, true);
+            $rawData = is_array($decoded) ? $decoded : [];
+        }
+        if (! is_array($rawData)) {
+            $rawData = [];
+        }
+        $data = $rawData;
         $laravelType = $notification->type; // e.g. "App\Notifications\NewOrderNotification"
 
         // Resolve notification_type from data['type'] or infer from class name
-        $type = $data['type'] ?? $this->inferTypeFromClass($laravelType);
+        $typeRaw = $data['type'] ?? null;
+        $type = is_string($typeRaw) && $typeRaw !== ''
+            ? $typeRaw
+            : $this->inferTypeFromClass($laravelType);
 
         // TOUJOURS reconstruire title et body propres à partir des données structurées
         // Ne JAMAIS utiliser les champs bruts title/message qui contiennent des références hex

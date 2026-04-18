@@ -12,7 +12,7 @@
 set -euo pipefail
 
 APP_DIR="/var/www/drpharma"
-PHP="php8.2"
+PHP="php8.3"
 COMPOSER="/usr/local/bin/composer"
 BRANCH="${DEPLOY_BRANCH:-main}"
 
@@ -44,6 +44,11 @@ $COMPOSER install \
     --prefer-dist \
     --optimize-autoloader \
     --no-scripts
+
+# 3.1 Régénérer le cache des packages (nécessaire après --no-scripts)
+log "Régénération du cache des packages..."
+rm -f bootstrap/cache/packages.php bootstrap/cache/services.php
+$PHP artisan package:discover --ansi 2>/dev/null || warn "package:discover partiel (normal en --no-dev)"
 
 # 4. Migrations
 log "Exécution des migrations..."

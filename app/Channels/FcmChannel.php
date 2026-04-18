@@ -23,10 +23,16 @@ class FcmChannel
     /**
      * Send the given notification via FCM.
      * 
-     * Sends a DATA-ONLY message so the Flutter app controls 
-     * the notification display with the correct channel & sound.
-     * A notification-type message would be handled by the OS directly 
-     * and ignore custom channels/sounds.
+     * Sends a HYBRID message (notification + data):
+     * - `notification` block → displayed by Android OS directly when app is killed/sleeping
+     *   with the correct channel_id (sound + importance from NotificationChannel)
+     * - `data` block → processed by Flutter background handler for custom urgent alerts
+     *   (full-screen intent, insistent sound loop)
+     * 
+     * This guarantees the user hears the sound even if:
+     * - App is killed (OS handles notif natively with channel sound)
+     * - Phone is in Doze mode (high priority wakes device)
+     * - Dart background isolate fails (notification block is backup)
      */
     public function send(object $notifiable, Notification $notification): void
     {
@@ -52,10 +58,13 @@ class FcmChannel
         }
 
         try {
+            $title = $payload['title'];
+            $body = $payload['body'] ?? '';
+
             // Build data payload — include title/body so Flutter can show local notification
             $data = array_merge($payload['data'] ?? [], [
-                'title' => $payload['title'],
-                'body' => $payload['body'] ?? '',
+                'title' => $title,
+                'body' => $body,
             ]);
 
             // Add Android channel_id and sound into data for Flutter to use
@@ -69,18 +78,39 @@ class FcmChannel
             // Ensure all data values are strings (FCM requirement)
             $data = array_map('strval', $data);
 
-            // Build the message — DATA-ONLY (no notification block)
+            // Android config: force HIGH priority + short TTL for immediate delivery,
+            // even in Doze mode. The channel_id ensures the correct sound.
+            $androidConfig = array_merge([
+                'priority' => 'high',
+                'ttl' => '0s', // Deliver NOW, no buffering
+            ], $payload['android'] ?? []);
+
+            // Build the HYBRID message (notification + data)
             $messageArray = [
                 'token' => $fcmToken,
-                'data' => $data,
-                'android' => $payload['android'] ?? [
-                    'priority' => 'high',
+                'notification' => [
+                    'title' => $title,
+                    'body' => $body,
                 ],
+                'data' => $data,
+                'android' => $androidConfig,
                 'apns' => $payload['apns'] ?? [
+                    'headers' => [
+                        'apns-priority' => '10',
+                        'apns-push-type' => 'alert',
+                    ],
                     'payload' => [
                         'aps' => [
+                            'alert' => [
+                                'title' => $title,
+                                'body' => $body,
+                            ],
+                            'sound' => ($data['sound'] ?? 'default') === 'default'
+                                ? 'default'
+                                : "{$data['sound']}.caf",
+                            'badge' => 1,
                             'content-available' => 1,
-                            'sound' => $data['sound'] ?? 'default',
+                            'interruption-level' => 'time-sensitive',
                         ],
                     ],
                 ],

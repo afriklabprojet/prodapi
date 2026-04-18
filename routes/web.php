@@ -26,10 +26,15 @@ Route::get('/', function () {
             $customerCount = Customer::count();
             $courierCount = Courier::count();
 
+            $driver = config('database.default');
+            $avgExpr = $driver === 'sqlite'
+                ? DB::raw('AVG((julianday(delivered_at) - julianday(assigned_at)) * 1440) as avg_min')
+                : DB::raw('AVG(TIMESTAMPDIFF(MINUTE, assigned_at, delivered_at)) as avg_min');
+
             $avgDelivery = Delivery::where('status', 'delivered')
                 ->whereNotNull('assigned_at')
                 ->whereNotNull('delivered_at')
-                ->select(DB::raw('AVG(TIMESTAMPDIFF(MINUTE, assigned_at, delivered_at)) as avg_min'))
+                ->select($avgExpr)
                 ->value('avg_min');
             $avgMin = $avgDelivery ? round($avgDelivery) : 30;
 
@@ -292,12 +297,11 @@ Route::get('/privacy', function () {
 
 // Routes pour servir les documents privés (admin uniquement)
 // SECURITY: auth + vérification rôle admin dans le contrôleur
+// Note: path passé en query string (?path=...) pour éviter l'encodage %2F des slashes
 Route::middleware(['web', 'auth'])->prefix('admin/documents')->group(function () {
-    Route::get('/view/{path}', [PrivateDocumentController::class, 'show'])
-        ->where('path', '.*')
+    Route::get('/view', [PrivateDocumentController::class, 'show'])
         ->name('admin.documents.view');
-    Route::get('/download/{path}', [PrivateDocumentController::class, 'download'])
-        ->where('path', '.*')
+    Route::get('/download', [PrivateDocumentController::class, 'download'])
         ->name('admin.documents.download');
 });
 

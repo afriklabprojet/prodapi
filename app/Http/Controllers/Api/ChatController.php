@@ -41,16 +41,38 @@ class ChatController extends Controller
     {
         $validated = $request->validate([
             'participant_type' => 'sometimes|in:courier,pharmacy,client',
-            'participant_id' => 'sometimes|integer|min:1',
+            'participant_id' => 'sometimes|integer',
             'before_id' => 'sometimes|integer|min:1',
             'per_page' => 'sometimes|integer|min:1|max:100',
         ]);
+
+        // Ignorer participant_id <= 0 (fallback FCM sans données) au lieu de 422
+        if (isset($validated['participant_id']) && $validated['participant_id'] <= 0) {
+            unset($validated['participant_id']);
+            // Garder participant_type : on va résoudre l'ID depuis la livraison
+        }
 
         // Résoudre l'utilisateur courant
         $currentUser = $this->chatService->resolveCurrentUser($request->user());
 
         // SECURITY: Vérifier l'accès à cette livraison
         $this->chatService->assertIsDeliveryParticipant($delivery, $currentUser);
+
+        // Auto-résoudre participant_id depuis la livraison quand seul participant_type est fourni.
+        // Cela évite que les messages de tous les participants soient mélangés dans la même vue.
+        if (isset($validated['participant_type']) && !isset($validated['participant_id'])) {
+            $delivery->loadMissing('order');
+            $pType = $validated['participant_type'];
+            $resolved = match ($pType) {
+                'courier'  => $delivery->courier_id,
+                'pharmacy' => $delivery->order?->pharmacy_id,
+                'client'   => $delivery->order?->customer_id ?? $delivery->customer_id ?? null,
+                default    => null,
+            };
+            if ($resolved) {
+                $validated['participant_id'] = (int) $resolved;
+            }
+        }
 
         $beforeId = $validated['before_id'] ?? null;
         $perPage = $validated['per_page'] ?? 50;
@@ -101,6 +123,12 @@ class ChatController extends Controller
                 'status' => $delivery->status,
             ],
         ]);
+
+        // Ignorer participant_id <= 0 (fallback FCM sans données) au lieu de 422
+        if (isset($validated['participant_id']) && $validated['participant_id'] <= 0) {
+            unset($validated['participant_id']);
+            unset($validated['participant_type']);
+        }
     }
 
     /**
@@ -127,6 +155,12 @@ class ChatController extends Controller
             'metadata.latitude' => 'sometimes|numeric|between:-90,90',
             'metadata.longitude' => 'sometimes|numeric|between:-180,180',
         ]);
+
+        // Ignorer participant_id <= 0 (fallback FCM sans données) au lieu de 422
+        if (isset($validated['participant_id']) && $validated['participant_id'] <= 0) {
+            unset($validated['participant_id']);
+            unset($validated['participant_type']);
+        }
 
         // Résoudre l'utilisateur courant
         $currentUser = $this->chatService->resolveCurrentUser($request->user());
@@ -199,6 +233,12 @@ class ChatController extends Controller
             'success' => true,
             'unread_count' => $count,
         ]);
+
+        // Ignorer participant_id <= 0 (fallback FCM sans données) au lieu de 422
+        if (isset($validated['participant_id']) && $validated['participant_id'] <= 0) {
+            unset($validated['participant_id']);
+            unset($validated['participant_type']);
+        }
     }
 
     /**
@@ -213,6 +253,12 @@ class ChatController extends Controller
             'sender_type' => 'sometimes|in:courier,pharmacy,client',
             'sender_id' => 'sometimes|integer|min:1',
         ]);
+
+        // Ignorer participant_id <= 0 (fallback FCM sans données) au lieu de 422
+        if (isset($validated['participant_id']) && $validated['participant_id'] <= 0) {
+            unset($validated['participant_id']);
+            unset($validated['participant_type']);
+        }
 
         $currentUser = $this->chatService->resolveCurrentUser($request->user());
 
@@ -235,6 +281,12 @@ class ChatController extends Controller
             'success' => true,
             'marked_count' => $count,
         ]);
+
+        // Ignorer participant_id <= 0 (fallback FCM sans données) au lieu de 422
+        if (isset($validated['participant_id']) && $validated['participant_id'] <= 0) {
+            unset($validated['participant_id']);
+            unset($validated['participant_type']);
+        }
     }
 
     /**
@@ -258,6 +310,12 @@ class ChatController extends Controller
                 'name' => $currentUser['name'],
             ],
         ]);
+
+        // Ignorer participant_id <= 0 (fallback FCM sans données) au lieu de 422
+        if (isset($validated['participant_id']) && $validated['participant_id'] <= 0) {
+            unset($validated['participant_id']);
+            unset($validated['participant_type']);
+        }
     }
 
     /**
@@ -281,6 +339,12 @@ class ChatController extends Controller
             'success' => true,
             'message' => 'Message supprimé',
         ]);
+
+        // Ignorer participant_id <= 0 (fallback FCM sans données) au lieu de 422
+        if (isset($validated['participant_id']) && $validated['participant_id'] <= 0) {
+            unset($validated['participant_id']);
+            unset($validated['participant_type']);
+        }
     }
 
     /**

@@ -81,3 +81,15 @@ Broadcast::channel('delivery.{deliveryId}.presence', function ($user, int $deliv
         'name' => $currentUser['name'],
     ];
 });
+
+/**
+ * Canal privé du coursier — reçoit offres prises, nouvelles livraisons, etc.
+ * Accessible uniquement par le coursier lui-même.
+ */
+Broadcast::channel('courier.{courierId}', function ($user, int $courierId) {
+    if (!$user) {
+        return false;
+    }
+    $courier = \App\Models\Courier::where('user_id', $user->id)->first();
+    return $courier && $courier->id === $courierId;
+});

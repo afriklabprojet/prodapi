@@ -280,20 +280,33 @@ class BroadcastDispatchService
     }
 
     /**
-     * Notifier les autres livreurs que l'offre est prise
+     * Notifier les autres livreurs que l'offre est prise via Pusher.
+     * Ils retireront l'offre de leur liste et arrêteront l'alarme sonore.
      */
     protected function notifyOfferTaken(DeliveryOffer $offer): void
     {
         $acceptedCourierId = $offer->accepted_by_courier_id;
 
-        $offer->targetedCouriers()
+        $notifiedCourierIds = $offer->targetedCouriers()
             ->where('courier_id', '!=', $acceptedCourierId)
             ->wherePivotIn('status', ['notified', 'viewed'])
-            ->get()
-            ->each(function ($courier) use ($offer) {
-                // Envoyer notification que l'offre est prise
-                // TODO: Broadcast via Pusher/Firebase
-            });
+            ->pluck('courier_id')
+            ->toArray();
+
+        if (empty($notifiedCourierIds)) {
+            return;
+        }
+
+        try {
+            event(new \App\Events\DeliveryOfferTaken(
+                $offer,
+                $notifiedCourierIds,
+                $acceptedCourierId
+            ));
+            Log::info("BroadcastDispatch: OfferTaken broadcast to " . count($notifiedCourierIds) . " couriers for offer {$offer->id}");
+        } catch (\Throwable $e) {
+            Log::warning("BroadcastDispatch: Failed to broadcast OfferTaken for offer {$offer->id}: " . $e->getMessage());
+        }
     }
 
     /**

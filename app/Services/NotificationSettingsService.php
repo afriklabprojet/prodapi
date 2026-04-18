@@ -113,7 +113,7 @@ class NotificationSettingsService
             'kyc_status_update' => 'system',
             // Shared channels
             'payout_completed' => 'payments_channel',
-            'chat_message' => 'system_channel',
+            'chat_message', 'new_message' => 'messages_channel',
             'prescription_status' => 'orders_channel',
             // New notification types
             'payment_failed' => 'payments_channel',

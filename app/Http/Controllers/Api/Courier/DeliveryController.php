@@ -42,9 +42,18 @@ class DeliveryController extends Controller
         $perPage = min($request->input('per_page', 20), 50); // Max 50 par page
 
         if ($status === 'pending') {
-             // For pending deliveries, show ALL unassigned deliveries (Marketplace mode)
+             // Marketplace + offres directes :
+             // - livraisons libres (non assignées)
+             // - OU livraisons pending assignées à ce livreur par l'auto-assignation
+             // - excluant celles que ce livreur a déjà refusées
              $query = Delivery::where('status', 'pending')
-                ->whereNull('courier_id')
+                ->where(function ($q) use ($courier) {
+                    $q->whereNull('courier_id')
+                      ->orWhere('courier_id', $courier->id);
+                })
+                ->whereDoesntHave('rejectedCouriers', function ($q) use ($courier) {
+                    $q->where('couriers.id', $courier->id);
+                })
                 ->with(['order.pharmacy', 'order.customer'])
                 ->latest();
         } else {

@@ -2,17 +2,24 @@
 
 namespace App\Http\Controllers\Api\Customer;
 
+use App\Enums\JekoPaymentMethod;
 use App\Http\Controllers\Controller;
+use App\Models\Order;
 use App\Models\Prescription;
 use App\Http\Resources\PrescriptionResource;
+use App\Services\JekoPaymentService;
+use App\Services\PerceptualHashService;
 use App\Services\PrescriptionOcrService;
 use App\Services\ProductMatchingService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class PrescriptionController extends Controller
 {
+    public function __construct(private JekoPaymentService $jekoService) {}
     /**
      * Get customer prescriptions
      */
@@ -66,31 +73,13 @@ class PrescriptionController extends Controller
             ], 500);
         }
 
-        // Calculer le hash SHA-256 de la première image pour détection de doublons
-        $imageHash = null;
-        try {
-            $firstImagePath = $imagePaths[0];
-            $disk = Storage::disk('private');
-            if ($disk->exists($firstImagePath)) {
-                $imageHash = hash('sha256', $disk->get($firstImagePath));
-            }
-        } catch (\Exception $e) {
-            \Log::warning('Image hash calculation failed: ' . $e->getMessage());
-        }
-
-        // Vérifier si une ordonnance identique existe déjà pour ce client
-        $isDuplicate = false;
-        $existingPrescription = null;
-        if ($imageHash) {
-            $existingPrescription = Prescription::where('image_hash', $imageHash)
-                ->where('customer_id', $request->user()->id)
-                ->latest()
-                ->first();
-
-            if ($existingPrescription) {
-                $isDuplicate = true;
-            }
-        }
+        // Détection de doublons : SHA-256 (exact) + perceptual hash dHash (re-photo)
+        [$imageHash, $imagePhash] = $this->computeImageHashes($imagePaths[0] ?? null);
+        $duplicate = $this->findDuplicatePrescription(
+            customerId: $request->user()->id,
+            sha256: $imageHash,
+            phash: $imagePhash,
+        );
 
         $prescription = Prescription::create([
             'customer_id' => $request->user()->id,
@@ -99,6 +88,7 @@ class PrescriptionController extends Controller
             'status' => 'pending',
             'source' => $request->input('source', 'upload'),
             'image_hash' => $imageHash,
+            'image_phash' => $imagePhash,
         ]);
 
         // Ne notifier les pharmacies que pour les uploads directs (pas checkout)
@@ -122,14 +112,141 @@ class PrescriptionController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => $isDuplicate
+            'message' => $duplicate
                 ? 'Attention : cette ordonnance semble avoir déjà été soumise.'
                 : 'Prescription uploaded successfully',
             'data' => new PrescriptionResource($prescription),
-            'is_duplicate' => $isDuplicate,
-            'existing_prescription_id' => $existingPrescription?->id,
-            'existing_status' => $existingPrescription?->status,
+            'is_duplicate' => (bool) $duplicate,
+            'duplicate_match' => $duplicate['match'] ?? null,            // 'exact' | 'similar'
+            'duplicate_distance' => $duplicate['distance'] ?? null,       // 0..64 si similar
+            'existing_prescription_id' => $duplicate['prescription']->id ?? null,
+            'existing_status' => $duplicate['prescription']->status ?? null,
+            'existing_created_at' => $duplicate['prescription']->created_at ?? null,
         ], 201);
+    }
+
+    /**
+     * Vérifie si une image est un doublon AVANT de l'uploader.
+     * Utilisé par le module "scan caméra" du client : on envoie juste l'image,
+     * on récupère immédiatement si elle correspond à une ordonnance déjà envoyée
+     * (sans rien créer en base).
+     */
+    public function checkDuplicate(Request $request)
+    {
+        try {
+            $request->validate([
+                'image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:10240',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation échouée',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        try {
+            $binary = file_get_contents($request->file('image')->getRealPath());
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => 'Image illisible'], 422);
+        }
+
+        $sha256 = hash('sha256', $binary);
+        $phash = app(PerceptualHashService::class)->dhash($binary);
+
+        $duplicate = $this->findDuplicatePrescription(
+            customerId: $request->user()->id,
+            sha256: $sha256,
+            phash: $phash,
+        );
+
+        return response()->json([
+            'success' => true,
+            'is_duplicate' => (bool) $duplicate,
+            'match' => $duplicate['match'] ?? null,
+            'distance' => $duplicate['distance'] ?? null,
+            'existing_prescription' => $duplicate
+                ? [
+                    'id' => $duplicate['prescription']->id,
+                    'status' => $duplicate['prescription']->status,
+                    'quote_amount' => $duplicate['prescription']->quote_amount,
+                    'created_at' => $duplicate['prescription']->created_at,
+                    'validated_at' => $duplicate['prescription']->validated_at,
+                ]
+                : null,
+        ]);
+    }
+
+    /**
+     * Calcule SHA-256 + dHash de la première image stockée.
+     * @return array{0:?string,1:?string}
+     */
+    private function computeImageHashes(?string $storedPath): array
+    {
+        if (!$storedPath) {
+            return [null, null];
+        }
+        try {
+            $disk = Storage::disk('private');
+            if (!$disk->exists($storedPath)) {
+                return [null, null];
+            }
+            $binary = $disk->get($storedPath);
+            $sha = hash('sha256', $binary);
+            $phash = app(PerceptualHashService::class)->dhash($binary);
+            return [$sha, $phash];
+        } catch (\Throwable $e) {
+            Log::warning('Image hash calculation failed: ' . $e->getMessage());
+            return [null, null];
+        }
+    }
+
+    /**
+     * Cherche un doublon parmi les ordonnances actives du client.
+     * 1) Match exact SHA-256 → match='exact', distance=0.
+     * 2) Sinon, match perceptual phash récent (≤ 90j) → match='similar'.
+     *
+     * @return array{prescription:Prescription,match:string,distance:int}|null
+     */
+    private function findDuplicatePrescription(int $customerId, ?string $sha256, ?string $phash): ?array
+    {
+        $activeStatuses = ['pending', 'analyzed', 'quoted', 'paid', 'in_progress', 'validated'];
+
+        if ($sha256) {
+            $exact = Prescription::where('customer_id', $customerId)
+                ->where('image_hash', $sha256)
+                ->whereIn('status', $activeStatuses)
+                ->latest()
+                ->first();
+            if ($exact) {
+                return ['prescription' => $exact, 'match' => 'exact', 'distance' => 0];
+            }
+        }
+
+        if ($phash) {
+            $candidates = Prescription::where('customer_id', $customerId)
+                ->whereNotNull('image_phash')
+                ->whereIn('status', $activeStatuses)
+                ->where('created_at', '>=', now()->subDays(90))
+                ->orderByDesc('id')
+                ->limit(200)
+                ->get(['id', 'image_phash', 'status', 'quote_amount', 'created_at', 'validated_at']);
+
+            $svc = app(PerceptualHashService::class);
+            $best = $svc->findClosest(
+                $phash,
+                $candidates->map(fn ($p) => ['id' => $p->id, 'hash' => $p->image_phash])->all(),
+            );
+
+            if ($best) {
+                $match = $candidates->firstWhere('id', $best['id']);
+                if ($match) {
+                    return ['prescription' => $match, 'match' => 'similar', 'distance' => $best['distance']];
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -146,33 +263,30 @@ class PrescriptionController extends Controller
     }
 
     /**
-     * Pay for a quoted prescription.
+     * Pay for a quoted prescription — initie un vrai paiement Jeko.
      */
     public function pay(Request $request, string $id)
     {
-        $prescription = \App\Models\Prescription::where('customer_id', $request->user()->id)->findOrFail($id);
+        $prescription = Prescription::where('customer_id', $request->user()->id)->findOrFail($id);
 
         if ($prescription->status !== 'quoted') {
             return response()->json(['message' => 'Cette ordonnance n\'a pas de devis validé.'], 400);
         }
 
-        // 1. Create Order from Prescription
-        // In a real app, you might want to create the Order first, then Payment.
-        // For this MVP, we simulate a direct transformation.
-        
+        $validated = $request->validate([
+            'payment_method'   => ['required', Rule::in(JekoPaymentMethod::values())],
+            'delivery_address' => 'nullable|string|max:500',
+        ]);
+
         // Résoudre la pharmacie qui a validé le devis
-        $pharmacyUser = \App\Models\User::find($prescription->validated_by);
+        $pharmacyUser    = \App\Models\User::find($prescription->validated_by);
         $pharmacyIdToUse = null;
 
         if ($pharmacyUser) {
-            if ($pharmacyUser->pharmacy_id) {
-                $pharmacyIdToUse = $pharmacyUser->pharmacy_id;
-            } elseif (method_exists($pharmacyUser, 'pharmacies') && $pharmacyUser->pharmacies->isNotEmpty()) {
-                $pharmacyIdToUse = $pharmacyUser->pharmacies->first()->id;
-            }
+            $pharmacyIdToUse = $pharmacyUser->pharmacy_id
+                ?? ($pharmacyUser->pharmacies()->first()?->id ?? null);
         }
 
-        // SECURITY: Ne JAMAIS fallback sur un pharmacy_id arbitraire
         if (!$pharmacyIdToUse) {
             return response()->json([
                 'success' => false,
@@ -180,42 +294,65 @@ class PrescriptionController extends Controller
             ], 400);
         }
 
-        $order = \App\Models\Order::create([
-            'reference' => 'ORD-' . strtoupper(uniqid()),
-            'pharmacy_id' => $pharmacyIdToUse,
-            'customer_id' => $request->user()->id,
-            'status' => 'paid', // Immediately paid for this flow
-            'payment_mode' => $request->input('payment_method', 'mobile_money'),
-            'subtotal' => $prescription->quote_amount,
-            'delivery_fee' => 0, // Simplified
-            'total_amount' => $prescription->quote_amount,
-            'customer_notes' => $prescription->notes,
-            'pharmacy_notes' => $prescription->pharmacy_notes,
-            'delivery_address' => $request->input('delivery_address', 'Retrait en pharmacie'), // Default or from request
-            // Use raw images method to get relative path, not the absolute URL from accessor
+        // 1. Créer la commande en état pending
+        $order = Order::create([
+            'reference'        => Order::generateReference(),
+            'pharmacy_id'      => $pharmacyIdToUse,
+            'customer_id'      => $request->user()->id,
+            'status'           => 'pending',
+            'payment_mode'     => 'mobile_money',
+            'subtotal'         => $prescription->quote_amount,
+            'delivery_fee'     => 0,
+            'total_amount'     => $prescription->quote_amount,
+            'currency'         => 'XOF',
+            'customer_notes'   => $prescription->notes,
+            'delivery_address' => $validated['delivery_address'] ?? 'Retrait en pharmacie',
             'prescription_image' => ($prescription->getRawImages()[0] ?? null),
         ]);
 
-        // 2. Create Payment Record
-        \App\Models\Payment::create([
+        // 2. Lier la prescription à la commande
+        $prescription->update([
             'order_id' => $order->id,
-            'provider' => 'jeko',
-            'reference' => 'PAY-' . strtoupper(uniqid()),
-            'amount' => $prescription->quote_amount,
-            'status' => 'SUCCESS',
-            'confirmed_at' => now(),
-            'payment_method' => $request->input('payment_method', 'mobile_money'),
+            'status'   => 'processing',
         ]);
 
-        // 3. Update Prescription Status
-        $prescription->update(['status' => 'paid']);
+        // 3. Initier le vrai paiement Jeko
+        try {
+            $method      = JekoPaymentMethod::from($validated['payment_method']);
+            $amountCents = (int) ($prescription->quote_amount * 100);
 
-        // 4. Notification? (Optional but good)
+            $jekoPayment = $this->jekoService->createRedirectPayment(
+                $order,
+                $amountCents,
+                $method,
+                $request->user(),
+                "Paiement ordonnance #{$prescription->id}"
+            );
+        } catch (\Exception $e) {
+            // Rollback : supprimer l'order créé et remettre la prescription en quoted
+            $prescription->update(['order_id' => null, 'status' => 'quoted']);
+            $order->forceDelete();
+
+            Log::error('Prescription pay: Jeko initiation failed', [
+                'prescription_id' => $prescription->id,
+                'error'           => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Échec de l\'initialisation du paiement. ' . $e->getMessage(),
+            ], 502);
+        }
 
         return response()->json([
-            'message' => 'Paiement effectué avec succès',
-            'order' => $order,
-            'prescription_status' => 'paid'
+            'success' => true,
+            'message' => 'Paiement initié. Suivez le lien pour compléter.',
+            'data'    => [
+                'order_id'        => $order->id,
+                'order_reference' => $order->reference,
+                'redirect_url'    => $jekoPayment->redirect_url,
+                'reference'       => $jekoPayment->reference,
+            ],
         ]);
     }
 

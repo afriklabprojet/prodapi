@@ -25,6 +25,18 @@ class CourierAssignmentService
                     return $order->delivery;
                 }
 
+                // Lock: si une offre broadcast pending/notified/viewed existe déjà,
+                // ne pas doubler avec une assignation directe (race broadcast vs direct)
+                $hasPendingOffer = \App\Models\DeliveryOffer::where('order_id', $order->id)
+                    ->whereIn('status', ['pending', 'notified', 'viewed'])
+                    ->lockForUpdate()
+                    ->exists();
+
+                if ($hasPendingOffer) {
+                    Log::info("Order {$order->reference} has pending broadcast offers; skipping direct assign");
+                    return null;
+                }
+
                 // Récupérer la pharmacie pour obtenir sa position
                 $pharmacy = $order->pharmacy;
                 
@@ -62,11 +74,18 @@ class CourierAssignmentService
 
                 Log::info("Delivery {$delivery->id} created for order {$order->reference} with courier {$courier->id}");
 
-                // Notifier le livreur
+                // Notifier le livreur (FCM)
                 try {
                     $courier->user->notify(new \App\Notifications\DeliveryAssignedNotification($delivery));
                 } catch (\Exception $e) {
                     Log::error("Failed to send notification to courier {$courier->id}: " . $e->getMessage());
+                }
+
+                // Broadcast Pusher
+                try {
+                    event(new \App\Events\DeliveryAssignedEvent($delivery));
+                } catch (\Throwable $e) {
+                    Log::warning("Failed to broadcast DeliveryAssignedEvent for delivery {$delivery->id}: " . $e->getMessage());
                 }
 
                 return $delivery;
@@ -171,6 +190,13 @@ class CourierAssignmentService
 
                 Log::info("Delivery {$delivery->id} manually assigned to courier {$courier->id}");
 
+                // Broadcast Pusher
+                try {
+                    event(new \App\Events\DeliveryAssignedEvent($delivery));
+                } catch (\Throwable $e) {
+                    Log::warning("Failed to broadcast DeliveryAssignedEvent for delivery {$delivery->id}: " . $e->getMessage());
+                }
+
                 return $delivery;
             });
         } catch (\Exception $e) {
@@ -226,6 +252,13 @@ class CourierAssignmentService
                 $delivery->update(['courier_id' => $newCourier->id]);
 
                 Log::info("Delivery {$delivery->id} reassigned from courier {$oldCourierId} to {$newCourier->id}");
+
+                // Broadcast Pusher au nouveau coursier
+                try {
+                    event(new \App\Events\DeliveryAssignedEvent($delivery->fresh()));
+                } catch (\Throwable $e) {
+                    Log::warning("Failed to broadcast DeliveryAssignedEvent (reassign) for delivery {$delivery->id}: " . $e->getMessage());
+                }
 
                 return $newCourier;
             });
@@ -355,11 +388,18 @@ class CourierAssignmentService
             'bonus_fee' => $offer->bonus_fee,
         ]);
 
-        // Notifier le livreur
+        // Notifier le livreur (FCM)
         try {
             $courier->user->notify(new \App\Notifications\DeliveryAssignedNotification($delivery));
         } catch (\Exception $e) {
             Log::error("Failed to send notification to courier {$courier->id}: " . $e->getMessage());
+        }
+
+        // Broadcast Pusher pour refresh instantané côté mobile
+        try {
+            event(new \App\Events\DeliveryAssignedEvent($delivery));
+        } catch (\Throwable $e) {
+            Log::warning("Failed to broadcast DeliveryAssignedEvent for delivery {$delivery->id}: " . $e->getMessage());
         }
 
         return $delivery;

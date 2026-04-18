@@ -157,18 +157,23 @@ class ChatSessionController extends Controller
     public function markAsRead(Request $request, ChatSession $chatSession): JsonResponse
     {
         $validated = $request->validate([
-            'message_id' => 'required|integer|min:1',
+            // message_id optionnel : si absent, marque tous les messages comme lus
+            'message_id' => 'sometimes|nullable|integer|min:1',
         ]);
 
         $user = $this->chatService->resolveCurrentUser($request->user());
         $this->assertParticipant($chatSession, $user);
 
-        // Marquer tous les messages reçus jusqu'à message_id
-        $count = ChatSessionMessage::where('session_id', $chatSession->id)
-            ->where('id', '<=', $validated['message_id'])
-            ->where('sender_type', '!=', $user['type'])  // pas les miens
-            ->whereNull('read_at')
-            ->update(['read_at' => now()]);
+        $query = ChatSessionMessage::where('session_id', $chatSession->id)
+            ->where('sender_type', '!=', $user['type'])
+            ->whereNull('read_at');
+
+        // Si message_id fourni, marquer seulement jusqu'à cet ID
+        if (!empty($validated['message_id'])) {
+            $query->where('id', '<=', (int) $validated['message_id']);
+        }
+
+        $count = $query->update(['read_at' => now()]);
 
         // Broadcast accusé de réception (double-check ✔✔)
         if ($count > 0) {

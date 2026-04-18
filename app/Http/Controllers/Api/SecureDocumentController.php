@@ -106,7 +106,7 @@ class SecureDocumentController extends Controller
         }
 
         // Admin a accès à tout
-        if ($user->hasRole('admin')) {
+        if ($user->isAdmin()) {
             return;
         }
 
@@ -160,39 +160,41 @@ class SecureDocumentController extends Controller
     }
 
     /**
-     * Prescriptions: Client propriétaire ou pharmacie traitant la commande.
+     * Prescriptions: Client propriétaire ou utilisateur pharmacien.
+     * 
+     * Format du path stocké : prescriptions/{customer_id}/{filename}
+     * Le paramètre $filename reçu ici = "{customer_id}/{filename}" (sans le préfixe "prescriptions/")
      */
     private function authorizePrescriptionAccess($user, string $filename): void
     {
-        // Essayer de trouver la prescription par le chemin de fichier
-        $prescription = Prescription::where('file_path', 'LIKE', "%{$filename}%")->first();
-
-        if ($prescription) {
-            // Le client propriétaire peut accéder
-            if ($prescription->customer_id === $user->id) {
-                return;
-            }
-
-            // La pharmacie liée à la commande peut accéder
-            if ($prescription->order_id) {
-                $order = $prescription->order;
-                if ($order && $user->pharmacies()->where('pharmacies.id', $order->pharmacy_id)->exists()) {
-                    return;
-                }
-            }
+        // Les utilisateurs avec le rôle pharmacy ont accès à toutes les images
+        // (leurs routes API sont déjà protégées par le middleware pharmacy)
+        if ($user->role === 'pharmacy') {
+            return;
         }
 
-        // Fallback: vérifier si le chemin contient l'ID utilisateur (format: prescriptions/{user_id}/...)
+        // Pour les clients : le path commence par leur propre customer_id
+        // Format: {customer_id}/{uuid}.jpg
         $parts = explode('/', $filename);
         if (count($parts) >= 1 && (int) $parts[0] === $user->id) {
             return;
         }
 
+        // Fallback : recherche dans le champ JSON 'images' (pour anciens formats)
+        $fullPath = 'prescriptions/' . $filename;
+        $prescription = Prescription::where('images', 'LIKE', '%' . $filename . '%')->first();
+
+        if ($prescription && $prescription->customer_id === $user->id) {
+            return;
+        }
+
         Log::warning('Prescription access denied', [
-            'user_id' => $user->id,
+            'user_id'  => $user->id,
+            'role'     => $user->role,
             'filename' => $filename,
+            'path'     => $fullPath,
         ]);
-        
+
         throw new AccessDeniedHttpException('Vous n\'êtes pas autorisé à accéder à cette ordonnance');
     }
 
@@ -254,7 +256,7 @@ class SecureDocumentController extends Controller
             }
             
             // Si l'utilisateur a le rôle support, autoriser
-            if ($user->hasRole('support') || $user->hasRole('admin')) {
+            if ($user->role === 'support' || $user->isAdmin()) {
                 return;
             }
         }

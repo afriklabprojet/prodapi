@@ -37,6 +37,7 @@ class Prescription extends Model
         'dispensing_count',
         'first_dispensed_at',
         'image_hash',
+        'image_phash',
     ];
 
     protected $casts = [
