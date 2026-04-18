@@ -280,4 +280,78 @@ class StatisticsController extends Controller
             'data' => $couriers,
         ]);
     }
+
+    /**
+     * GET /courier/statistics/today
+     * Quick snapshot of today's stats.
+     */
+    public function today(Request $request): JsonResponse
+    {
+        $courier = $request->user()->courier;
+
+        if (!$courier) {
+            return response()->json(['success' => false, 'message' => 'Profil coursier non trouvé'], 403);
+        }
+
+        $startOfDay = Carbon::today();
+        $endOfDay   = Carbon::tomorrow();
+
+        $deliveries = Delivery::where('courier_id', $courier->id)
+            ->whereBetween('created_at', [$startOfDay, $endOfDay])
+            ->get();
+
+        $delivered  = $deliveries->where('status', 'delivered');
+        $earnings   = (float) $delivered->sum('courier_fee');
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'date'                => $startOfDay->toDateString(),
+                'deliveries_total'    => $deliveries->count(),
+                'deliveries_completed'=> $delivered->count(),
+                'deliveries_pending'  => $deliveries->whereIn('status', ['accepted', 'picked_up'])->count(),
+                'earnings_today'      => $earnings,
+                'currency'            => 'XOF',
+                'on_time_rate'        => $this->calculateOnTimeRate($delivered),
+            ],
+        ]);
+    }
+
+    /**
+     * GET /courier/me/next-mission-preview
+     * Preview of the next available delivery offer in the courier's zone.
+     */
+    public function nextMissionPreview(Request $request): JsonResponse
+    {
+        $courier = $request->user()->courier;
+
+        if (!$courier) {
+            return response()->json(['success' => false, 'message' => 'Profil coursier non trouvé'], 403);
+        }
+
+        $nextOffer = \App\Models\DeliveryOffer::where('status', 'pending')
+            ->whereDoesntHave('couriers', fn ($q) => $q->where('courier_id', $courier->id))
+            ->latest()
+            ->first();
+
+        if (!$nextOffer) {
+            return response()->json([
+                'success' => true,
+                'data'    => null,
+                'message' => 'Aucune livraison disponible pour le moment',
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'offer_id'           => $nextOffer->id,
+                'estimated_distance' => $nextOffer->estimated_distance ?? 0,
+                'estimated_fee'      => $nextOffer->courier_fee ?? 0,
+                'pickup_address'     => $nextOffer->pickup_address ?? null,
+                'delivery_address'   => $nextOffer->delivery_address ?? null,
+                'expires_at'         => $nextOffer->expires_at?->toIso8601String(),
+            ],
+        ]);
+    }
 }

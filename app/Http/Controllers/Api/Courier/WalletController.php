@@ -331,4 +331,101 @@ class WalletController extends Controller
             ],
         ]);
     }
+
+    /**
+     * GET /courier/wallet/schedule
+     * Payout schedule: next payout date and frequency.
+     */
+    public function schedule(Request $request)
+    {
+        $courier = $request->user()->courier;
+
+        if (!$courier) {
+            return response()->json(['success' => false, 'message' => 'Profil livreur non trouvé'], 403);
+        }
+
+        $balance    = $this->walletService->getBalance($courier);
+        $minAmount  = WalletService::getMinimumWithdrawalAmount();
+        $canWithdraw = ($balance['balance'] ?? 0) >= $minAmount;
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'payout_frequency' => 'on_demand',
+                'minimum_withdrawal' => $minAmount,
+                'can_withdraw_now'   => $canWithdraw,
+                'current_balance'    => (float) ($balance['balance'] ?? 0),
+                'currency'           => $balance['currency'] ?? 'XOF',
+            ],
+        ]);
+    }
+
+    /**
+     * GET /courier/wallet/trust-metrics
+     * Trust score metrics affecting wallet operations.
+     */
+    public function trustMetrics(Request $request)
+    {
+        $courier = $request->user()->courier;
+
+        if (!$courier) {
+            return response()->json(['success' => false, 'message' => 'Profil livreur non trouvé'], 403);
+        }
+
+        $rating             = round((float) ($courier->rating ?? 5.0), 1);
+        $completedDeliveries = (int) ($courier->completed_deliveries ?? 0);
+        $trustScore         = min(100, max(0, (int) round(($rating / 5.0) * 100)));
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'trust_score'         => $trustScore,
+                'rating'              => $rating,
+                'completed_deliveries' => $completedDeliveries,
+                'level'               => match (true) {
+                    $trustScore >= 90 => 'platinum',
+                    $trustScore >= 75 => 'gold',
+                    $trustScore >= 50 => 'silver',
+                    default           => 'bronze',
+                },
+                'withdrawal_unlock' => $trustScore >= 50,
+            ],
+        ]);
+    }
+
+    /**
+     * POST /courier/wallet/withdrawal-fee-preview
+     * Preview the fee for a given withdrawal amount.
+     */
+    public function withdrawalFeePreview(Request $request)
+    {
+        $courier = $request->user()->courier;
+
+        if (!$courier) {
+            return response()->json(['success' => false, 'message' => 'Profil livreur non trouvé'], 403);
+        }
+
+        $request->validate([
+            'amount' => 'required|numeric|min:1',
+        ]);
+
+        $amount    = (float) $request->input('amount');
+        $feeRate   = 0.0; // no fee by default; could be config-driven
+        $fee       = round($amount * $feeRate);
+        $netAmount = $amount - $fee;
+        $minAmount = WalletService::getMinimumWithdrawalAmount();
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'requested_amount' => $amount,
+                'fee_rate'         => $feeRate,
+                'fee_amount'       => $fee,
+                'net_amount'       => $netAmount,
+                'minimum_amount'   => $minAmount,
+                'is_valid'         => $amount >= $minAmount,
+                'currency'         => 'XOF',
+            ],
+        ]);
+    }
 }

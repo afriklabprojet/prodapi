@@ -233,4 +233,29 @@ class DeliveryOfferController extends Controller
             ],
         ]);
     }
+
+    /**
+     * POST /courier/offers/{id}/view
+     * Mark offer as viewed (read receipt for broadcast analytics).
+     */
+    public function view(Request $request, int $id)
+    {
+        $courier = $request->user()->courier;
+
+        if (!$courier) {
+            return response()->json(['success' => false, 'message' => 'Profil livreur non trouvé'], 403);
+        }
+
+        $offer = DeliveryOffer::findOrFail($id);
+
+        // Record view timestamp on pivot if not already set
+        $pivot = $offer->couriers()->where('courier_id', $courier->id)->first();
+        if ($pivot) {
+            $offer->couriers()->updateExistingPivot($courier->id, [
+                'viewed_at' => $pivot->pivot->viewed_at ?? now(),
+            ]);
+        }
+
+        return response()->json(['success' => true, 'message' => 'Offre marquée comme vue']);
+    }
 }

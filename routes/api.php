@@ -264,6 +264,10 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         Route::get('/prescriptions', [PrescriptionController::class, 'index']);
         Route::get('/prescriptions/{id}', [PrescriptionController::class, 'show']);
         
+        // Prescriptions - Vérification doublon (sans auth verified.phone - non-bloquant)
+        Route::post('/prescriptions/check-duplicate', [PrescriptionController::class, 'checkDuplicate'])
+            ->middleware('throttle:uploads');
+
         // Prescriptions - Upload nécessite téléphone vérifié et rate limiting
         Route::middleware(['verified.phone', 'throttle:uploads'])->group(function () {
             Route::post('/prescriptions/upload', [PrescriptionController::class, 'upload']);
@@ -344,6 +348,13 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         Route::post('/inventory/{id}/promotion', [InventoryController::class, 'applyPromotion']);
         Route::delete('/inventory/{id}/promotion', [InventoryController::class, 'removePromotion']);
         Route::post('/inventory/{id}/loss', [InventoryController::class, 'markAsLoss']);
+
+        // Inventory Batches (lots produits — suivi DLC)
+        Route::prefix('inventory/batches')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\Pharmacy\InventoryBatchController::class, 'index']);
+            Route::post('/', [\App\Http\Controllers\Api\Pharmacy\InventoryBatchController::class, 'store']);
+            Route::delete('/{batchId}', [\App\Http\Controllers\Api\Pharmacy\InventoryBatchController::class, 'destroy']);
+        });
 
         // Prescriptions
         Route::get('/prescriptions', [\App\Http\Controllers\Api\Pharmacy\PrescriptionController::class, 'index']);
@@ -450,16 +461,27 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         Route::post('/wallet/withdraw', [\App\Http\Controllers\Api\Courier\WalletController::class, 'withdraw'])->middleware('idempotent');
         Route::get('/wallet/can-deliver', [\App\Http\Controllers\Api\Courier\WalletController::class, 'canDeliver']);
         Route::get('/wallet/earnings-history', [\App\Http\Controllers\Api\Courier\WalletController::class, 'earningsHistory']);
+        Route::get('/wallet/schedule', [\App\Http\Controllers\Api\Courier\WalletController::class, 'schedule']);
+        Route::get('/wallet/trust-metrics', [\App\Http\Controllers\Api\Courier\WalletController::class, 'trustMetrics']);
+        Route::post('/wallet/withdrawal-fee-preview', [\App\Http\Controllers\Api\Courier\WalletController::class, 'withdrawalFeePreview']);
 
         // Statistics
         Route::get('/statistics', [\App\Http\Controllers\Api\Courier\StatisticsController::class, 'index']);
         Route::get('/statistics/leaderboard', [\App\Http\Controllers\Api\Courier\StatisticsController::class, 'leaderboard']);
+        Route::get('/statistics/today', [\App\Http\Controllers\Api\Courier\StatisticsController::class, 'today']);
+
+        // Next mission preview (accès via /courier/me/next-mission-preview)
+        Route::get('/me/next-mission-preview', [\App\Http\Controllers\Api\Courier\StatisticsController::class, 'nextMissionPreview']);
 
         // === BROADCAST DISPATCH (Phase 1) - Offres de livraison ===
         Route::get('/offers', [\App\Http\Controllers\Api\Courier\DeliveryOfferController::class, 'index']);
         Route::get('/offers/{id}', [\App\Http\Controllers\Api\Courier\DeliveryOfferController::class, 'show']);
         Route::post('/offers/{id}/accept', [\App\Http\Controllers\Api\Courier\DeliveryOfferController::class, 'accept']);
         Route::post('/offers/{id}/reject', [\App\Http\Controllers\Api\Courier\DeliveryOfferController::class, 'reject']);
+        Route::post('/offers/{id}/view', [\App\Http\Controllers\Api\Courier\DeliveryOfferController::class, 'view']);
+
+        // === HEATMAP Courier - Zones d'opportunités ===
+        Route::get('/heatmap/opportunities', [\App\Http\Controllers\Api\Courier\CourierHeatmapController::class, 'opportunities']);
 
         // === SHIFT MANAGEMENT (Phase 6) - Réservation de créneaux ===
         Route::get('/shifts', [\App\Http\Controllers\Api\Courier\ShiftController::class, 'index']);
