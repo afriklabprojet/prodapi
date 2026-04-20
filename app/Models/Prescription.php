@@ -38,6 +38,8 @@ class Prescription extends Model
         'first_dispensed_at',
         'image_hash',
         'image_phash',
+        'image_ahash',
+        'image_shash',
         'content_hash',
     ];
 

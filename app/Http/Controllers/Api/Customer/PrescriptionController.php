@@ -74,26 +74,33 @@ class PrescriptionController extends Controller
             ], 500);
         }
 
-        // Détection de doublons : SHA-256 (exact) + perceptual hash dHash (re-photo)
-        [$imageHash, $imagePhash] = $this->computeImageHashes($imagePaths[0] ?? null);
+        // Détection de doublons : SHA-256 (exact) + multi-hash perceptuel (re-photos manuscrites)
+        $imageHashes = $this->computeImageHashes($imagePaths[0] ?? null);
         $duplicate = $this->findDuplicatePrescription(
             customerId: $request->user()->id,
-            sha256: $imageHash,
-            phash: $imagePhash,
+            hashes: $imageHashes,
         );
 
-        // 🔒 BLOQUER les doublons exacts et très similaires (distance ≤ 12)
+        // 🔒 BLOQUER les doublons exacts et similaires (2+ hashes correspondent)
         // Raison : prévention fraude médicamenteuse, substances contrôlées
-        // Distance 12 = robuste aux re-photos avec angle/luminosité différents
+        // Pour les ordonnances manuscrites au BIC : on compare 3 hashes différents
         if ($duplicate) {
             $isBlockedDuplicate = $duplicate['match'] === 'exact' 
-                || ($duplicate['match'] === 'similar' && $duplicate['distance'] <= 12);
+                || $duplicate['match'] === 'similar';
             
             if ($isBlockedDuplicate) {
                 // Supprimer les images uploadées (nettoyage)
                 foreach ($imagePaths as $path) {
                     Storage::disk('private')->delete($path);
                 }
+                
+                Log::warning('[PRESCRIPTION-DUPLICATE] Ordonnance bloquée', [
+                    'customer_id' => $request->user()->id,
+                    'existing_id' => $duplicate['prescription']->id,
+                    'match_type' => $duplicate['match'],
+                    'hash_matches' => $duplicate['hash_matches'] ?? 0,
+                    'details' => $duplicate['details'] ?? [],
+                ]);
                 
                 return response()->json([
                     'success' => false,
@@ -113,8 +120,10 @@ class PrescriptionController extends Controller
             'notes' => $request->notes,
             'status' => 'pending',
             'source' => $request->input('source', 'upload'),
-            'image_hash' => $imageHash,
-            'image_phash' => $imagePhash,
+            'image_hash' => $imageHashes['sha256'],
+            'image_phash' => $imageHashes['dhash'],
+            'image_ahash' => $imageHashes['ahash'],
+            'image_shash' => $imageHashes['shash'],
         ]);
 
         // Ne notifier les pharmacies que pour les uploads directs (pas checkout)
@@ -177,20 +186,26 @@ class PrescriptionController extends Controller
             return response()->json(['success' => false, 'message' => 'Image illisible'], 422);
         }
 
-        $sha256 = hash('sha256', $binary);
-        $phash = app(PerceptualHashService::class)->dhash($binary);
+        // Calculer les 3 hashes perceptuels + SHA-256
+        $svc = app(PerceptualHashService::class);
+        $hashes = [
+            'sha256' => hash('sha256', $binary),
+            'dhash' => $svc->dhash($binary),
+            'ahash' => $svc->ahash($binary),
+            'shash' => $svc->structureHash($binary),
+        ];
 
         $duplicate = $this->findDuplicatePrescription(
             customerId: $request->user()->id,
-            sha256: $sha256,
-            phash: $phash,
+            hashes: $hashes,
         );
 
         return response()->json([
             'success' => true,
             'is_duplicate' => (bool) $duplicate,
             'match' => $duplicate['match'] ?? null,
-            'distance' => $duplicate['distance'] ?? null,
+            'hash_matches' => $duplicate['hash_matches'] ?? 0,
+            'details' => $duplicate['details'] ?? [],
             'existing_prescription' => $duplicate
                 ? [
                     'id' => $duplicate['prescription']->id,
@@ -204,40 +219,57 @@ class PrescriptionController extends Controller
     }
 
     /**
-     * Calcule SHA-256 + dHash de la première image stockée.
-     * @return array{0:?string,1:?string}
+     * Calcule SHA-256 + 3 hashes perceptuels (dHash, aHash, sHash) de la première image.
+     * Les 3 hashes combinés permettent de détecter les ordonnances manuscrites re-photographiées.
+     * 
+     * @return array{sha256:?string, dhash:?string, ahash:?string, shash:?string}
      */
     private function computeImageHashes(?string $storedPath): array
     {
+        $empty = ['sha256' => null, 'dhash' => null, 'ahash' => null, 'shash' => null];
+        
         if (!$storedPath) {
-            return [null, null];
+            return $empty;
         }
         try {
             $disk = Storage::disk('private');
             if (!$disk->exists($storedPath)) {
-                return [null, null];
+                return $empty;
             }
             $binary = $disk->get($storedPath);
             $sha = hash('sha256', $binary);
-            $phash = app(PerceptualHashService::class)->dhash($binary);
-            return [$sha, $phash];
+            
+            // Calculer les 3 hashes perceptuels
+            $svc = app(PerceptualHashService::class);
+            $hashes = $svc->computeAllHashes($binary);
+            
+            return [
+                'sha256' => $sha,
+                'dhash' => $hashes['dhash'],
+                'ahash' => $hashes['ahash'],
+                'shash' => $hashes['shash'],
+            ];
         } catch (\Throwable $e) {
             Log::warning('Image hash calculation failed: ' . $e->getMessage());
-            return [null, null];
+            return $empty;
         }
     }
 
     /**
      * Cherche un doublon parmi les ordonnances actives du client.
-     * 1) Match exact SHA-256 → match='exact', distance=0.
-     * 2) Sinon, match perceptual phash récent (≤ 90j) → match='similar'.
+     * 
+     * Détection multi-couches pour ordonnances manuscrites (BIC) :
+     * 1) Match exact SHA-256 → match='exact'
+     * 2) Au moins 2 des 3 hashes perceptuels correspondent → match='similar'
      *
-     * @return array{prescription:Prescription,match:string,distance:int}|null
+     * @return array{prescription:Prescription,match:string,distance:int,details:array}|null
      */
-    private function findDuplicatePrescription(int $customerId, ?string $sha256, ?string $phash): ?array
+    private function findDuplicatePrescription(int $customerId, array $hashes): ?array
     {
         $activeStatuses = ['pending', 'analyzed', 'quoted', 'paid', 'in_progress', 'validated'];
+        $sha256 = $hashes['sha256'] ?? null;
 
+        // 1) Match exact SHA-256
         if ($sha256) {
             $exact = Prescription::where('customer_id', $customerId)
                 ->where('image_hash', $sha256)
@@ -245,34 +277,64 @@ class PrescriptionController extends Controller
                 ->latest()
                 ->first();
             if ($exact) {
-                return ['prescription' => $exact, 'match' => 'exact', 'distance' => 0];
+                return ['prescription' => $exact, 'match' => 'exact', 'distance' => 0, 'details' => []];
             }
         }
 
-        if ($phash) {
-            $candidates = Prescription::where('customer_id', $customerId)
-                ->whereNotNull('image_phash')
-                ->whereIn('status', $activeStatuses)
-                ->where('created_at', '>=', now()->subDays(90))
-                ->orderByDesc('id')
-                ->limit(200)
-                ->get(['id', 'image_phash', 'status', 'quote_amount', 'created_at', 'validated_at']);
+        // 2) Match multi-hash (au moins 2 sur 3 hashes correspondent)
+        // Récupérer les ordonnances récentes avec au moins un hash
+        $candidates = Prescription::where('customer_id', $customerId)
+            ->where(function ($q) {
+                $q->whereNotNull('image_phash')
+                  ->orWhereNotNull('image_ahash')
+                  ->orWhereNotNull('image_shash');
+            })
+            ->whereIn('status', $activeStatuses)
+            ->where('created_at', '>=', now()->subDays(90))
+            ->orderByDesc('id')
+            ->limit(200)
+            ->get(['id', 'image_phash', 'image_ahash', 'image_shash', 'status', 'quote_amount', 'created_at', 'validated_at']);
 
-            $svc = app(PerceptualHashService::class);
-            $best = $svc->findClosest(
-                $phash,
-                $candidates->map(fn ($p) => ['id' => $p->id, 'hash' => $p->image_phash])->all(),
-            );
+        if ($candidates->isEmpty()) {
+            return null;
+        }
 
-            if ($best) {
-                $match = $candidates->firstWhere('id', $best['id']);
-                if ($match) {
-                    return ['prescription' => $match, 'match' => 'similar', 'distance' => $best['distance']];
+        $svc = app(PerceptualHashService::class);
+        $bestMatch = null;
+        $bestScore = 0;
+
+        foreach ($candidates as $candidate) {
+            $candidateHashes = [
+                'dhash' => $candidate->image_phash,
+                'ahash' => $candidate->image_ahash,
+                'shash' => $candidate->image_shash,
+            ];
+
+            $comparison = $svc->areSimilar($hashes, $candidateHashes);
+
+            // Si au moins 2 hashes correspondent
+            if ($comparison['is_similar'] && $comparison['matches'] > $bestScore) {
+                $bestScore = $comparison['matches'];
+                $minDistance = collect($comparison['details'])
+                    ->filter(fn($d) => $d['match'] ?? false)
+                    ->min('distance') ?? 0;
+                    
+                $bestMatch = [
+                    'prescription' => $candidate,
+                    'match' => 'similar',
+                    'distance' => $minDistance,
+                    'details' => $comparison['details'],
+                    'hash_matches' => $comparison['matches'],
+                ];
+
+                // Si les 3 hashes correspondent, on a trouvé le meilleur
+                if ($bestScore === 3) {
+                    break;
                 }
             }
         }
 
-        return null;
+        return $bestMatch;
     }
 
     /**
