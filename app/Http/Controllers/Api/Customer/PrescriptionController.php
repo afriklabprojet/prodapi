@@ -11,6 +11,7 @@ use App\Services\JekoPaymentService;
 use App\Services\PerceptualHashService;
 use App\Services\PrescriptionOcrService;
 use App\Services\ProductMatchingService;
+use App\Services\WalletService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -66,7 +67,7 @@ class PrescriptionController extends Controller
                 $imagePaths[] = $path;
             }
         } catch (\Exception $e) {
-            \Log::error('Prescription upload error: ' . $e->getMessage());
+            Log::error('Prescription upload error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de l\'enregistrement des images',
@@ -80,6 +81,30 @@ class PrescriptionController extends Controller
             sha256: $imageHash,
             phash: $imagePhash,
         );
+
+        // 🔒 BLOQUER les doublons exacts et très similaires (distance ≤ 8)
+        // Raison : prévention fraude médicamenteuse, substances contrôlées
+        if ($duplicate) {
+            $isBlockedDuplicate = $duplicate['match'] === 'exact' 
+                || ($duplicate['match'] === 'similar' && $duplicate['distance'] <= 8);
+            
+            if ($isBlockedDuplicate) {
+                // Supprimer les images uploadées (nettoyage)
+                foreach ($imagePaths as $path) {
+                    Storage::disk('private')->delete($path);
+                }
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cette ordonnance a déjà été soumise. Vous ne pouvez pas réutiliser la même ordonnance.',
+                    'error_code' => 'DUPLICATE_PRESCRIPTION',
+                    'existing_prescription_id' => $duplicate['prescription']->id,
+                    'existing_status' => $duplicate['prescription']->status,
+                    'existing_created_at' => $duplicate['prescription']->created_at,
+                    'match_type' => $duplicate['match'],
+                ], 409); // 409 Conflict
+            }
+        }
 
         $prescription = Prescription::create([
             'customer_id' => $request->user()->id,
@@ -106,7 +131,7 @@ class PrescriptionController extends Controller
                 }
             } catch (\Exception $e) {
                 // Notification failure shouldn't block the upload
-                \Log::warning('Prescription notification error: ' . $e->getMessage());
+                Log::warning('Prescription notification error: ' . $e->getMessage());
             }
         }
 
@@ -274,8 +299,11 @@ class PrescriptionController extends Controller
         }
 
         $validated = $request->validate([
-            'payment_method'   => ['required', Rule::in(JekoPaymentMethod::values())],
-            'delivery_address' => 'nullable|string|max:500',
+            'payment_method'    => ['required', Rule::in(JekoPaymentMethod::values())],
+            'delivery_address'  => 'required|string|max:500',
+            'delivery_latitude' => 'nullable|numeric',
+            'delivery_longitude' => 'nullable|numeric',
+            'customer_phone'    => 'nullable|string|max:20',
         ]);
 
         // Résoudre la pharmacie qui a validé le devis
@@ -294,19 +322,29 @@ class PrescriptionController extends Controller
             ], 400);
         }
 
+        // Calculer les frais de livraison selon la distance pharmacie → client
+        $deliveryFee = $this->calculatePrescriptionDeliveryFee(
+            $pharmacyIdToUse,
+            $validated['delivery_latitude'] ?? null,
+            $validated['delivery_longitude'] ?? null
+        );
+
         // 1. Créer la commande en état pending
         $order = Order::create([
-            'reference'        => Order::generateReference(),
-            'pharmacy_id'      => $pharmacyIdToUse,
-            'customer_id'      => $request->user()->id,
-            'status'           => 'pending',
-            'payment_mode'     => 'mobile_money',
-            'subtotal'         => $prescription->quote_amount,
-            'delivery_fee'     => 0,
-            'total_amount'     => $prescription->quote_amount,
-            'currency'         => 'XOF',
-            'customer_notes'   => $prescription->notes,
-            'delivery_address' => $validated['delivery_address'] ?? 'Retrait en pharmacie',
+            'reference'          => Order::generateReference(),
+            'pharmacy_id'        => $pharmacyIdToUse,
+            'customer_id'        => $request->user()->id,
+            'status'             => 'pending',
+            'payment_mode'       => 'mobile_money',
+            'subtotal'           => $prescription->quote_amount,
+            'delivery_fee'       => $deliveryFee,
+            'total_amount'       => $prescription->quote_amount + $deliveryFee,
+            'currency'           => 'XOF',
+            'customer_notes'     => $prescription->notes,
+            'delivery_address'   => $validated['delivery_address'],
+            'delivery_latitude'  => $validated['delivery_latitude'] ?? null,
+            'delivery_longitude' => $validated['delivery_longitude'] ?? null,
+            'customer_phone'     => $validated['customer_phone'] ?? $request->user()->phone,
             'prescription_image' => ($prescription->getRawImages()[0] ?? null),
         ]);
 
@@ -319,7 +357,7 @@ class PrescriptionController extends Controller
         // 3. Initier le vrai paiement Jeko
         try {
             $method      = JekoPaymentMethod::from($validated['payment_method']);
-            $amountCents = (int) ($prescription->quote_amount * 100);
+            $amountCents = (int) ($order->total_amount * 100);
 
             $jekoPayment = $this->jekoService->createRedirectPayment(
                 $order,
@@ -432,7 +470,7 @@ class PrescriptionController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('OCR analysis error: ' . $e->getMessage(), [
+            Log::error('OCR analysis error: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
             ]);
             return response()->json([
@@ -440,5 +478,30 @@ class PrescriptionController extends Controller
                 'message' => 'Erreur lors de l\'analyse de l\'ordonnance',
             ], 500);
         }
+    }
+
+    /**
+     * Calculer les frais de livraison pour une prescription.
+     */
+    private function calculatePrescriptionDeliveryFee(int $pharmacyId, ?float $deliveryLat, ?float $deliveryLng): int
+    {
+        if ($deliveryLat === null || $deliveryLng === null) {
+            return WalletService::getDeliveryFeeMin();
+        }
+
+        $pharmacy = \App\Models\Pharmacy::find($pharmacyId);
+        if (!$pharmacy || !$pharmacy->latitude || !$pharmacy->longitude) {
+            return WalletService::getDeliveryFeeMin();
+        }
+
+        $earthRadius = 6371;
+        $dLat = deg2rad($deliveryLat - $pharmacy->latitude);
+        $dLng = deg2rad($deliveryLng - $pharmacy->longitude);
+        $a = sin($dLat / 2) ** 2 +
+             cos(deg2rad($pharmacy->latitude)) * cos(deg2rad($deliveryLat)) *
+             sin($dLng / 2) ** 2;
+        $distanceKm = $earthRadius * 2 * atan2(sqrt($a), sqrt(1 - $a));
+
+        return WalletService::calculateDeliveryFee($distanceKm);
     }
 }
