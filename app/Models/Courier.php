@@ -71,6 +71,22 @@ class Courier extends Model
         'avg_delivery_speed_factor' => 'decimal:2',
     ];
 
+    /**
+     * SECURITY: Attributs sensibles masqués dans les réponses JSON
+     * Les documents KYC contiennent des données personnelles protégées
+     * 
+     * @var array<string>
+     */
+    protected $hidden = [
+        'driving_license_front_document',
+        'driving_license_back_document',
+        'vehicle_registration_document',
+        'id_card_front_document',
+        'id_card_back_document',
+        'selfie_document',
+        'kyc_rejection_reason',    // Info interne
+    ];
+
     // ──────────────────────────────────────────
     // CONSTANTES TIER
     // ──────────────────────────────────────────

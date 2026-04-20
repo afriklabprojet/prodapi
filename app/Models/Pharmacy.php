@@ -52,6 +52,19 @@ class Pharmacy extends Model
         'withdrawal_pin',
     ];
 
+    /**
+     * SECURITY: Attributs sensibles masqués dans les réponses JSON
+     * 
+     * @var array<string>
+     */
+    protected $hidden = [
+        'withdrawal_pin',      // CRITIQUE: hash PIN de retrait
+        'pin_attempts',        // Tentatives PIN échouées
+        'pin_locked_until',    // Info verrouillage
+        'license_document',    // Document licence (URL privée)
+        'id_card_document',    // Pièce d'identité (URL privée)
+    ];
+
     protected $casts = [
         'latitude' => 'float',
         'longitude' => 'float',
