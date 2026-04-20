@@ -82,11 +82,12 @@ class PrescriptionController extends Controller
             phash: $imagePhash,
         );
 
-        // 🔒 BLOQUER les doublons exacts et très similaires (distance ≤ 8)
+        // 🔒 BLOQUER les doublons exacts et très similaires (distance ≤ 12)
         // Raison : prévention fraude médicamenteuse, substances contrôlées
+        // Distance 12 = robuste aux re-photos avec angle/luminosité différents
         if ($duplicate) {
             $isBlockedDuplicate = $duplicate['match'] === 'exact' 
-                || ($duplicate['match'] === 'similar' && $duplicate['distance'] <= 8);
+                || ($duplicate['match'] === 'similar' && $duplicate['distance'] <= 12);
             
             if ($isBlockedDuplicate) {
                 // Supprimer les images uploadées (nettoyage)

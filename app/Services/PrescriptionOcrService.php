@@ -1197,4 +1197,70 @@ class PrescriptionOcrService
             'confidence' => 0,
         ];
     }
+
+    /**
+     * Calcule un hash MD5 normalisé du texte OCR pour détection de doublons.
+     * 
+     * Normalisation :
+     * - Minuscules
+     * - Suppression accents/diacritiques
+     * - Suppression ponctuation
+     * - Suppression espaces multiples
+     * - Suppression dates (changent à chaque re-photo)
+     * 
+     * @param string $text Texte brut extrait par OCR
+     * @return string Hash MD5 de 32 caractères
+     */
+    public static function computeContentHash(string $text): string
+    {
+        if (empty(trim($text))) {
+            return '';
+        }
+
+        // Normaliser : lowercase
+        $normalized = mb_strtolower($text, 'UTF-8');
+
+        // Supprimer les accents/diacritiques
+        $normalized = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $normalized);
+
+        // Supprimer les dates (format JJ/MM/AAAA, JJ-MM-AAAA, etc.)
+        $normalized = preg_replace('/\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/', '', $normalized);
+        
+        // Supprimer les heures
+        $normalized = preg_replace('/\d{1,2}[h:]\d{2}/', '', $normalized);
+
+        // Supprimer toute ponctuation et caractères spéciaux
+        $normalized = preg_replace('/[^a-z0-9\s]/', '', $normalized);
+
+        // Supprimer les espaces multiples
+        $normalized = preg_replace('/\s+/', ' ', $normalized);
+
+        // Supprimer les nombres isolés (numéros de tel, quantités qui varient)
+        $normalized = preg_replace('/\b\d+\b/', '', $normalized);
+
+        // Trim final
+        $normalized = trim($normalized);
+
+        // Hash MD5
+        return md5($normalized);
+    }
+
+    /**
+     * Trouve une ordonnance existante avec le même contenu textuel
+     * 
+     * @param string $contentHash Hash du contenu à rechercher
+     * @param int $customerId ID du client
+     * @return \App\Models\Prescription|null
+     */
+    public static function findByContentHash(string $contentHash, int $customerId): ?\App\Models\Prescription
+    {
+        if (empty($contentHash)) {
+            return null;
+        }
+
+        return \App\Models\Prescription::where('customer_id', $customerId)
+            ->where('content_hash', $contentHash)
+            ->whereIn('status', ['pending', 'approved', 'ready', 'delivering'])
+            ->first();
+    }
 }

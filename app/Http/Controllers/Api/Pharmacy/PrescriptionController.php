@@ -105,6 +105,10 @@ class PrescriptionController extends Controller
             'admin_notes' => 'nullable|string',
             'quote_amount' => 'nullable|numeric|min:0',
             'pharmacy_notes' => 'nullable|string',
+            'extracted_medications' => 'nullable|array',
+            'extracted_medications.*.name' => 'required_with:extracted_medications|string',
+            'extracted_medications.*.quantity' => 'nullable|integer|min:1',
+            'extracted_medications.*.unit_price' => 'nullable|numeric|min:0',
         ]);
 
         $prescription = Prescription::find($id);
@@ -129,6 +133,10 @@ class PrescriptionController extends Controller
 
         if ($request->has('quote_amount')) {
             $prescription->quote_amount = $request->quote_amount;
+        }
+
+        if ($request->has('extracted_medications')) {
+            $prescription->extracted_medications = $request->extracted_medications;
         }
         
         if ($request->status === 'validated' || $request->status === 'quoted') {
@@ -229,6 +237,26 @@ class PrescriptionController extends Controller
             $prescription->ocr_confidence = $ocrResult['confidence'] ?? 0;
             $prescription->analyzed_at = now();
             $prescription->extracted_medications = $medications;
+
+            // 🔒 Calculer le hash du contenu textuel pour détection de doublons
+            $rawText = $ocrResult['raw_text'] ?? '';
+            if (!empty(trim($rawText))) {
+                $contentHash = PrescriptionOcrService::computeContentHash($rawText);
+                $prescription->content_hash = $contentHash;
+
+                // Vérifier si une autre ordonnance a le même contenu
+                $duplicateByContent = PrescriptionOcrService::findByContentHash($contentHash, $prescription->customer_id);
+                if ($duplicateByContent && $duplicateByContent->id !== $prescription->id) {
+                    Log::warning('[OCR-DUPLICATE] Contenu identique détecté', [
+                        'new_prescription_id' => $prescription->id,
+                        'existing_prescription_id' => $duplicateByContent->id,
+                        'customer_id' => $prescription->customer_id,
+                        'content_hash' => $contentHash,
+                    ]);
+                    // Marquer comme suspect mais ne pas bloquer (déjà uploadé)
+                    $prescription->analysis_status = 'duplicate_suspected';
+                }
+            }
 
             // Matcher avec le stock si pharmacy_id existe et medications trouvées
             $matchResult = ['matched' => [], 'not_found' => [], 'out_of_stock' => [], 'alternatives' => [], 'stats' => [], 'total_estimated_price' => 0];

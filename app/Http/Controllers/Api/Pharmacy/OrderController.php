@@ -61,6 +61,7 @@ class OrderController extends Controller
                 'items_count' => (int) $order->items->count(),
                 'delivery_address' => $order->delivery_address,
                 'customer_notes' => $order->customer_notes,
+                'prescription_image' => $order->prescription_image,
                 'created_at' => $order->created_at,
             ];
         });
