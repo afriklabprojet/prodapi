@@ -811,60 +811,95 @@ class DeliveryController extends Controller
             ], 403);
         }
 
-        // Récupérer les badges (challenges complétés)
-        $badges = $courier->challenges()
-            ->wherePivot('status', 'completed')
-            ->get()
-            ->map(fn ($challenge) => [
-                'id' => $challenge->id,
-                'title' => $challenge->title,
-                'description' => $challenge->description,
-                'icon' => $challenge->icon,
-                'color' => $challenge->color,
-                'completed_at' => $challenge->pivot->completed_at,
-                'reward_amount' => $challenge->reward_amount,
+        try {
+            // Récupérer les badges (challenges complétés) — graceful si table absente
+            $badges = collect();
+            $activeChallenges = collect();
+            try {
+                $badges = $courier->challenges()
+                    ->wherePivot('status', 'completed')
+                    ->get()
+                    ->map(fn ($challenge) => [
+                        'id' => $challenge->id,
+                        'title' => $challenge->title,
+                        'description' => $challenge->description,
+                        'icon' => $challenge->icon,
+                        'color' => $challenge->color,
+                        'completed_at' => $challenge->pivot->completed_at,
+                        'reward_amount' => $challenge->reward_amount,
+                    ]);
+
+                // Challenges actifs en cours
+                $activeChallenges = $courier->challenges()
+                    ->wherePivot('status', 'in_progress')
+                    ->whereNotNull('ends_at')
+                    ->where('ends_at', '>', now())
+                    ->where('is_active', true)
+                    ->get()
+                    ->map(fn ($challenge) => [
+                        'id' => $challenge->id,
+                        'title' => $challenge->title,
+                        'description' => $challenge->description,
+                        'icon' => $challenge->icon,
+                        'color' => $challenge->color,
+                        'target_value' => $challenge->target_value,
+                        'current_progress' => $challenge->pivot->current_progress,
+                        'progress_percentage' => $challenge->target_value > 0
+                            ? min(round(($challenge->pivot->current_progress / $challenge->target_value) * 100, 1), 100)
+                            : 0,
+                        'reward_amount' => $challenge->reward_amount,
+                        'ends_at' => $challenge->ends_at,
+                    ]);
+            } catch (\Throwable $e) {
+                Log::warning('[Profile] Challenges query failed (table may not exist): ' . $e->getMessage());
+            }
+
+            // Compteurs — graceful si tables absentes
+            $completedDeliveries = 0;
+            try {
+                $completedDeliveries = $courier->deliveries()->where('status', 'delivered')->count();
+            } catch (\Throwable $e) {
+                Log::warning('[Profile] Deliveries count failed: ' . $e->getMessage());
+            }
+
+            $earnings = 0;
+            try {
+                $earnings = $courier->commissionLines()->sum('amount');
+            } catch (\Throwable $e) {
+                Log::warning('[Profile] CommissionLines sum failed: ' . $e->getMessage());
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'id' => $courier->id,
+                    'name' => $request->user()->name,
+                    'email' => $request->user()->email,
+                    'avatar' => $request->user()->avatar,
+                    'status' => $courier->status,
+                    'vehicle_type' => $courier->vehicle_type,
+                    'plate_number' => $courier->plate_number,
+                    'rating' => $courier->rating,
+                    'completed_deliveries' => $completedDeliveries,
+                    'earnings' => $earnings,
+                    'kyc_status' => $courier->kyc_status ?? 'pending_review',
+                    'badges' => $badges,
+                    'active_challenges' => $activeChallenges,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('[Profile] Unhandled error: ' . $e->getMessage(), [
+                'courier_id' => $courier->id,
+                'trace' => $e->getTraceAsString(),
             ]);
 
-        // Challenges actifs en cours
-        $activeChallenges = $courier->challenges()
-            ->wherePivot('status', 'in_progress')
-            ->whereNotNull('ends_at')
-            ->where('ends_at', '>', now())
-            ->where('is_active', true)
-            ->get()
-            ->map(fn ($challenge) => [
-                'id' => $challenge->id,
-                'title' => $challenge->title,
-                'description' => $challenge->description,
-                'icon' => $challenge->icon,
-                'color' => $challenge->color,
-                'target_value' => $challenge->target_value,
-                'current_progress' => $challenge->pivot->current_progress,
-                'progress_percentage' => $challenge->target_value > 0
-                    ? min(round(($challenge->pivot->current_progress / $challenge->target_value) * 100, 1), 100)
-                    : 0,
-                'reward_amount' => $challenge->reward_amount,
-                'ends_at' => $challenge->ends_at,
-            ]);
-
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'id' => $courier->id,
-                'name' => $request->user()->name,
-                'email' => $request->user()->email,
-                'avatar' => $request->user()->avatar,
-                'status' => $courier->status,
-                'vehicle_type' => $courier->vehicle_type,
-                'plate_number' => $courier->plate_number,
-                'rating' => $courier->rating,
-                'completed_deliveries' => $courier->deliveries()->where('status', 'delivered')->count(),
-                'earnings' => $courier->commissionLines()->sum('amount'),
-                'kyc_status' => $courier->kyc_status ?? 'pending_review',
-                'badges' => $badges,
-                'active_challenges' => $activeChallenges,
-            ],
-        ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors du chargement du profil',
+                'error_code' => 'PROFILE_LOAD_ERROR',
+                'debug' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 
     /**
