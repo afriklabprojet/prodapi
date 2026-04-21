@@ -134,7 +134,8 @@ class OrderController extends Controller
         $deliveryFee = $this->calculateDeliveryFeeWithMaps(
             $validated['pharmacy_id'],
             $validated['delivery_latitude'] ?? null,
-            $validated['delivery_longitude'] ?? null
+            $validated['delivery_longitude'] ?? null,
+            $validated['delivery_address'] ?? null
         );
 
         try {
@@ -652,8 +653,21 @@ class OrderController extends Controller
      * Calculer les frais de livraison avec Google Maps (cohérent avec /delivery/estimate).
      * Fallback Haversine si Google Maps indisponible.
      */
-    private function calculateDeliveryFeeWithMaps(int $pharmacyId, ?float $deliveryLat, ?float $deliveryLng): int
+    private function calculateDeliveryFeeWithMaps(int $pharmacyId, ?float $deliveryLat, ?float $deliveryLng, ?string $deliveryAddress = null): int
     {
+        if (($deliveryLat === null || $deliveryLng === null) && $deliveryAddress) {
+            // Géocoder l'adresse texte si les coordonnées GPS sont absentes
+            try {
+                $mapsService = app(\App\Services\GoogleMapsService::class);
+                $geocoded = $mapsService->geocode($deliveryAddress);
+                if ($geocoded) {
+                    $deliveryLat = $geocoded['latitude'];
+                    $deliveryLng = $geocoded['longitude'];
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Geocoding échoué pour delivery_address', ['address' => $deliveryAddress, 'error' => $e->getMessage()]);
+            }
+        }
         if ($deliveryLat === null || $deliveryLng === null) {
             return WalletService::getDeliveryFeeMin();
         }

@@ -88,12 +88,13 @@ class DeliveryPricingController extends Controller
     {
         // Validation
         $request->validate([
-            'distance_km'  => 'nullable|numeric|min:0|max:100',
-            'pharmacy_id'  => 'nullable|exists:pharmacies,id',
-            'pharmacy_lat' => 'nullable|numeric|between:-90,90',
-            'pharmacy_lng' => 'nullable|numeric|between:-180,180',
-            'delivery_lat' => 'nullable|numeric|between:-90,90',
-            'delivery_lng' => 'nullable|numeric|between:-180,180',
+            'distance_km'      => 'nullable|numeric|min:0|max:100',
+            'pharmacy_id'      => 'nullable|exists:pharmacies,id',
+            'pharmacy_lat'     => 'nullable|numeric|between:-90,90',
+            'pharmacy_lng'     => 'nullable|numeric|between:-180,180',
+            'delivery_lat'     => 'nullable|numeric|between:-90,90',
+            'delivery_lng'     => 'nullable|numeric|between:-180,180',
+            'delivery_address' => 'nullable|string|max:500',
         ]);
 
         $distanceKm = $request->input('distance_km');
@@ -113,6 +114,17 @@ class DeliveryPricingController extends Controller
                 if ($pharmacy && $pharmacy->latitude && $pharmacy->longitude) {
                     $pharmacyLat = $pharmacy->latitude;
                     $pharmacyLng = $pharmacy->longitude;
+                }
+            }
+
+            // Géocoder l'adresse texte si les coordonnées de livraison sont absentes
+            if ((!$deliveryLat || !$deliveryLng) && $request->filled('delivery_address')) {
+                $mapsService = app(GoogleMapsService::class);
+                $geocoded = $mapsService->geocode($request->input('delivery_address'));
+                if ($geocoded) {
+                    $deliveryLat = $geocoded['latitude'];
+                    $deliveryLng = $geocoded['longitude'];
+                    $distanceSource = 'geocoded_address';
                 }
             }
 
@@ -138,11 +150,11 @@ class DeliveryPricingController extends Controller
                         $deliveryLat,
                         $deliveryLng
                     );
-                    $distanceSource = 'haversine';
+                    $distanceSource = $distanceSource === 'geocoded_address' ? 'geocoded_haversine' : 'haversine';
                 }
             } else {
                 return response()->json([
-                    'error' => 'Veuillez fournir soit distance_km, soit les coordonnées (pharmacy_lat+pharmacy_lng ou pharmacy_id, delivery_lat, delivery_lng)',
+                    'error' => 'Veuillez fournir soit distance_km, soit les coordonnées GPS ou une adresse texte (delivery_address) avec pharmacy_id',
                 ], 422);
             }
         }
