@@ -13,7 +13,7 @@ class InventoryBatchController extends Controller
     /** GET /pharmacy/inventory/batches */
     public function index(Request $request): JsonResponse
     {
-        $pharmacy = Auth::user()->pharmacy;
+        $pharmacy = Auth::user()->pharmacies()->firstOrFail();
 
         $query = InventoryBatch::where('pharmacy_id', $pharmacy->id)
             ->with('product:id,name')
@@ -36,7 +36,7 @@ class InventoryBatchController extends Controller
     /** POST /pharmacy/inventory/batches */
     public function store(Request $request): JsonResponse
     {
-        $pharmacy = Auth::user()->pharmacy;
+        $pharmacy = Auth::user()->pharmacies()->firstOrFail();
 
         $validated = $request->validate([
             'product_id'   => 'required|integer|exists:products,id',
@@ -64,7 +64,7 @@ class InventoryBatchController extends Controller
     /** DELETE /pharmacy/inventory/batches/{batchId} */
     public function destroy(int $batchId): JsonResponse
     {
-        $pharmacy = Auth::user()->pharmacy;
+        $pharmacy = Auth::user()->pharmacies()->firstOrFail();
 
         $batch = InventoryBatch::where('id', $batchId)
             ->where('pharmacy_id', $pharmacy->id)
