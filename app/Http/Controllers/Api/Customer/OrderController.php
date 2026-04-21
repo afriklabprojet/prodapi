@@ -655,10 +655,11 @@ class OrderController extends Controller
      */
     private function calculateDeliveryFeeWithMaps(int $pharmacyId, ?float $deliveryLat, ?float $deliveryLng, ?string $deliveryAddress = null): int
     {
+        $mapsService = app(\App\Services\GoogleMapsService::class);
+
         if (($deliveryLat === null || $deliveryLng === null) && $deliveryAddress) {
             // Géocoder l'adresse texte si les coordonnées GPS sont absentes
             try {
-                $mapsService = app(\App\Services\GoogleMapsService::class);
                 $geocoded = $mapsService->geocode($deliveryAddress);
                 if ($geocoded) {
                     $deliveryLat = $geocoded['latitude'];
@@ -678,8 +679,8 @@ class OrderController extends Controller
         }
 
         // Essayer Google Maps Distance Matrix (même algo que /delivery/estimate)
+        $distanceKm = null;
         try {
-            $mapsService = app(\App\Services\GoogleMapsService::class);
             $matrixResult = $mapsService->getDistanceMatrix(
                 (float) $pharmacy->latitude,
                 (float) $pharmacy->longitude,
@@ -687,7 +688,7 @@ class OrderController extends Controller
                 $deliveryLng
             );
             if ($matrixResult) {
-                return WalletService::calculateDeliveryFee($matrixResult['distance_km']);
+                $distanceKm = $matrixResult['distance_km'];
             }
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('GoogleMaps indisponible pour calculateDeliveryFee, fallback Haversine', [
@@ -696,11 +697,38 @@ class OrderController extends Controller
             ]);
         }
 
-        // Fallback Haversine
-        $distanceKm = $this->calculateDistance(
-            $pharmacy->latitude, $pharmacy->longitude,
-            $deliveryLat, $deliveryLng
-        );
+        // Fallback Haversine si Distance Matrix a échoué
+        if ($distanceKm === null) {
+            $distanceKm = $this->calculateDistance(
+                $pharmacy->latitude, $pharmacy->longitude,
+                $deliveryLat, $deliveryLng
+            );
+        }
+
+        // Fallback texte si distance GPS aberrante (< 0.5 km) et adresse texte fournie
+        // Cas typique : GPS capturé dans la pharmacie, adresse réelle différente
+        if ($distanceKm < 0.5 && $deliveryAddress) {
+            try {
+                $geocoded = $mapsService->geocode($deliveryAddress);
+                if ($geocoded) {
+                    $matrixGeo = $mapsService->getDistanceMatrix(
+                        (float) $pharmacy->latitude, (float) $pharmacy->longitude,
+                        (float) $geocoded['latitude'], (float) $geocoded['longitude']
+                    );
+                    if ($matrixGeo && $matrixGeo['distance_km'] > $distanceKm) {
+                        $distanceKm = $matrixGeo['distance_km'];
+                        \Illuminate\Support\Facades\Log::info('Delivery fee: fallback geocoding texte utilisé', [
+                            'pharmacy_id' => $pharmacyId,
+                            'address' => $deliveryAddress,
+                            'distance_km' => $distanceKm,
+                        ]);
+                    }
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Fallback geocoding échoué', ['address' => $deliveryAddress, 'error' => $e->getMessage()]);
+            }
+        }
+
         return WalletService::calculateDeliveryFee($distanceKm);
     }
 

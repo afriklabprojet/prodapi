@@ -152,6 +152,25 @@ class DeliveryPricingController extends Controller
                     );
                     $distanceSource = $distanceSource === 'geocoded_address' ? 'geocoded_haversine' : 'haversine';
                 }
+
+                // Fallback texte si distance GPS aberrante (< 0.5 km) et adresse texte fournie
+                // Cas typique : GPS capturé dans la pharmacie, adresse réelle différente
+                if ($distanceKm < 0.5 && $request->filled('delivery_address') && $distanceSource !== 'geocoded_address') {
+                    $geocoded = $mapsService->geocode($request->input('delivery_address'));
+                    if ($geocoded) {
+                        $geoLat = $geocoded['latitude'];
+                        $geoLng = $geocoded['longitude'];
+                        $matrixGeo = $mapsService->getDistanceMatrix(
+                            (float) $pharmacyLat, (float) $pharmacyLng,
+                            (float) $geoLat, (float) $geoLng
+                        );
+                        if ($matrixGeo && $matrixGeo['distance_km'] > $distanceKm) {
+                            $distanceKm = $matrixGeo['distance_km'];
+                            $durationMinutes = $matrixGeo['duration_minutes'];
+                            $distanceSource = 'geocoded_address_fallback';
+                        }
+                    }
+                }
             } else {
                 return response()->json([
                     'error' => 'Veuillez fournir soit distance_km, soit les coordonnées GPS ou une adresse texte (delivery_address) avec pharmacy_id',
