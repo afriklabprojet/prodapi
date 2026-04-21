@@ -37,18 +37,18 @@ class ReportsController extends Controller
         $completedOrders = (clone $ordersQuery)->where('status', 'delivered')->count();
         $cancelledOrders = (clone $ordersQuery)->where('status', 'cancelled')->count();
         $pendingOrders = (clone $ordersQuery)->where('status', 'pending')->count();
-        $totalRevenue = (clone $ordersQuery)->where('status', 'delivered')->sum('total_amount');
+        $totalRevenue = (clone $ordersQuery)->where('status', 'delivered')->sum('subtotal');
 
         // Ventes aujourd'hui et hier
         $salesToday = Order::where('pharmacy_id', $pharmacy->id)
             ->where('status', 'delivered')
             ->whereDate('created_at', today())
-            ->sum('total_amount');
+            ->sum('subtotal');
 
         $salesYesterday = Order::where('pharmacy_id', $pharmacy->id)
             ->where('status', 'delivered')
             ->whereDate('created_at', today()->subDay())
-            ->sum('total_amount');
+            ->sum('subtotal');
 
         $growth = $salesYesterday > 0
             ? round(($salesToday - $salesYesterday) / $salesYesterday * 100, 1)
@@ -115,13 +115,13 @@ class ReportsController extends Controller
             ->where('status', 'delivered')
             ->where('created_at', '>=', $start);
 
-        $totalRevenue = (clone $deliveredOrders)->sum('total_amount');
+        $totalRevenue = (clone $deliveredOrders)->sum('subtotal');
         $totalOrders = (clone $deliveredOrders)->count();
         $averageOrderValue = $totalOrders > 0 ? $totalRevenue / $totalOrders : 0;
 
         // Ventilation journalière
         $dailyBreakdown = (clone $deliveredOrders)
-            ->selectRaw('DATE(created_at) as date, COUNT(*) as order_count, SUM(total_amount) as amount')
+            ->selectRaw('DATE(created_at) as date, COUNT(*) as order_count, SUM(subtotal) as amount')
             ->groupBy('date')
             ->orderBy('date')
             ->get();

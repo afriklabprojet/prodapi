@@ -120,4 +120,35 @@ class FirestoreService
             Log::error("Firestore clearDeliveryTracking failed: {$e->getMessage()}");
         }
     }
+
+    /**
+     * Synchroniser un produit dans la collection Firestore products/{productId}.
+     * 
+     * @param \App\Models\Product $product
+     */
+    public function syncProduct(\App\Models\Product $product): void
+    {
+        if (!$this->firestore) return;
+
+        try {
+            $this->firestore
+                ->collection('products')
+                ->document((string) $product->id)
+                ->set([
+                    'id'           => $product->id,
+                    'name'         => $product->name,
+                    'price'        => (float) $product->price,
+                    'stock'        => (int) ($product->stock_quantity ?? 0),
+                    'pharmacyId'   => $product->pharmacy_id,
+                    'isAvailable'  => (bool) ($product->is_available ?? true),
+                    'updatedAt'    => new \Google\Cloud\Core\Timestamp(new \DateTime()),
+                ], ['merge' => true]);
+
+            Log::debug("Firestore: product #{$product->id} synced");
+        } catch (\Exception $e) {
+            Log::error("Firestore syncProduct failed: {$e->getMessage()}", [
+                'product_id' => $product->id,
+            ]);
+        }
+    }
 }

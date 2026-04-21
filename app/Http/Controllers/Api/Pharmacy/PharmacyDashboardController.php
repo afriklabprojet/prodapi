@@ -157,7 +157,7 @@ class PharmacyDashboardController extends Controller
             ->where('pharmacy_id', $pharmacyId)
             ->where('created_at', '>=', $startOfToday)
             ->whereIn('status', ['completed', 'delivered'])
-            ->sum('total_amount');
+            ->sum('subtotal');
 
         // Commandes hier — exclut pending/cancelled
         $ordersYesterday = Order::forStats()
@@ -170,7 +170,7 @@ class PharmacyDashboardController extends Controller
             ->where('pharmacy_id', $pharmacyId)
             ->whereBetween('created_at', [$startOfYesterday, $endOfYesterday])
             ->whereIn('status', ['completed', 'delivered'])
-            ->sum('total_amount');
+            ->sum('subtotal');
 
         // Prescriptions aujourd'hui (si modèle existe)
         $prescriptionsToday = 0;
