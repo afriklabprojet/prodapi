@@ -77,6 +77,9 @@ class EnsureCourierProfile
             ], 403);
         }
 
+        // Attacher le courier à la requête pour éviter un double chargement dans le controller
+        $request->merge(['_courier' => $courier]);
+
         return $next($request);
     }
 }

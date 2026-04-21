@@ -802,16 +802,20 @@ class DeliveryController extends Controller
      */
     public function profile(Request $request)
     {
-        $courier = $request->user()->courier;
-
-        if (!$courier) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Profil livreur non trouvé',
-            ], 403);
-        }
+        $courier = null;
 
         try {
+            // NOTE: chargement DANS le try/catch pour éviter que le lazy-loading
+            // ou toute exception ici produise un 500 générique Laravel hors du catch.
+            // Si le middleware a déjà chargé le courier, on le réutilise.
+            $courier = $request->get('_courier') ?? $request->user()->courier;
+
+            if (!$courier) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Profil livreur non trouvé',
+                ], 403);
+            }
             // Récupérer les badges (challenges complétés) — graceful si table absente
             $badges = collect();
             $activeChallenges = collect();
@@ -889,15 +893,17 @@ class DeliveryController extends Controller
             ]);
         } catch (\Throwable $e) {
             Log::error('[Profile] Unhandled error: ' . $e->getMessage(), [
-                'courier_id' => $courier->id,
-                'trace' => $e->getTraceAsString(),
+                'courier_id' => $courier?->id,
+                'user_id'    => $request->user()?->id,
+                'exception'  => get_class($e),
+                'trace'      => $e->getTraceAsString(),
             ]);
 
             return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors du chargement du profil',
+                'success'    => false,
+                'message'    => 'Erreur lors du chargement du profil',
                 'error_code' => 'PROFILE_LOAD_ERROR',
-                'debug' => config('app.debug') ? $e->getMessage() : null,
+                'debug'      => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
