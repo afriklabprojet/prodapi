@@ -42,24 +42,26 @@ class NewOrderReceivedNotification extends Notification implements ShouldQueue
     public function toDatabase($notifiable): array
     {
         $itemsCount = $this->order->items->count();
+        $subtotal = $this->order->subtotal; // Prix médicaments (montant reçu par la pharmacie)
         
         return [
             'type' => 'new_order_received',
             'title' => $this->order->customer?->name
                 ? "🛒 Commande de {$this->order->customer->name}"
                 : "🛒 Nouvelle commande · {$itemsCount} article(s)",
-            'body' => "Client: {$this->order->customer?->name} · {$itemsCount} article(s) · {$this->order->total_amount} FCFA",
+            'body' => "Client: {$this->order->customer?->name} · {$itemsCount} article(s) · {$subtotal} FCFA",
             'order_id' => $this->order->id,
             'order_reference' => $this->order->reference,
             'customer_name' => $this->order->customer?->name,
             'customer_phone' => $this->order->customer_phone,
             'items_count' => $itemsCount,
             'total_amount' => $this->order->total_amount,
+            'subtotal' => $subtotal,
             'payment_mode' => $this->order->payment_mode,
             'delivery_address' => $this->order->delivery_address,
             'has_prescription' => !empty($this->order->prescription_image),
             'customer_notes' => $this->order->customer_notes,
-            'message' => "Client: {$this->order->customer?->name} · {$itemsCount} article(s) · {$this->order->total_amount} FCFA",
+            'message' => "Client: {$this->order->customer?->name} · {$itemsCount} article(s) · {$subtotal} FCFA",
         ];
     }
 
@@ -76,8 +78,9 @@ class NewOrderReceivedNotification extends Notification implements ShouldQueue
         // Récupérer les paramètres de notification depuis la config admin
         $fcmConfig = NotificationSettingsService::getFcmConfig('new_order');
 
+        $subtotal = $this->order->subtotal; // Prix médicaments (montant reçu par la pharmacie)
         $body = "Client: {$this->order->customer?->name}\n" .
-                "{$itemsCount} article(s) - {$this->order->total_amount} FCFA\n" .
+                "{$itemsCount} article(s) - {$subtotal} FCFA\n" .
                 "Paiement: {$paymentLabel}";
 
         if ($this->order->customer_notes) {
@@ -99,6 +102,7 @@ class NewOrderReceivedNotification extends Notification implements ShouldQueue
                 'customer_phone' => $this->order->customer_phone ?? '',
                 'items_count' => (string) $itemsCount,
                 'total_amount' => (string) $this->order->total_amount,
+                'subtotal' => (string) $this->order->subtotal,
                 'payment_mode' => $this->order->payment_mode,
                 'has_prescription' => !empty($this->order->prescription_image) ? 'true' : 'false',
                 'click_action' => 'ORDER_DETAIL',
@@ -122,7 +126,7 @@ class NewOrderReceivedNotification extends Notification implements ShouldQueue
     public function toSms($notifiable): string
     {
         $itemsCount = $this->order->items->count();
-        return "DR-PHARMA: 🛒 Nouvelle commande #{$this->order->reference} - {$itemsCount} article(s) - {$this->order->total_amount} FCFA. Confirmez rapidement!";
+        return "DR-PHARMA: 🛒 Nouvelle commande #{$this->order->reference} - {$itemsCount} article(s) - {$this->order->subtotal} FCFA. Confirmez rapidement!";
     }
 
     /**
@@ -139,7 +143,7 @@ class NewOrderReceivedNotification extends Notification implements ShouldQueue
                 $notifiable->name ?? 'Pharmacie',
                 $this->order->reference,
                 (string) $itemsCount,
-                ($this->order->total_amount ?? 0) . ' FCFA',
+                ($this->order->subtotal ?? 0) . ' FCFA',
             ],
         ];
     }

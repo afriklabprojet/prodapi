@@ -61,7 +61,7 @@ class NewOrderNotification extends Notification implements ShouldQueue
 
         return [
             'title' => 'Nouvelle commande 🛒',
-            'body' => "Ref: {$this->order->reference} - Total: {$this->order->total_amount} FCFA",
+            'body' => "Ref: {$this->order->reference} - Médicaments: {$this->order->subtotal} FCFA",
             'data' => array_merge($fcmConfig['data'], [
                 'type' => 'new_order',
                 'order_id' => (string) $this->order->id,
@@ -126,8 +126,8 @@ class NewOrderNotification extends Notification implements ShouldQueue
             'title' => $this->order->customer?->name
                 ? "🛒 Commande de {$this->order->customer->name}"
                 : "🛒 Nouvelle commande · {$itemsCount} article(s)",
-            'body' => "Client: {$this->order->customer?->name} · {$itemsCount} article(s) · {$this->order->total_amount} {$this->order->currency}",
-            'message' => "Client: {$this->order->customer?->name} · {$itemsCount} article(s) · {$this->order->total_amount} {$this->order->currency}",
+            'body' => "Client: {$this->order->customer?->name} · {$itemsCount} article(s) · {$this->order->subtotal} {$this->order->currency}",
+            'message' => "Client: {$this->order->customer?->name} · {$itemsCount} article(s) · {$this->order->subtotal} {$this->order->currency}",
             'customer_name' => $this->order->customer?->name,
             'items_count' => $itemsCount,
             'total_amount' => $this->order->total_amount,
@@ -149,7 +149,7 @@ class NewOrderNotification extends Notification implements ShouldQueue
     public function toSms(object $notifiable): string
     {
         $itemsCount = $this->order->items->count();
-        return "DR-PHARMA: Nouvelle commande #{$this->order->reference} - {$itemsCount} article(s) - {$this->order->total_amount} FCFA. Veuillez confirmer rapidement.";
+        return "DR-PHARMA: Nouvelle commande #{$this->order->reference} - {$itemsCount} article(s) - {$this->order->subtotal} FCFA. Veuillez confirmer rapidement.";
     }
 
     /**
@@ -166,7 +166,7 @@ class NewOrderNotification extends Notification implements ShouldQueue
                 $notifiable->name ?? 'Pharmacie',
                 $this->order->reference,
                 (string) $itemsCount,
-                ($this->order->total_amount ?? 0) . ' FCFA',
+                ($this->order->subtotal ?? 0) . ' FCFA',
             ],
         ];
     }
