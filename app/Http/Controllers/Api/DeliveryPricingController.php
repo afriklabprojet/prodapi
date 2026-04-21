@@ -88,7 +88,8 @@ class DeliveryPricingController extends Controller
     {
         // Validation
         $request->validate([
-            'distance_km' => 'nullable|numeric|min:0|max:100',
+            'distance_km'  => 'nullable|numeric|min:0|max:100',
+            'pharmacy_id'  => 'nullable|exists:pharmacies,id',
             'pharmacy_lat' => 'nullable|numeric|between:-90,90',
             'pharmacy_lng' => 'nullable|numeric|between:-180,180',
             'delivery_lat' => 'nullable|numeric|between:-90,90',
@@ -105,6 +106,15 @@ class DeliveryPricingController extends Controller
             $pharmacyLng = $request->input('pharmacy_lng');
             $deliveryLat = $request->input('delivery_lat');
             $deliveryLng = $request->input('delivery_lng');
+
+            // Résoudre les coordonnées de la pharmacie depuis pharmacy_id si non fournies
+            if ((!$pharmacyLat || !$pharmacyLng) && $request->filled('pharmacy_id')) {
+                $pharmacy = \App\Models\Pharmacy::find($request->input('pharmacy_id'));
+                if ($pharmacy && $pharmacy->latitude && $pharmacy->longitude) {
+                    $pharmacyLat = $pharmacy->latitude;
+                    $pharmacyLng = $pharmacy->longitude;
+                }
+            }
 
             if ($pharmacyLat && $pharmacyLng && $deliveryLat && $deliveryLng) {
                 // Essayer d'abord Distance Matrix API (distance route réelle)
@@ -132,7 +142,7 @@ class DeliveryPricingController extends Controller
                 }
             } else {
                 return response()->json([
-                    'error' => 'Veuillez fournir soit distance_km, soit les coordonnées (pharmacy_lat, pharmacy_lng, delivery_lat, delivery_lng)',
+                    'error' => 'Veuillez fournir soit distance_km, soit les coordonnées (pharmacy_lat+pharmacy_lng ou pharmacy_id, delivery_lat, delivery_lng)',
                 ], 422);
             }
         }

@@ -130,8 +130,15 @@ class OrderController extends Controller
             return $item;
         })->toArray();
 
+        // Calculer les frais de livraison AVANT la transaction (appel externe potentiel)
+        $deliveryFee = $this->calculateDeliveryFeeWithMaps(
+            $validated['pharmacy_id'],
+            $validated['delivery_latitude'] ?? null,
+            $validated['delivery_longitude'] ?? null
+        );
+
         try {
-            $order = DB::transaction(function () use ($request, $validated, $items) {
+            $order = DB::transaction(function () use ($request, $validated, $items, $deliveryFee) {
                 // Preload all products at once with lock to prevent race condition
                 $productIds = collect($items)->pluck('id')->filter()->unique()->values()->toArray();
                 $products = !empty($productIds) 
@@ -161,12 +168,7 @@ class OrderController extends Controller
                     $subtotal += $item['quantity'] * $price;
                 }
 
-                // Récupérer les frais de livraison calculés selon la distance
-                $deliveryFee = $this->calculateDeliveryFee(
-                    $validated['pharmacy_id'],
-                    $validated['delivery_latitude'] ?? null,
-                    $validated['delivery_longitude'] ?? null
-                );
+                // delivery_fee déjà calculé avant la transaction (cohérent avec l'estimation)
                 
                 // Calculer tous les frais (service + paiement)
                 $allFees = WalletService::calculateAllFees($subtotal, $deliveryFee, $validated['payment_mode']);
@@ -647,35 +649,66 @@ class OrderController extends Controller
     }
 
     /**
-     * Calculer les frais de livraison selon la distance pharmacie -> client
-     * 
-     * @param int $pharmacyId ID de la pharmacie
-     * @param float|null $deliveryLat Latitude de livraison
-     * @param float|null $deliveryLng Longitude de livraison
-     * @return int Frais de livraison en FCFA
+     * Calculer les frais de livraison avec Google Maps (cohérent avec /delivery/estimate).
+     * Fallback Haversine si Google Maps indisponible.
      */
-    private function calculateDeliveryFee(int $pharmacyId, ?float $deliveryLat, ?float $deliveryLng): int
+    private function calculateDeliveryFeeWithMaps(int $pharmacyId, ?float $deliveryLat, ?float $deliveryLng): int
     {
-        // Si pas de coordonnées de livraison, utiliser le minimum
         if ($deliveryLat === null || $deliveryLng === null) {
             return WalletService::getDeliveryFeeMin();
         }
 
-        // Récupérer les coordonnées de la pharmacie
         $pharmacy = \App\Models\Pharmacy::find($pharmacyId);
         if (!$pharmacy || !$pharmacy->latitude || !$pharmacy->longitude) {
             return WalletService::getDeliveryFeeMin();
         }
 
-        // Calculer la distance (formule Haversine)
-        $distanceKm = $this->calculateDistance(
-            $pharmacy->latitude,
-            $pharmacy->longitude,
-            $deliveryLat,
-            $deliveryLng
-        );
+        // Essayer Google Maps Distance Matrix (même algo que /delivery/estimate)
+        try {
+            $mapsService = app(\App\Services\GoogleMapsService::class);
+            $matrixResult = $mapsService->getDistanceMatrix(
+                (float) $pharmacy->latitude,
+                (float) $pharmacy->longitude,
+                $deliveryLat,
+                $deliveryLng
+            );
+            if ($matrixResult) {
+                return WalletService::calculateDeliveryFee($matrixResult['distance_km']);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('GoogleMaps indisponible pour calculateDeliveryFee, fallback Haversine', [
+                'pharmacy_id' => $pharmacyId,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
-        // Calculer les frais selon la distance
+        // Fallback Haversine
+        $distanceKm = $this->calculateDistance(
+            $pharmacy->latitude, $pharmacy->longitude,
+            $deliveryLat, $deliveryLng
+        );
+        return WalletService::calculateDeliveryFee($distanceKm);
+    }
+
+    /**
+     * Calculer les frais de livraison selon la distance pharmacie -> client (Haversine)
+     * @deprecated Utiliser calculateDeliveryFeeWithMaps() pour la cohérence avec /delivery/estimate
+     */
+    private function calculateDeliveryFee(int $pharmacyId, ?float $deliveryLat, ?float $deliveryLng): int
+    {
+        if ($deliveryLat === null || $deliveryLng === null) {
+            return WalletService::getDeliveryFeeMin();
+        }
+
+        $pharmacy = \App\Models\Pharmacy::find($pharmacyId);
+        if (!$pharmacy || !$pharmacy->latitude || !$pharmacy->longitude) {
+            return WalletService::getDeliveryFeeMin();
+        }
+
+        $distanceKm = $this->calculateDistance(
+            $pharmacy->latitude, $pharmacy->longitude,
+            $deliveryLat, $deliveryLng
+        );
         return WalletService::calculateDeliveryFee($distanceKm);
     }
 
