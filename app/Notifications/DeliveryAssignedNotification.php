@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Delivery;
 use App\Services\NotificationSettingsService;
+use App\Services\WalletService;
 use App\Channels\SmsChannel;
 use App\Channels\WhatsAppChannel;
 use Illuminate\Bus\Queueable;
@@ -54,7 +55,11 @@ class DeliveryAssignedNotification extends Notification implements ShouldQueue
         
         $fcmConfig = NotificationSettingsService::getFcmConfig('delivery_assigned');
         
-        $body = "🏪 {$pharmacy->name}\n📍 {$this->delivery->pickup_address}\n📏 Distance: {$this->delivery->estimated_distance} km\n💰 Commission: {$this->delivery->delivery_fee} FCFA";
+        $deliveryFee = (float) ($this->delivery->delivery_fee ?? 0);
+        $commissionAmount = WalletService::getCommissionAmount();
+        $estimatedEarnings = max(0, $deliveryFee - $commissionAmount);
+        
+        $body = "🏪 {$pharmacy->name}\n📍 {$this->delivery->pickup_address}\n📏 Distance: {$this->delivery->estimated_distance} km\n💰 Gain estimé: {$estimatedEarnings} FCFA";
 
         return [
             'title' => '🚨 NOUVELLE LIVRAISON ! 📦',
@@ -68,7 +73,9 @@ class DeliveryAssignedNotification extends Notification implements ShouldQueue
                 'pharmacy_address' => $this->delivery->pickup_address,
                 'delivery_address' => $this->delivery->delivery_address,
                 'estimated_distance' => (string) $this->delivery->estimated_distance,
-                'delivery_fee' => (string) $this->delivery->delivery_fee,
+                'delivery_fee' => (string) $deliveryFee,
+                'amount' => (string) $deliveryFee,
+                'estimated_earnings' => (string) $estimatedEarnings,
                 'customer_phone' => $order->customer_phone ?? '',
                 'click_action' => 'DELIVERY_DETAIL',
             ], $fcmConfig['data']),
@@ -98,6 +105,9 @@ class DeliveryAssignedNotification extends Notification implements ShouldQueue
     public function toArray(object $notifiable): array
     {
         $order = $this->delivery->order;
+        $deliveryFee = (float) ($this->delivery->delivery_fee ?? 0);
+        $commissionAmount = WalletService::getCommissionAmount();
+        $estimatedEarnings = max(0, $deliveryFee - $commissionAmount);
 
         return [
             'delivery_id' => $this->delivery->id,
@@ -109,7 +119,9 @@ class DeliveryAssignedNotification extends Notification implements ShouldQueue
             'delivery_data' => [
                 'pickup_address' => $this->delivery->pickup_address,
                 'delivery_address' => $this->delivery->delivery_address,
-                'delivery_fee' => $this->delivery->delivery_fee,
+                'delivery_fee' => $deliveryFee,
+                'amount' => $deliveryFee,
+                'estimated_earnings' => $estimatedEarnings,
                 'pharmacy_name' => $order->pharmacy->name,
                 'customer_phone' => $order->customer_phone,
             ],
@@ -123,7 +135,9 @@ class DeliveryAssignedNotification extends Notification implements ShouldQueue
     {
         $order = $this->delivery->order;
         $pharmacy = $order->pharmacy;
-        return "DR-PHARMA: Nouvelle livraison assignée! Commande #{$order->reference} - Pharmacie: {$pharmacy->name} - Adresse: {$this->delivery->pickup_address} - Commission: {$this->delivery->delivery_fee} FCFA";
+        $deliveryFee = (float) ($this->delivery->delivery_fee ?? 0);
+        $estimatedEarnings = max(0, $deliveryFee - WalletService::getCommissionAmount());
+        return "DR-PHARMA: Nouvelle livraison assignée! Commande #{$order->reference} - Pharmacie: {$pharmacy->name} - Adresse: {$this->delivery->pickup_address} - Gain estimé: {$estimatedEarnings} FCFA";
     }
 
     /**
