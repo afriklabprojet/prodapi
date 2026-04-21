@@ -208,7 +208,7 @@ class ProductController extends Controller
                 'discount_price', 
                 'stock_quantity',
                 'pharmacy_id',
-                'image_url'
+                'image'
             ])
             ->orderBy('price')
             ->limit(5)
