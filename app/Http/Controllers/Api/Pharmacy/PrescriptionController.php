@@ -141,7 +141,14 @@ class PrescriptionController extends Controller
         
         if ($request->status === 'validated' || $request->status === 'quoted') {
             $prescription->validated_at = now();
-            $prescription->validated_by = $request->user()->id; 
+            $prescription->validated_by = $request->user()->id;
+            // Assigner la pharmacie si pas encore fait
+            if (!$prescription->pharmacy_id) {
+                $pharmacy = $request->user()->pharmacies()->first();
+                if ($pharmacy) {
+                    $prescription->pharmacy_id = $pharmacy->id;
+                }
+            }
         }
 
         $prescription->save();
