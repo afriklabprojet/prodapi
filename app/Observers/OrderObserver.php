@@ -37,18 +37,14 @@ class OrderObserver
 
     /**
      * Handle the Order "created" event.
+     * NOTE: Ne pas notifier ici — la notification pharmacien est envoyée :
+     *  - Pour paiement cash : dans OrderController::store() immédiatement
+     *  - Pour paiement en ligne : dans JekoPaymentService / ProcessPaymentResultJob après confirmation
+     * Cela évite de notifier le pharmacien pour des commandes non encore payées.
      */
     public function created(Order $order): void
     {
-        // Notify pharmacy of new order
-        $pharmacyUser = $order->pharmacy->users()->wherePivot('role', 'owner')->first();
-        if ($pharmacyUser) {
-            $pharmacyUser->notify(new NewOrderNotification($order));
-            Log::info("New order notification sent to pharmacy", [
-                'order_id' => $order->id,
-                'pharmacy_id' => $order->pharmacy_id,
-            ]);
-        }
+        // Notification gérée par OrderController (cash) et JekoPaymentService (en ligne)
     }
 
     /**
