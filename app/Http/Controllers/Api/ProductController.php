@@ -205,7 +205,7 @@ class ProductController extends Controller
                 'id', 
                 'name', 
                 'price', 
-                'promo_price', 
+                'discount_price', 
                 'stock_quantity',
                 'pharmacy_id',
                 'image_url'
@@ -219,7 +219,7 @@ class ProductController extends Controller
                     'name' => $alt->name,
                     'price' => $alt->getCurrentPrice(),
                     'original_price' => $alt->price,
-                    'has_promo' => $alt->promo_price !== null && $alt->promo_price < $alt->price,
+                    'has_promo' => $alt->discount_price !== null && $alt->discount_price < $alt->price,
                     'stock' => $alt->stock_quantity,
                     'pharmacy' => [
                         'id' => $alt->pharmacy_id,
