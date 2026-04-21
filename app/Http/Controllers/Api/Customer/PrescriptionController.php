@@ -359,6 +359,37 @@ class PrescriptionController extends Controller
     }
 
     /**
+     * Annuler une ordonnance (pending ou processing non encore payée).
+     */
+    public function cancel(Request $request, int $id)
+    {
+        $prescription = $request->user()->prescriptions()->findOrFail($id);
+
+        if (!in_array($prescription->status, ['pending', 'processing'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cette ordonnance ne peut pas être annulée.',
+            ], 422);
+        }
+
+        // Si un ordre est lié et encore en attente, l'annuler aussi
+        if ($prescription->order_id) {
+            $order = \App\Models\Order::find($prescription->order_id);
+            if ($order && $order->status === 'pending') {
+                $order->update(['status' => 'cancelled']);
+            }
+        }
+
+        $prescription->update(['status' => 'cancelled']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Ordonnance annulée.',
+            'data' => new PrescriptionResource($prescription->fresh(['pharmacy', 'order'])),
+        ]);
+    }
+
+    /**
      * Pay for a quoted prescription — initie un vrai paiement Jeko.
      */
     public function pay(Request $request, string $id)

@@ -279,6 +279,9 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
             Route::post('/prescriptions/{id}/pay', [PrescriptionController::class, 'pay']);
         });
 
+        // Prescription cancel - client peut annuler si pending ou processing
+        Route::post('/prescriptions/{id}/cancel', [PrescriptionController::class, 'cancel']);
+
         // Promo Codes - Validation
         Route::post('/promo-codes/validate', [\App\Http\Controllers\Api\PromoCodeController::class, 'validate']);
 
