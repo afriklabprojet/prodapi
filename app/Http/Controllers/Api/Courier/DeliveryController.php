@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Courier;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\CourierResource;
 use App\Models\Delivery;
 use App\Services\WalletService;
 use App\Services\WaitingFeeService;
@@ -798,104 +799,84 @@ class DeliveryController extends Controller
     }
 
     /**
-     * Get courier profile and stats
+     * GET /api/courier/profile
+     *
+     * Retourne le profil complet du courier authentifié + stats agrégées.
+     *
+     * Codes de réponse :
+     *  - 200 : OK, profil chargé
+     *  - 401 : utilisateur non authentifié (Bearer manquant ou invalide)
+     *  - 404 : utilisateur authentifié mais sans profil courier
+     *  - 500 : erreur serveur (loggée intégralement, jamais silencieuse)
      */
     public function profile(Request $request)
     {
+        $user    = null;
         $courier = null;
 
         try {
-            // NOTE: chargement DANS le try/catch pour éviter que le lazy-loading
-            // ou toute exception ici produise un 500 générique Laravel hors du catch.
-            // Si le middleware a déjà chargé le courier, on le réutilise.
-            $courier = $request->get('_courier') ?? $request->user()->courier;
+            // 1) Auth defense-in-depth (auth:sanctum + middleware courier déjà appliqués,
+            //    mais on revérifie pour ne JAMAIS retourner un 500 sur un user null)
+            $user = $request->user();
+
+            if (!$user) {
+                Log::warning('[Courier.profile] Unauthenticated request', [
+                    'ip'         => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                ]);
+
+                return response()->json([
+                    'success'    => false,
+                    'message'    => 'Authentification requise',
+                    'error_code' => 'UNAUTHENTICATED',
+                ], 401);
+            }
+
+            // 2) Eager-loading explicite (évite N+1 et lazy-loading violations)
+            //    Si le middleware EnsureCourierProfile a déjà attaché le courier, on le réutilise.
+            $courier = $request->get('_courier');
 
             if (!$courier) {
+                $user->loadMissing('courier');
+                $courier = $user->courier;
+            }
+
+            if (!$courier) {
+                Log::info('[Courier.profile] Profile not found for user', [
+                    'user_id' => $user->id,
+                ]);
+
                 return response()->json([
-                    'success' => false,
-                    'message' => 'Profil livreur non trouvé',
-                ], 403);
-            }
-            // Récupérer les badges (challenges complétés) — graceful si table absente
-            $badges = collect();
-            $activeChallenges = collect();
-            try {
-                $badges = $courier->challenges()
-                    ->wherePivot('status', 'completed')
-                    ->get()
-                    ->map(fn ($challenge) => [
-                        'id' => $challenge->id,
-                        'title' => $challenge->title,
-                        'description' => $challenge->description,
-                        'icon' => $challenge->icon,
-                        'color' => $challenge->color,
-                        'completed_at' => $challenge->pivot->completed_at,
-                        'reward_amount' => $challenge->reward_amount,
-                    ]);
-
-                // Challenges actifs en cours
-                $activeChallenges = $courier->challenges()
-                    ->wherePivot('status', 'in_progress')
-                    ->whereNotNull('ends_at')
-                    ->where('ends_at', '>', now())
-                    ->where('is_active', true)
-                    ->get()
-                    ->map(fn ($challenge) => [
-                        'id' => $challenge->id,
-                        'title' => $challenge->title,
-                        'description' => $challenge->description,
-                        'icon' => $challenge->icon,
-                        'color' => $challenge->color,
-                        'target_value' => $challenge->target_value,
-                        'current_progress' => $challenge->pivot->current_progress,
-                        'progress_percentage' => $challenge->target_value > 0
-                            ? min(round(($challenge->pivot->current_progress / $challenge->target_value) * 100, 1), 100)
-                            : 0,
-                        'reward_amount' => $challenge->reward_amount,
-                        'ends_at' => $challenge->ends_at,
-                    ]);
-            } catch (\Throwable $e) {
-                Log::warning('[Profile] Challenges query failed (table may not exist): ' . $e->getMessage());
+                    'success'    => false,
+                    'message'    => 'Profil livreur non trouvé',
+                    'error_code' => 'COURIER_PROFILE_NOT_FOUND',
+                ], 404);
             }
 
-            // Compteurs — graceful si tables absentes
-            $completedDeliveries = 0;
-            try {
-                $completedDeliveries = $courier->deliveries()->where('status', 'delivered')->count();
-            } catch (\Throwable $e) {
-                Log::warning('[Profile] Deliveries count failed: ' . $e->getMessage());
-            }
+            // 3) Garantir que la relation user est chargée pour la Resource
+            $courier->setRelation('user', $user);
 
-            $earnings = 0;
-            try {
-                $earnings = $courier->commissionLines()->sum('amount');
-            } catch (\Throwable $e) {
-                Log::warning('[Profile] CommissionLines sum failed: ' . $e->getMessage());
-            }
+            // 4) Stats agrégées (graceful degradation par bloc)
+            $stats = $this->loadCourierStats($courier);
 
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'id' => $courier->id,
-                    'name' => $request->user()->name,
-                    'email' => $request->user()->email,
-                    'avatar' => $request->user()->avatar,
-                    'status' => $courier->status,
-                    'vehicle_type' => $courier->vehicle_type,
-                    'plate_number' => $courier->plate_number,
-                    'rating' => $courier->rating,
-                    'completed_deliveries' => $completedDeliveries,
-                    'earnings' => $earnings,
-                    'kyc_status' => $courier->kyc_status ?? 'pending_review',
-                    'badges' => $badges,
-                    'active_challenges' => $activeChallenges,
-                ],
-            ]);
+            // 5) Sérialisation propre via API Resource
+            return CourierResource::make($courier)
+                ->additional([
+                    'success' => true,
+                    'extras'  => $stats,
+                ])
+                ->response()
+                ->setStatusCode(200);
         } catch (\Throwable $e) {
-            Log::error('[Profile] Unhandled error: ' . $e->getMessage(), [
+            // FILET DE SÉCURITÉ : aucun 500 ne doit sortir sans log structuré
+            Log::error('[Courier.profile] Unhandled error', [
+                'endpoint'   => 'GET /api/courier/profile',
+                'user_id'    => $user?->id,
                 'courier_id' => $courier?->id,
-                'user_id'    => $request->user()?->id,
                 'exception'  => get_class($e),
+                'message'    => $e->getMessage(),
+                'file'       => $e->getFile(),
+                'line'       => $e->getLine(),
                 'trace'      => $e->getTraceAsString(),
             ]);
 
@@ -906,6 +887,86 @@ class DeliveryController extends Controller
                 'debug'      => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
+    }
+
+    /**
+     * Charge les compteurs/badges du courier en mode graceful degradation.
+     * Chaque bloc est isolé : si une table manque ou casse, le profil reste servi.
+     *
+     * @return array<string, mixed>
+     */
+    private function loadCourierStats(\App\Models\Courier $courier): array
+    {
+        $badges           = collect();
+        $activeChallenges = collect();
+
+        try {
+            $badges = $courier->challenges()
+                ->wherePivot('status', 'completed')
+                ->get()
+                ->map(fn ($challenge) => [
+                    'id'            => $challenge->id,
+                    'title'         => $challenge->title,
+                    'description'   => $challenge->description,
+                    'icon'          => $challenge->icon,
+                    'color'         => $challenge->color,
+                    'completed_at'  => $challenge->pivot->completed_at,
+                    'reward_amount' => $challenge->reward_amount,
+                ]);
+
+            $activeChallenges = $courier->challenges()
+                ->wherePivot('status', 'in_progress')
+                ->whereNotNull('ends_at')
+                ->where('ends_at', '>', now())
+                ->where('is_active', true)
+                ->get()
+                ->map(fn ($challenge) => [
+                    'id'                  => $challenge->id,
+                    'title'               => $challenge->title,
+                    'description'         => $challenge->description,
+                    'icon'                => $challenge->icon,
+                    'color'               => $challenge->color,
+                    'target_value'        => $challenge->target_value,
+                    'current_progress'    => $challenge->pivot->current_progress,
+                    'progress_percentage' => $challenge->target_value > 0
+                        ? min(round(($challenge->pivot->current_progress / $challenge->target_value) * 100, 1), 100)
+                        : 0,
+                    'reward_amount'       => $challenge->reward_amount,
+                    'ends_at'             => $challenge->ends_at,
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning('[Courier.profile] Challenges query failed', [
+                'courier_id' => $courier->id,
+                'error'      => $e->getMessage(),
+            ]);
+        }
+
+        $completedDeliveries = 0;
+        try {
+            $completedDeliveries = $courier->deliveries()->where('status', 'delivered')->count();
+        } catch (\Throwable $e) {
+            Log::warning('[Courier.profile] Deliveries count failed', [
+                'courier_id' => $courier->id,
+                'error'      => $e->getMessage(),
+            ]);
+        }
+
+        $earnings = 0;
+        try {
+            $earnings = (float) $courier->commissionLines()->sum('amount');
+        } catch (\Throwable $e) {
+            Log::warning('[Courier.profile] CommissionLines sum failed', [
+                'courier_id' => $courier->id,
+                'error'      => $e->getMessage(),
+            ]);
+        }
+
+        return [
+            'completed_deliveries' => $completedDeliveries,
+            'earnings'             => $earnings,
+            'badges'               => $badges,
+            'active_challenges'    => $activeChallenges,
+        ];
     }
 
     /**
