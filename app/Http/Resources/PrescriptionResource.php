@@ -35,6 +35,15 @@ class PrescriptionResource extends JsonResource
                     'status'    => (string) $this->order->status,
                 ];
             }),
+            'pharmacy' => $this->whenLoaded('pharmacy', function () {
+                return [
+                    'id'        => (int) $this->pharmacy->id,
+                    'name'      => (string) ($this->pharmacy->name ?? ''),
+                    'address'   => $this->pharmacy->address,
+                    'latitude'  => $this->pharmacy->latitude !== null ? (float) $this->pharmacy->latitude : null,
+                    'longitude' => $this->pharmacy->longitude !== null ? (float) $this->pharmacy->longitude : null,
+                ];
+            }),
             'customer' => $this->whenLoaded('customer', function () {
                 return [
                     'id'    => (int) $this->customer->id,

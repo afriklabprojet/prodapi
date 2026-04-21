@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Pharmacy;
 
 use App\Http\Controllers\Controller;
 use App\Models\InventoryBatch;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,7 +14,9 @@ class InventoryBatchController extends Controller
     /** GET /pharmacy/inventory/batches */
     public function index(Request $request): JsonResponse
     {
-        $pharmacy = Auth::user()->pharmacies()->firstOrFail();
+        /** @var User $user */
+        $user = Auth::user();
+        $pharmacy = $user->pharmacies()->firstOrFail();
 
         $query = InventoryBatch::where('pharmacy_id', $pharmacy->id)
             ->with('product:id,name')
@@ -36,7 +39,9 @@ class InventoryBatchController extends Controller
     /** POST /pharmacy/inventory/batches */
     public function store(Request $request): JsonResponse
     {
-        $pharmacy = Auth::user()->pharmacies()->firstOrFail();
+        /** @var User $user */
+        $user = Auth::user();
+        $pharmacy = $user->pharmacies()->firstOrFail();
 
         $validated = $request->validate([
             'product_id'   => 'required|integer|exists:products,id',
@@ -64,7 +69,9 @@ class InventoryBatchController extends Controller
     /** DELETE /pharmacy/inventory/batches/{batchId} */
     public function destroy(int $batchId): JsonResponse
     {
-        $pharmacy = Auth::user()->pharmacies()->firstOrFail();
+        /** @var User $user */
+        $user = Auth::user();
+        $pharmacy = $user->pharmacies()->firstOrFail();
 
         $batch = InventoryBatch::where('id', $batchId)
             ->where('pharmacy_id', $pharmacy->id)

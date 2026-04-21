@@ -130,6 +130,14 @@ class Prescription extends Model
     }
 
     /**
+     * Get the pharmacy associated with this prescription
+     */
+    public function pharmacy()
+    {
+        return $this->belongsTo(Pharmacy::class, 'pharmacy_id');
+    }
+
+    /**
      * Check if prescription is from checkout
      */
     public function isFromCheckout(): bool

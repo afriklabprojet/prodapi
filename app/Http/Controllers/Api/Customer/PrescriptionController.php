@@ -27,7 +27,10 @@ class PrescriptionController extends Controller
     public function index(Request $request)
     {
         $prescriptions = $request->user()->prescriptions()
-            ->with('order:id,reference,status') // Charger la commande associée
+            ->with([
+                'order:id,reference,status',
+                'pharmacy:id,name,address,latitude,longitude',
+            ])
             ->latest()
             ->get();
 
@@ -342,7 +345,12 @@ class PrescriptionController extends Controller
      */
     public function show(Request $request, $id)
     {
-        $prescription = $request->user()->prescriptions()->with('order')->findOrFail($id);
+        $prescription = $request->user()->prescriptions()
+            ->with([
+                'order',
+                'pharmacy:id,name,address,latitude,longitude',
+            ])
+            ->findOrFail($id);
 
         return response()->json([
             'success' => true,
