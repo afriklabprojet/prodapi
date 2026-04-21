@@ -154,7 +154,7 @@ class WalletController extends Controller
     public function withdraw(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'amount' => 'required|numeric|min:1000',
+            'amount' => 'required|numeric|min:500',
             'payment_method' => 'required|in:bank,orange,mtn,moov,wave,djamo',
             'phone' => 'required_if:payment_method,orange,mtn,moov,wave,djamo|string',
             'bank_details' => 'required_if:payment_method,bank|array',
