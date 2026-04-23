@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\CustomerAddress;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class AddressController extends Controller
 {
@@ -29,7 +28,7 @@ class AddressController extends Controller
         return response()->json([
             'success' => true,
             'status' => 'success',
-            'data' => ['Maison', 'Bureau', 'Autre'],
+            'data' => ['Maison', 'Bureau', 'Famille', 'Autre'],
         ]);
     }
 
@@ -60,10 +59,8 @@ class AddressController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $allowedLabels = ['Maison', 'Bureau', 'Autre'];
-
         $validated = $request->validate([
-            'label' => ['required', 'string', 'max:50', Rule::in(array_merge($allowedLabels, ['maison', 'bureau', 'autre']))],
+            'label' => ['required', 'string', 'max:50'],
             'address' => 'required|string|max:255',
             'city' => 'nullable|string|max:100',
             'district' => 'nullable|string|max:100',
@@ -101,7 +98,7 @@ class AddressController extends Controller
             ->findOrFail($id);
 
         $validated = $request->validate([
-            'label' => ['sometimes', 'string', 'max:50', Rule::in(['Maison', 'Bureau', 'Autre', 'maison', 'bureau', 'autre'])],
+            'label' => ['sometimes', 'string', 'max:50'],
             'address' => 'sometimes|string|max:255',
             'city' => 'nullable|string|max:100',
             'district' => 'nullable|string|max:100',

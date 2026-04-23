@@ -39,7 +39,7 @@ class Category extends Model
     }
 
     /**
-     * Pharmacie propriétaire (NULL = catégorie globale)
+     * Pharmacie propriétaire de la catégorie.
      */
     public function pharmacy(): BelongsTo
     {
@@ -47,20 +47,10 @@ class Category extends Model
     }
 
     /**
-     * Scope : catégories globales (admin)
+     * Scope : catégories d'une pharmacie donnée.
      */
-    public function scopeGlobal(Builder $query): Builder
+    public function scopeForPharmacy(Builder $query, int $pharmacyId): Builder
     {
-        return $query->whereNull('pharmacy_id');
-    }
-
-    /**
-     * Scope : catégories visibles par une pharmacie = globales + les siennes
-     */
-    public function scopeVisibleTo(Builder $query, int $pharmacyId): Builder
-    {
-        return $query->where(function ($q) use ($pharmacyId) {
-            $q->whereNull('pharmacy_id')->orWhere('pharmacy_id', $pharmacyId);
-        });
+        return $query->where('pharmacy_id', $pharmacyId);
     }
 }

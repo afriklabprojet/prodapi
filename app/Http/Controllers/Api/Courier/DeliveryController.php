@@ -834,7 +834,7 @@ class DeliveryController extends Controller
 
             // 2) Eager-loading explicite (évite N+1 et lazy-loading violations)
             //    Si le middleware EnsureCourierProfile a déjà attaché le courier, on le réutilise.
-            $courier = $request->get('_courier');
+            $courier = $request->input('_courier');
 
             if (!$courier) {
                 $user->loadMissing('courier');

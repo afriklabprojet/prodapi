@@ -12,8 +12,8 @@ class ProductController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $sortBy = $request->get('sort_by', 'created_at');
-        $sortOrder = strtolower($request->get('sort_order', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $sortBy = $request->input('sort_by', 'created_at');
+        $sortOrder = strtolower($request->input('sort_order', 'desc')) === 'asc' ? 'asc' : 'desc';
         $allowedSorts = ['created_at', 'price', 'name', 'sales_count'];
 
         $products = Product::query()
@@ -33,7 +33,7 @@ class ProductController extends Controller
                 fn ($q) => $q->orderBy($sortBy, $sortOrder),
                 fn ($q) => $q->orderByDesc('created_at')
             )
-            ->paginate($request->get('per_page', 20));
+            ->paginate($request->input('per_page', 20));
 
         return response()->json([
             'success' => true,
@@ -54,7 +54,7 @@ class ProductController extends Controller
         $products = Product::where('is_available', true)
             ->where('is_featured', true)
             ->with(['category', 'pharmacy'])
-            ->limit($request->get('limit', 10))
+            ->limit($request->input('limit', 10))
             ->get();
 
         return response()->json([

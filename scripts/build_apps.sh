@@ -94,7 +94,27 @@ for i in "${!APPS[@]}"; do
     
     # Build
     echo "   🔨 Building $BUILD_MODE $RELEASE_FLAG..."
-    BUILD_CMD="flutter build $BUILD_MODE $RELEASE_FLAG $EXTRA_ARGS"
+    # Injecter automatiquement les variables d'env si le fichier config existe
+    DEFINE_FILE=""
+    if [ -f "$APP_DIR/config/prod.env" ] && [ -n "$RELEASE_FLAG" ]; then
+        DEFINE_FILE="--dart-define-from-file=config/prod.env"
+    elif [ -f "$APP_DIR/config/dev.env" ] && [ -z "$RELEASE_FLAG" ]; then
+        DEFINE_FILE="--dart-define-from-file=config/dev.env"
+    fi
+
+    # === Obfuscation Dart en release ===
+    # Les symboles sont exportes vers build/symbols/<app>/<version>/ — a archiver
+    # ailleurs (S3/git-lfs) pour pouvoir deobfusquer les stack traces Sentry plus tard.
+    OBFUSCATE_FLAGS=""
+    if [ -n "$RELEASE_FLAG" ] && [ "$BUILD_MODE" != "ios" ]; then
+        VERSION=$(grep "^version:" pubspec.yaml | head -1 | awk '{print $2}')
+        SYMBOLS_DIR="$PROJECT_DIR/builds/symbols/$APP/$VERSION"
+        mkdir -p "$SYMBOLS_DIR"
+        OBFUSCATE_FLAGS="--obfuscate --split-debug-info=$SYMBOLS_DIR"
+        echo "   🔒 Obfuscation Dart activee, symboles: $SYMBOLS_DIR"
+    fi
+
+    BUILD_CMD="flutter build $BUILD_MODE $RELEASE_FLAG $DEFINE_FILE $OBFUSCATE_FLAGS $EXTRA_ARGS"
     
     if eval "$BUILD_CMD"; then
         echo "   ✅ $NAME build réussi !"

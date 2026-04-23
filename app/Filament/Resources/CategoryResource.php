@@ -27,6 +27,26 @@ class CategoryResource extends Resource
 
     protected static ?int $navigationSort = 1;
 
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return false;
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -78,6 +98,10 @@ class CategoryResource extends Resource
                 Tables\Columns\ImageColumn::make('image')
                     ->label('Image')
                     ->circular(),
+                Tables\Columns\TextColumn::make('pharmacy.name')
+                    ->label('Pharmacie')
+                    ->searchable()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nom')
                     ->searchable()
@@ -111,15 +135,9 @@ class CategoryResource extends Resource
                     ->placeholder('Toutes'),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\ViewAction::make(),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
-            ])
-            ->reorderable('order')
+            ->bulkActions([])
             ->defaultSort('order');
     }
 
@@ -132,8 +150,6 @@ class CategoryResource extends Resource
     {
         return [
             'index' => Pages\ListCategories::route('/'),
-            'create' => Pages\CreateCategory::route('/create'),
-            'edit' => Pages\EditCategory::route('/{record}/edit'),
         ];
     }
 }

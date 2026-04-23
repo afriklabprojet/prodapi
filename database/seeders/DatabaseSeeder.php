@@ -13,11 +13,11 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // Always seed: admin user + reference data
+        // NOTE: CategorySeeder retiré — chaque pharmacie gère ses propres catégories.
         $this->call([
             UserSeeder::class,
             DutyZoneSeeder::class,
             SettingsSeeder::class,
-            CategorySeeder::class,
         ]);
 
         // Test data: only in local/testing environments

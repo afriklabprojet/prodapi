@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -32,8 +33,8 @@ class InventoryController extends Controller
             ], 403);
         }
 
-        $perPage = min((int) $request->get('per_page', 50), 100);
-        $search = $request->get('search');
+        $perPage = min((int) $request->input('per_page', 50), 100);
+        $search = $request->input('search');
 
         $query = Product::where('pharmacy_id', $pharmacy->id)
             ->with(['category']);
@@ -207,24 +208,27 @@ class InventoryController extends Controller
     }
 
     /**
-     * List categories visible to the pharmacy : globales + les siennes
+     * List categories owned by the authenticated pharmacy.
      */
     public function categories(Request $request)
     {
         $pharmacy = $this->getPharmacy($request->user());
 
-        $query = \App\Models\Category::where('is_active', true)->orderBy('name');
-
-        if ($pharmacy) {
-            $query->visibleTo($pharmacy->id);
-        } else {
-            // Utilisateur sans pharmacie approuvée : uniquement les globales (lecture)
-            $query->global();
+        if (!$pharmacy) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucune pharmacie approuvée associée.',
+            ], 403);
         }
+
+        $categories = \App\Models\Category::where('pharmacy_id', $pharmacy->id)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
 
         return response()->json([
             'success' => true,
-            'data' => $query->get(),
+            'data' => $categories,
         ]);
     }
 
@@ -276,7 +280,6 @@ class InventoryController extends Controller
 
     /**
      * Update a category owned by the authenticated pharmacy.
-     * Les catégories globales (pharmacy_id NULL) sont read-only pour les pharmacies.
      */
     public function updateCategory(Request $request, $id)
     {
@@ -297,7 +300,7 @@ class InventoryController extends Controller
         if (!$category) {
             return response()->json([
                 'success' => false,
-                'message' => 'Catégorie non trouvée ou non modifiable (catégorie globale en lecture seule).',
+                'message' => 'Catégorie non trouvée.',
             ], 404);
         }
 
@@ -325,7 +328,6 @@ class InventoryController extends Controller
 
     /**
      * Delete a category owned by the authenticated pharmacy.
-     * Les catégories globales (pharmacy_id NULL) ne peuvent pas être supprimées ici.
      */
     public function deleteCategory(Request $request, $id)
     {
@@ -565,7 +567,7 @@ class InventoryController extends Controller
         $product->save();
         
         // Log the loss (could be enhanced with a dedicated stock_movements table)
-        \Log::info("Stock loss recorded", [
+        Log::info("Stock loss recorded", [
             'product_id' => $product->id,
             'pharmacy_id' => $pharmacy->id,
             'quantity' => $validated['quantity'],
