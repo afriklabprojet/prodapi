@@ -1,0 +1,37 @@
+version: 2
+updates:
+  # Composer (Laravel API)
+  - package-ecosystem: "composer"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Africa/Abidjan"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "composer"]
+    groups:
+      laravel:
+        patterns:
+          - "laravel/*"
+          - "illuminate/*"
+      dev-dependencies:
+        dependency-type: "development"
+
+  # npm (build scripts, outils dev)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Africa/Abidjan"
+    open-pull-requests-limit: 3
+    labels: ["dependencies", "npm"]
+
+  # GitHub Actions (si workflows ajoutés plus tard)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "github-actions"]
