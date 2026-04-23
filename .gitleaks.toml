@@ -1,0 +1,35 @@
+# gitleaks config — DR-PHARMA
+# Règles par défaut + allowlist pour éviter les faux positifs connus.
+title = "DR-PHARMA gitleaks config"
+
+[extend]
+# Charge le ruleset par défaut de gitleaks (100+ patterns : AWS, GCP, Stripe, etc.)
+useDefault = true
+
+[allowlist]
+description = "Paths et patterns ignorés"
+paths = [
+    '''\.lock$''',
+    '''composer\.lock$''',
+    '''package-lock\.json$''',
+    '''pnpm-lock\.yaml$''',
+    '''yarn\.lock$''',
+    '''pubspec\.lock$''',
+    '''vendor/''',
+    '''node_modules/''',
+    '''storage/logs/''',
+    '''storage/framework/''',
+    '''public/build/''',
+    '''\.min\.(js|css)$''',
+    '''builds/symbols/''',
+    '''mobile/[^/]+/build/''',
+    '''\.env\.example$''',
+]
+
+# Tokens de test / placeholders publics — non sensibles
+regexes = [
+    '''example\.com''',
+    '''your[-_]?api[-_]?key''',
+    '''<[A-Z_]+>''',
+    '''xxx+''',
+]

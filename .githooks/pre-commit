@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# pre-commit hook — DR-PHARMA
+# Bloque tout commit contenant un secret détecté par gitleaks.
+#
+# Installation :
+#   cp .githooks/pre-commit .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+# Ou (recommandé, une fois par clone) :
+#   git config core.hooksPath .githooks
+
+set -e
+
+# Résoudre gitleaks (PATH, ~/.local/bin, brew)
+GITLEAKS=""
+for candidate in gitleaks "$HOME/.local/bin/gitleaks" /opt/homebrew/bin/gitleaks /usr/local/bin/gitleaks; do
+    if command -v "$candidate" >/dev/null 2>&1 || [ -x "$candidate" ]; then
+        GITLEAKS="$candidate"
+        break
+    fi
+done
+
+if [ -z "$GITLEAKS" ]; then
+    echo "⚠️  gitleaks introuvable — hook skip. Installer :"
+    echo "    brew install gitleaks    # macOS"
+    echo "    ou: https://github.com/gitleaks/gitleaks/releases"
+    exit 0
+fi
+
+echo "🔐 gitleaks: scan des fichiers stagés…"
+
+# --staged : ne scanne que ce qui est dans l'index (rapide)
+# --redact : masque les secrets dans l'output
+# --verbose : montre détails
+if ! "$GITLEAKS" protect --staged --redact --config=.gitleaks.toml -v; then
+    echo ""
+    echo "❌ Commit BLOQUÉ : secrets détectés."
+    echo "   → Retirer les secrets et utiliser des variables d'environnement."
+    echo "   → Si faux positif : ajouter un pattern dans .gitleaks.toml allowlist."
+    echo "   → Bypass d'urgence (déconseillé) : git commit --no-verify"
+    exit 1
+fi
+
+echo "✅ gitleaks: aucun secret détecté."
+exit 0
