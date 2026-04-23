@@ -267,23 +267,10 @@ class OrderController extends Controller
                 return $order;
             });
 
-            // === NOTIFIER LA PHARMACIE POUR PAIEMENT CASH ===
-            // Pour les paiements en ligne, la notification est envoyée après confirmation du paiement
-            // Pour les paiements cash, on notifie immédiatement car la commande est valide
-            if ($order->payment_mode === 'cash') {
-                $order->load(['items', 'customer', 'pharmacy.users']);
-                
-                // Notifier tous les utilisateurs de la pharmacie
-                foreach ($order->pharmacy?->users ?? [] as $pharmacyUser) {
-                    $pharmacyUser->notify(new NewOrderReceivedNotification($order));
-                }
-                
-                Log::info('Notification nouvelle commande cash envoyée à la pharmacie', [
-                    'order_id' => $order->id,
-                    'order_reference' => $order->reference,
-                    'pharmacy_id' => $order->pharmacy_id,
-                ]);
-            }
+            // === NOTIFICATION PHARMACIE ===
+            // Tous les paiements se font en ligne : la notification est envoyée
+            // uniquement apres confirmation du paiement (JekoPaymentService / ProcessPaymentResultJob).
+            // On ne notifie JAMAIS a la creation de la commande — seulement quand le paiement reussit.
 
             // Track order creation
             BusinessEventService::orderCreated(
