@@ -525,10 +525,15 @@ class OrderController extends Controller
 
             DB::commit();
 
-            // 4. Notifier la pharmacie uniquement si elle avait déjà pris en charge la commande.
-            // Si la commande était encore en 'pending' (pas confirmée), on ne dérange pas le pharmacien
-            // — ça équivaut à un abandon et n'a aucun impact pour lui.
-            if ($order->pharmacy && in_array($previousStatus, ['confirmed', 'processing'], true)) {
+            // 4. Notifier la pharmacie uniquement si :
+            //    - elle avait deja pris en charge la commande (confirmed/processing), ET
+            //    - la commande est/etait reellement payee.
+            // Pas de notif pour les commandes non payees (online pending, cash jamais encaisse).
+            if (
+                $order->pharmacy
+                && in_array($previousStatus, ['confirmed', 'processing'], true)
+                && $order->isPaid()
+            ) {
                 try {
                     foreach ($order->pharmacy->users as $pharmacyUser) {
                         $pharmacyUser->notify(new OrderStatusNotification(
