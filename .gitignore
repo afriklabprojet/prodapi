@@ -60,3 +60,5 @@ nohup.out
 *.keystore
 /skills-lock.json
 *.md
+.backup-api-env/
+*.env.backup
