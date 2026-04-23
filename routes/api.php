@@ -335,9 +335,13 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         Route::post('/orders/{id}/rate-courier', [PharmacyOrderController::class, 'rateCourier']);
 
         // Inventory
-        // SECURITY (audit 2026-04) : POST/PUT/DELETE /inventory/categories déplacés sous /api/admin.
-        // Les catégories sont globales (pas de pharmacy_id) — seul l'admin peut les écrire.
+        // SECURITY (audit 2026-04, option B) : les pharmacies gèrent leurs propres
+        // catégories (scope pharmacy_id). Les catégories globales (pharmacy_id NULL)
+        // restent en lecture seule ici — l'écriture globale est admin-only.
         Route::get('/inventory/categories', [InventoryController::class, 'categories']);
+        Route::post('/inventory/categories', [InventoryController::class, 'storeCategory']);
+        Route::put('/inventory/categories/{id}', [InventoryController::class, 'updateCategory']);
+        Route::delete('/inventory/categories/{id}', [InventoryController::class, 'deleteCategory']);
         Route::get('/inventory', [InventoryController::class, 'index']);
         Route::post('/inventory', [InventoryController::class, 'store']); // Create new product
         Route::post('/inventory/{id}/update', [InventoryController::class, 'update']); // Update product (POST for files)
@@ -554,10 +558,6 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
     
     // Admin routes - Courier Assignment
     Route::prefix('admin')->middleware(['role:admin', 'audit'])->group(function () {
-        // SECURITY (audit 2026-04) : catégories globales — écriture admin-only
-        Route::post('/inventory/categories', [InventoryController::class, 'storeCategory']);
-        Route::put('/inventory/categories/{id}', [InventoryController::class, 'updateCategory']);
-        Route::delete('/inventory/categories/{id}', [InventoryController::class, 'deleteCategory']);
         Route::get('/orders/{order}/couriers/available', [CourierAssignmentController::class, 'getAvailableCouriers']);
         Route::post('/orders/{order}/couriers/auto-assign', [CourierAssignmentController::class, 'autoAssign']);
         Route::post('/orders/{order}/couriers/manual-assign', [CourierAssignmentController::class, 'manualAssign']);

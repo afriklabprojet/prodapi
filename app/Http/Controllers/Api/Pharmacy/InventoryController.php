@@ -207,55 +207,107 @@ class InventoryController extends Controller
     }
 
     /**
-     * Get list of official categories
+     * List categories visible to the pharmacy : globales + les siennes
      */
-    public function categories()
+    public function categories(Request $request)
     {
-        $categories = \App\Models\Category::where('is_active', true)->orderBy('name')->get();
+        $pharmacy = $this->getPharmacy($request->user());
+
+        $query = \App\Models\Category::where('is_active', true)->orderBy('name');
+
+        if ($pharmacy) {
+            $query->visibleTo($pharmacy->id);
+        } else {
+            // Utilisateur sans pharmacie approuvée : uniquement les globales (lecture)
+            $query->global();
+        }
 
         return response()->json([
             'success' => true,
-            'data' => $categories
+            'data' => $query->get(),
         ]);
     }
 
     /**
-     * Store a new category
+     * Store a new category scoped to the authenticated pharmacy.
+     * Unicité du nom/slug évaluée dans le scope de la pharmacie.
      */
     public function storeCategory(Request $request)
     {
+        $pharmacy = $this->getPharmacy($request->user());
+
+        if (!$pharmacy) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucune pharmacie approuvée associée.',
+            ], 403);
+        }
+
         $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:categories,name',
+            'name' => [
+                'required', 'string', 'max:255',
+                Rule::unique('categories', 'name')
+                    ->where(fn ($q) => $q->where('pharmacy_id', $pharmacy->id)),
+            ],
             'description' => 'nullable|string',
         ]);
 
-        $category = new \App\Models\Category();
-        $category->name = $validated['name'];
-        $category->slug = \Illuminate\Support\Str::slug($validated['name']);
-        $category->description = $validated['description'] ?? null;
-        $category->is_active = true;
-        $category->save();
+        $baseSlug = \Illuminate\Support\Str::slug($validated['name']);
+        $slug = $baseSlug;
+        $n = 1;
+        while (\App\Models\Category::where('pharmacy_id', $pharmacy->id)->where('slug', $slug)->exists()) {
+            $slug = $baseSlug . '-' . (++$n);
+        }
+
+        $category = \App\Models\Category::create([
+            'pharmacy_id' => $pharmacy->id,
+            'name' => $validated['name'],
+            'slug' => $slug,
+            'description' => $validated['description'] ?? null,
+            'is_active' => true,
+        ]);
 
         return response()->json([
             'success' => true,
             'message' => 'Catégorie créée avec succès.',
-            'data' => $category
+            'data' => $category,
         ], 201);
     }
 
     /**
-     * Update a category
+     * Update a category owned by the authenticated pharmacy.
+     * Les catégories globales (pharmacy_id NULL) sont read-only pour les pharmacies.
      */
     public function updateCategory(Request $request, $id)
     {
-        $category = \App\Models\Category::find($id);
+        $pharmacy = $this->getPharmacy($request->user());
+
+        if (!$pharmacy) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucune pharmacie approuvée associée.',
+            ], 403);
+        }
+
+        // SECURITY : scope strict — seulement les catégories de cette pharmacie.
+        $category = \App\Models\Category::where('pharmacy_id', $pharmacy->id)
+            ->where('id', $id)
+            ->first();
 
         if (!$category) {
-            return response()->json(['success' => false, 'message' => 'Catégorie non trouvée.'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Catégorie non trouvée ou non modifiable (catégorie globale en lecture seule).',
+            ], 404);
         }
 
         $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:categories,name,' . $id,
+            'name' => [
+                'required', 'string', 'max:255',
+                Rule::unique('categories', 'name')
+                    ->where(fn ($q) => $q->where('pharmacy_id', $pharmacy->id))
+                    ->ignore($category->id),
+            ],
             'description' => 'nullable|string',
         ]);
 
@@ -267,26 +319,40 @@ class InventoryController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Catégorie mise à jour avec succès.',
-            'data' => $category
+            'data' => $category,
         ]);
     }
 
     /**
-     * Delete a category
+     * Delete a category owned by the authenticated pharmacy.
+     * Les catégories globales (pharmacy_id NULL) ne peuvent pas être supprimées ici.
      */
     public function deleteCategory(Request $request, $id)
     {
-        $category = \App\Models\Category::find($id);
+        $pharmacy = $this->getPharmacy($request->user());
 
-        if (!$category) {
-            return response()->json(['success' => false, 'message' => 'Catégorie non trouvée.'], 404);
+        if (!$pharmacy) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucune pharmacie approuvée associée.',
+            ], 403);
         }
 
-        // Check if category has products
+        $category = \App\Models\Category::where('pharmacy_id', $pharmacy->id)
+            ->where('id', $id)
+            ->first();
+
+        if (!$category) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Catégorie non trouvée ou non supprimable (catégorie globale en lecture seule).',
+            ], 404);
+        }
+
         if ($category->products()->count() > 0) {
             return response()->json([
                 'success' => false,
-                'message' => 'Impossible de supprimer cette catégorie car elle contient des produits.'
+                'message' => 'Impossible de supprimer cette catégorie car elle contient des produits.',
             ], 422);
         }
 
@@ -294,7 +360,7 @@ class InventoryController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Catégorie supprimée avec succès.'
+            'message' => 'Catégorie supprimée avec succès.',
         ]);
     }
 
