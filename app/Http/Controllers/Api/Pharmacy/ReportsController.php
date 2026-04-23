@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ReportsController extends Controller
 {
@@ -18,7 +19,7 @@ class ReportsController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'period' => $request->get('period', 'month'),
+                    'period' => $request->input('period', 'month'),
                     'sales' => ['today' => 0, 'yesterday' => 0, 'period_total' => 0, 'growth' => 0],
                     'orders' => ['total' => 0, 'pending' => 0, 'completed' => 0, 'cancelled' => 0],
                     'inventory' => ['total_products' => 0, 'low_stock' => 0, 'out_of_stock' => 0, 'expiring_soon' => 0],
@@ -26,7 +27,7 @@ class ReportsController extends Controller
             ]);
         }
         
-        $period = $request->get('period', 'month');
+        $period = $request->input('period', 'month');
         $start = $this->periodStart($period);
 
         // Commandes de la période
@@ -108,7 +109,7 @@ class ReportsController extends Controller
             ]);
         }
         
-        $period = $request->get('period', 'month');
+        $period = $request->input('period', 'month');
         $start = $this->periodStart($period);
 
         $deliveredOrders = Order::where('pharmacy_id', $pharmacy->id)
@@ -127,7 +128,7 @@ class ReportsController extends Controller
             ->get();
 
         // Top produits vendus
-        $topProducts = \DB::table('order_items')
+        $topProducts = DB::table('order_items')
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->join('products', 'products.id', '=', 'order_items.product_id')
             ->where('orders.pharmacy_id', $pharmacy->id)
@@ -159,7 +160,7 @@ class ReportsController extends Controller
             return response()->json(['success' => true, 'data' => []]);
         }
         
-        $period = $request->get('period', 'month');
+        $period = $request->input('period', 'month');
         $start = $this->periodStart($period);
 
         $orders = Order::where('pharmacy_id', $pharmacy->id)
@@ -308,7 +309,7 @@ class ReportsController extends Controller
             return response()->json(['success' => true, 'data' => []]);
         }
         
-        $period = $request->get('period', 'month');
+        $period = $request->input('period', 'month');
         $start = $this->periodStart($period);
 
         $orders = Order::where('pharmacy_id', $pharmacy->id)

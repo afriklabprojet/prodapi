@@ -495,6 +495,9 @@ class OrderController extends Controller
 
         DB::beginTransaction();
         try {
+            // Capturer le statut avant annulation pour savoir si la pharmacie avait pris en charge.
+            $previousStatus = $order->status;
+
             // 1. Cancel the order
             $order->update([
                 'status' => 'cancelled',
@@ -522,8 +525,10 @@ class OrderController extends Controller
 
             DB::commit();
 
-            // 4. Notify pharmacy users
-            if ($order->pharmacy) {
+            // 4. Notifier la pharmacie uniquement si elle avait déjà pris en charge la commande.
+            // Si la commande était encore en 'pending' (pas confirmée), on ne dérange pas le pharmacien
+            // — ça équivaut à un abandon et n'a aucun impact pour lui.
+            if ($order->pharmacy && in_array($previousStatus, ['confirmed', 'processing'], true)) {
                 try {
                     foreach ($order->pharmacy->users as $pharmacyUser) {
                         $pharmacyUser->notify(new OrderStatusNotification(

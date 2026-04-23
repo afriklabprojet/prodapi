@@ -224,23 +224,8 @@ class CancelStaleOrdersJob implements ShouldQueue
                 ]);
             }
 
-            // 5. Notifier la pharmacie (silencieux si erreur)
-            try {
-                if ($order->pharmacy) {
-                    foreach ($order->pharmacy->users as $pharmacyUser) {
-                        $pharmacyUser->notify(new OrderStatusNotification(
-                            $order,
-                            'cancelled',
-                            "La commande {$order->reference} a été annulée automatiquement. Motif : {$reason}"
-                        ));
-                    }
-                }
-            } catch (\Throwable $e) {
-                Log::debug('CancelStaleOrders: pharmacy notification failed', [
-                    'order_id' => $order->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+            // 5. Pas de notification à la pharmacie pour les commandes abandonnées/expirées —
+            // le pharmacien n'a pas à être alerté d'une commande que le client n'a jamais finalisée.
 
             Log::info('CancelStaleOrders: order cancelled', [
                 'order_id' => $order->id,
