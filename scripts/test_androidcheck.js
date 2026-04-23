@@ -8,7 +8,9 @@ async function main() {
   const token = await auth.getAccessToken();
 
   // Test Android Device Verification API with API key
-  const apiKey = 'AIzaSyBuhUz0-qs06sQ1xty-Awzh6kjLplqf_sI';
+  // Lu depuis env (ne JAMAIS commiter la clé en clair) : export FIREBASE_API_KEY=...
+  const apiKey = process.env.FIREBASE_API_KEY;
+  if (!apiKey) { console.error('FIREBASE_API_KEY env var required'); process.exit(1); }
   const res = await fetch(
     `https://www.googleapis.com/androidcheck/v1/attestations/verify?key=${apiKey}`,
     {

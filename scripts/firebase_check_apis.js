@@ -158,8 +158,10 @@ async function main() {
 
   // 5. Test Firebase Phone Auth directly
   console.log('\n📱 Testing Firebase Phone Auth...');
+  const firebaseApiKey = process.env.FIREBASE_API_KEY;
+  if (!firebaseApiKey) { console.error('FIREBASE_API_KEY env var required'); return; }
   const phoneRes = await apiCall('POST',
-    `https://identitytoolkit.googleapis.com/v1/accounts:sendVerificationCode?key=AIzaSyBuhUz0-qs06sQ1xty-Awzh6kjLplqf_sI`,
+    `https://identitytoolkit.googleapis.com/v1/accounts:sendVerificationCode?key=${firebaseApiKey}`,
     null,
     { phoneNumber: '+2250777019185' }
   );
