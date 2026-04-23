@@ -26,27 +26,32 @@ class OtpService
 
     /**
      * Verify the OTP for a given identifier (and remove it)
+     *
+     * SECURITY: Uses hash_equals() for constant-time comparison to prevent
+     * timing attacks that could be used to brute-force OTP values.
      */
     public function verifyOtp(string $identifier, string $otp): bool
     {
         $cachedOtp = Cache::get('otp_' . $identifier);
-        
-        if ($cachedOtp && $cachedOtp === $otp) {
+
+        if (is_string($cachedOtp) && hash_equals($cachedOtp, $otp)) {
             // OTP is valid, remove it to prevent reuse
             Cache::forget('otp_' . $identifier);
             return true;
         }
-        
+
         return false;
     }
 
     /**
      * Check if OTP is valid without removing it
+     *
+     * SECURITY: Uses hash_equals() for constant-time comparison.
      */
     public function checkOtp(string $identifier, string $otp): bool
     {
         $cachedOtp = Cache::get('otp_' . $identifier);
-        return $cachedOtp && $cachedOtp === $otp;
+        return is_string($cachedOtp) && hash_equals($cachedOtp, $otp);
     }
 
     /**

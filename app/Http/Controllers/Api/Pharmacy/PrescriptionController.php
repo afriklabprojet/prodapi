@@ -17,10 +17,20 @@ class PrescriptionController extends Controller
 {
     /**
      * Display a listing of the prescriptions.
+     *
+     * SECURITY: Scope marketplace :
+     *  - Prescriptions non assignées (pharmacy_id NULL) : visibles à toutes les pharmacies (queue ouverte)
+     *  - Prescriptions assignées : visibles uniquement à la pharmacie propriétaire
      */
     public function index(Request $request)
     {
+        $pharmacyIds = $request->user()->pharmacies()->pluck('pharmacies.id')->all();
+
         $prescriptions = Prescription::with(['customer', 'dispensings', 'dispensings.dispensedBy'])
+            ->where(function ($q) use ($pharmacyIds) {
+                $q->whereNull('pharmacy_id')
+                  ->orWhereIn('pharmacy_id', $pharmacyIds);
+            })
             ->latest()
             ->get();
 
@@ -53,10 +63,19 @@ class PrescriptionController extends Controller
 
     /**
      * Display the specified prescription.
+     *
+     * SECURITY: Scope marketplace identique à index().
      */
-    public function show($id)
+    public function show(Request $request, $id)
     {
-        $prescription = Prescription::with(['customer', 'dispensings', 'dispensings.dispensedBy'])->find($id);
+        $pharmacyIds = $request->user()->pharmacies()->pluck('pharmacies.id')->all();
+
+        $prescription = Prescription::with(['customer', 'dispensings', 'dispensings.dispensedBy'])
+            ->where(function ($q) use ($pharmacyIds) {
+                $q->whereNull('pharmacy_id')
+                  ->orWhereIn('pharmacy_id', $pharmacyIds);
+            })
+            ->find($id);
 
         if (!$prescription) {
             return response()->json([

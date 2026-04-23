@@ -61,10 +61,18 @@ class PrescriptionController extends Controller
         }
 
         $imagePaths = [];
+        // SECURITY: Whitelist des extensions autorisées (defense-in-depth en complément de mimes:)
+        // Empêche un nom de fichier client malveillant du type "photo.php" même si le contenu est un JPEG.
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
 
         try {
             foreach ($request->file('images') as $image) {
-                $filename = Str::uuid() . '.' . $image->getClientOriginalExtension();
+                $clientExt = strtolower((string) $image->getClientOriginalExtension());
+                $guessedExt = strtolower((string) $image->extension()); // deviné à partir du MIME type
+                $ext = in_array($clientExt, $allowedExtensions, true) ? $clientExt
+                    : (in_array($guessedExt, $allowedExtensions, true) ? $guessedExt : 'jpg');
+
+                $filename = Str::uuid() . '.' . $ext;
                 // Store prescriptions in private storage for security
                 $path = $image->storeAs('prescriptions/' . $request->user()->id, $filename, 'private');
                 $imagePaths[] = $path;

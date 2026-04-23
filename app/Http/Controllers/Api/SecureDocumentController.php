@@ -160,20 +160,44 @@ class SecureDocumentController extends Controller
     }
 
     /**
-     * Prescriptions: Client propriétaire ou utilisateur pharmacien.
-     * 
+     * Prescriptions: Client propriétaire ou pharmacie autorisée (queue non assignée OU pharmacie propriétaire).
+     *
      * Format du path stocké : prescriptions/{customer_id}/{filename}
      * Le paramètre $filename reçu ici = "{customer_id}/{filename}" (sans le préfixe "prescriptions/")
+     *
+     * SECURITY (CVE interne audit-2026-04) : avant ce patch, les utilisateurs
+     * pharmacy avaient un accès blanket à toutes les ordonnances. Maintenant :
+     *  - queue ouverte (pharmacy_id NULL) : accessible à toutes les pharmacies (business marketplace)
+     *  - ordonnance assignée : accessible uniquement à la pharmacie propriétaire
      */
     private function authorizePrescriptionAccess($user, string $filename): void
     {
-        // Les utilisateurs avec le rôle pharmacy ont accès à toutes les images
-        // (leurs routes API sont déjà protégées par le middleware pharmacy)
+        $fullPath = 'prescriptions/' . $filename;
+
+        // Pharmacie : scope marketplace (queue ouverte OU propriétaire)
         if ($user->role === 'pharmacy') {
-            return;
+            $prescription = Prescription::where('images', 'LIKE', '%' . $filename . '%')->first();
+
+            if ($prescription) {
+                $pharmacyIds = $user->pharmacies()->pluck('pharmacies.id')->all();
+                if ($prescription->pharmacy_id === null
+                    || in_array($prescription->pharmacy_id, $pharmacyIds, true)
+                ) {
+                    return;
+                }
+            }
+
+            Log::warning('Pharmacy prescription access denied (assigned to another pharmacy or not found)', [
+                'user_id'            => $user->id,
+                'filename'           => $filename,
+                'prescription_id'    => $prescription->id ?? null,
+                'prescription_owner' => $prescription->pharmacy_id ?? null,
+            ]);
+
+            throw new AccessDeniedHttpException('Vous n\'êtes pas autorisé à accéder à cette ordonnance');
         }
 
-        // Pour les clients : le path commence par leur propre customer_id
+        // Client : le path commence par leur propre customer_id
         // Format: {customer_id}/{uuid}.jpg
         $parts = explode('/', $filename);
         if (count($parts) >= 1 && (int) $parts[0] === $user->id) {
@@ -181,7 +205,6 @@ class SecureDocumentController extends Controller
         }
 
         // Fallback : recherche dans le champ JSON 'images' (pour anciens formats)
-        $fullPath = 'prescriptions/' . $filename;
         $prescription = Prescription::where('images', 'LIKE', '%' . $filename . '%')->first();
 
         if ($prescription && $prescription->customer_id === $user->id) {
