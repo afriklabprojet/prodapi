@@ -12,6 +12,7 @@ use App\Notifications\OrderStatusNotification;
 use App\Enums\JekoPaymentMethod;
 use App\Services\BusinessEventService;
 use App\Services\JekoPaymentService;
+use App\Jobs\DispatchDeliveryJob;
 use App\Services\WalletService;
 use App\Services\WaitingFeeService;
 use Illuminate\Http\Request;
@@ -34,8 +35,12 @@ class OrderController extends Controller
     {
         $perPage = min($request->input('per_page', 15), 50); // Max 50 par page
         
-        $orders = $request->user()->orders()
+        $user = $request->user();
+
+        $orders = $user->orders()
             ->withCount('items')
+            ->withSum('items', 'quantity')
+            ->withCount(['ratings as has_rating' => fn ($q) => $q->where('user_id', $user->id)])
             ->with(['pharmacy:id,name,phone', 'delivery', 'payments'])
             ->latest()
             ->paginate($perPage);
@@ -53,10 +58,13 @@ class OrderController extends Controller
                 'payment_status' => $order->payment_status ?? 'pending',
                 'delivery_code' => $order->delivery_code,
                 'payment_mode' => $order->payment_mode,
+                'subtotal' => (float) $order->subtotal,
                 'total_amount' => (float) $order->total_amount,
                 'currency' => $order->currency,
                 'delivery_address' => $order->delivery_address,
                 'items_count' => (int) $order->items_count,
+                'total_quantity' => (int) ($order->items_sum_quantity ?? $order->items_count),
+                'is_rated' => $order->has_rating > 0,
                 'created_at' => $order->created_at,
                 'paid_at' => $order->paid_at,
                 'delivered_at' => $order->delivered_at,
@@ -130,16 +138,35 @@ class OrderController extends Controller
             return $item;
         })->toArray();
 
-        // Calculer les frais de livraison AVANT la transaction (appel externe potentiel)
-        $deliveryFee = $this->calculateDeliveryFeeWithMaps(
-            $validated['pharmacy_id'],
+        // Calcul COMPLET du pricing AVANT la transaction (appel externe Google Maps possible).
+        // calculateFullPricing = SOURCE UNIQUE partagée avec /pricing/calculate.
+        // Garantit : total UI == total DB == total JEKO. Aucune duplication possible.
+        Log::info('[OrderController::store] 📍 Pricing request', [
+            'pharmacy_id'        => $validated['pharmacy_id'],
+            'delivery_latitude'  => $validated['delivery_latitude'] ?? null,
+            'delivery_longitude' => $validated['delivery_longitude'] ?? null,
+            'delivery_address'   => $validated['delivery_address'] ?? null,
+            'payment_mode'       => $validated['payment_mode'],
+            'user_id'            => $request->user()?->id,
+        ]);
+
+        $pricing = app(\App\Services\PricingService::class)->calculateFullPricing(
+            (int) $validated['pharmacy_id'],
+            $items,
             $validated['delivery_latitude'] ?? null,
             $validated['delivery_longitude'] ?? null,
+            $validated['payment_mode'],
             $validated['delivery_address'] ?? null
         );
 
+        Log::info('[OrderController::store] 📍 Pricing result', [
+            'delivery_fee' => $pricing['delivery_fee'] ?? null,
+            'total_amount' => $pricing['total_amount'] ?? null,
+            'distance_km'  => $pricing['distance_km'] ?? null,
+        ]);
+
         try {
-            $order = DB::transaction(function () use ($request, $validated, $items, $deliveryFee) {
+            $order = DB::transaction(function () use ($request, $validated, $items, $pricing) {
                 // Preload all products at once with lock to prevent race condition
                 $productIds = collect($items)->pluck('id')->filter()->unique()->values()->toArray();
                 $products = !empty($productIds) 
@@ -159,24 +186,13 @@ class OrderController extends Controller
                     }
                 }
 
-                // Calculate totals
-                $subtotal = 0;
-                foreach ($items as $item) {
-                    $price = $item['price'];
-                    if (isset($item['id']) && $products->has($item['id'])) {
-                        $price = $products->get($item['id'])->price;
-                    }
-                    $subtotal += $item['quantity'] * $price;
-                }
-
-                // delivery_fee déjà calculé avant la transaction (cohérent avec l'estimation)
-                
-                // Calculer tous les frais (service + paiement)
-                $allFees = WalletService::calculateAllFees($subtotal, $deliveryFee, $validated['payment_mode']);
-                
-                $serviceFee = $allFees['service_fee'];
-                $paymentFee = $allFees['payment_fee'];
-                $totalAmount = $allFees['total_amount'];
+                // Pricing calculé par calculateFullPricing() — avant la transaction.
+                // UNE SEULE SOURCE DE CALCUL, identique à /pricing/calculate.
+                $subtotal    = $pricing['subtotal'];
+                $deliveryFee = $pricing['delivery_fee'];
+                $serviceFee  = $pricing['service_fee'];
+                $paymentFee  = $pricing['payment_fee'];
+                $totalAmount = $pricing['total_amount'];
 
                 // Appliquer le code promo si fourni
                 $promoDiscount = 0;
@@ -193,6 +209,30 @@ class OrderController extends Controller
                         $totalAmount = max(0, $totalAmount - $promoDiscount);
                     }
 }
+
+                // ── Mismatch guard ────────────────────────────────────────────────────────
+                // Après promo, total_amount ne doit pas diverger de pricing['total_amount'] au-delà
+                // du montant de la remise. Vérification de cohérence stricte.
+                if ($totalAmount !== $pricing['total_amount'] - ($promoDiscount ?? 0)) {
+                    Log::error('[OrderController::store] Pricing mismatch DÉTECTÉ', [
+                        'pricing_total'  => $pricing['total_amount'],
+                        'order_total'    => $totalAmount,
+                        'promo_discount' => $promoDiscount ?? 0,
+                    ]);
+                    throw new \Exception(
+                        "Pricing mismatch: order={$totalAmount}, pricing={$pricing['total_amount']}, promo={$promoDiscount}"
+                    );
+                }
+                Log::info('[OrderController::store] Pricing appliqué', [
+                    'pricing_total'   => $pricing['total_amount'],
+                    'order_total'     => $totalAmount,
+                    'subtotal'        => $subtotal,
+                    'delivery_fee'    => $deliveryFee,
+                    'service_fee'     => $serviceFee,
+                    'payment_fee'     => $paymentFee,
+                    'distance_km'     => $pricing['distance_km'],
+                    'delivery_source' => $pricing['delivery_source'],
+                ]);
 
                 // Create order
                 $order = Order::create([
@@ -213,6 +253,7 @@ class OrderController extends Controller
                     'delivery_city' => $validated['delivery_city'] ?? null,
                     'delivery_latitude' => $validated['delivery_latitude'] ?? null,
                     'delivery_longitude' => $validated['delivery_longitude'] ?? null,
+                    'delivery_distance_km' => $pricing['distance_km'] ?? null,
                     'customer_phone' => $validated['customer_phone'],
                     'promo_code_id' => $promoCodeId,
                     'promo_discount' => $promoDiscount,
@@ -279,6 +320,13 @@ class OrderController extends Controller
                 (float) $order->total_amount,
                 $order->payment_mode
             );
+
+            // Pour les commandes cash/on_delivery : dispatcher immédiatement le livreur.
+            // Pour les autres modes : le dispatch se fait après confirmation du paiement
+            // via ProcessPaymentResultJob.
+            if (in_array($order->payment_mode, ['cash', 'on_delivery'])) {
+                DispatchDeliveryJob::dispatch($order)->delay(now()->addSeconds(5));
+            }
 
             return response()->json([
                 'success' => true,
@@ -644,135 +692,5 @@ class OrderController extends Controller
                 'warning_message' => $warningMessage,
             ],
         ]);
-    }
-
-    /**
-     * Calculer les frais de livraison avec Google Maps (cohérent avec /delivery/estimate).
-     * Fallback Haversine si Google Maps indisponible.
-     */
-    private function calculateDeliveryFeeWithMaps(int $pharmacyId, ?float $deliveryLat, ?float $deliveryLng, ?string $deliveryAddress = null): int
-    {
-        $mapsService = app(\App\Services\GoogleMapsService::class);
-
-        if (($deliveryLat === null || $deliveryLng === null) && $deliveryAddress) {
-            // Géocoder l'adresse texte si les coordonnées GPS sont absentes
-            try {
-                $geocoded = $mapsService->geocode($deliveryAddress);
-                if ($geocoded) {
-                    $deliveryLat = $geocoded['latitude'];
-                    $deliveryLng = $geocoded['longitude'];
-                }
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::warning('Geocoding échoué pour delivery_address', ['address' => $deliveryAddress, 'error' => $e->getMessage()]);
-            }
-        }
-        if ($deliveryLat === null || $deliveryLng === null) {
-            return WalletService::getDeliveryFeeMin();
-        }
-
-        $pharmacy = \App\Models\Pharmacy::find($pharmacyId);
-        if (!$pharmacy || !$pharmacy->latitude || !$pharmacy->longitude) {
-            return WalletService::getDeliveryFeeMin();
-        }
-
-        // Essayer Google Maps Distance Matrix (même algo que /delivery/estimate)
-        $distanceKm = null;
-        try {
-            $matrixResult = $mapsService->getDistanceMatrix(
-                (float) $pharmacy->latitude,
-                (float) $pharmacy->longitude,
-                $deliveryLat,
-                $deliveryLng
-            );
-            if ($matrixResult) {
-                $distanceKm = $matrixResult['distance_km'];
-            }
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('GoogleMaps indisponible pour calculateDeliveryFee, fallback Haversine', [
-                'pharmacy_id' => $pharmacyId,
-                'error' => $e->getMessage(),
-            ]);
-        }
-
-        // Fallback Haversine si Distance Matrix a échoué
-        if ($distanceKm === null) {
-            $distanceKm = $this->calculateDistance(
-                $pharmacy->latitude, $pharmacy->longitude,
-                $deliveryLat, $deliveryLng
-            );
-        }
-
-        // Fallback texte si distance GPS aberrante (< 0.5 km) et adresse texte fournie
-        // Cas typique : GPS capturé dans la pharmacie, adresse réelle différente
-        if ($distanceKm < 0.5 && $deliveryAddress) {
-            try {
-                $geocoded = $mapsService->geocode($deliveryAddress);
-                if ($geocoded) {
-                    $matrixGeo = $mapsService->getDistanceMatrix(
-                        (float) $pharmacy->latitude, (float) $pharmacy->longitude,
-                        (float) $geocoded['latitude'], (float) $geocoded['longitude']
-                    );
-                    if ($matrixGeo && $matrixGeo['distance_km'] > $distanceKm) {
-                        $distanceKm = $matrixGeo['distance_km'];
-                        \Illuminate\Support\Facades\Log::info('Delivery fee: fallback geocoding texte utilisé', [
-                            'pharmacy_id' => $pharmacyId,
-                            'address' => $deliveryAddress,
-                            'distance_km' => $distanceKm,
-                        ]);
-                    }
-                }
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::warning('Fallback geocoding échoué', ['address' => $deliveryAddress, 'error' => $e->getMessage()]);
-            }
-        }
-
-        return WalletService::calculateDeliveryFee($distanceKm);
-    }
-
-    /**
-     * Calculer les frais de livraison selon la distance pharmacie -> client (Haversine)
-     * @deprecated Utiliser calculateDeliveryFeeWithMaps() pour la cohérence avec /delivery/estimate
-     */
-    private function calculateDeliveryFee(int $pharmacyId, ?float $deliveryLat, ?float $deliveryLng): int
-    {
-        if ($deliveryLat === null || $deliveryLng === null) {
-            return WalletService::getDeliveryFeeMin();
-        }
-
-        $pharmacy = \App\Models\Pharmacy::find($pharmacyId);
-        if (!$pharmacy || !$pharmacy->latitude || !$pharmacy->longitude) {
-            return WalletService::getDeliveryFeeMin();
-        }
-
-        $distanceKm = $this->calculateDistance(
-            $pharmacy->latitude, $pharmacy->longitude,
-            $deliveryLat, $deliveryLng
-        );
-        return WalletService::calculateDeliveryFee($distanceKm);
-    }
-
-    /**
-     * Calculer la distance entre deux points GPS (formule Haversine)
-     * 
-     * @param float $lat1 Latitude point 1
-     * @param float $lng1 Longitude point 1
-     * @param float $lat2 Latitude point 2
-     * @param float $lng2 Longitude point 2
-     * @return float Distance en kilomètres
-     */
-    private function calculateDistance(float $lat1, float $lng1, float $lat2, float $lng2): float
-    {
-        $earthRadius = 6371; // Rayon de la Terre en km
-
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLng = deg2rad($lng2 - $lng1);
-
-        $a = sin($dLat / 2) * sin($dLat / 2) +
-             cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
-             sin($dLng / 2) * sin($dLng / 2);
-
-        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-
-        return $earthRadius * $c;
     }
 }
