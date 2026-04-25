@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Models\Delivery;
 use App\Notifications\DeliveryAssignedNotification;
 use App\Services\AutoAssignmentService;
+use App\Services\WalletService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 
@@ -41,6 +42,38 @@ class DeliveryObserver
                 Log::info("DeliveryObserver: Livraison #{$delivery->id} revenue en attente, tentative de réassignation");
                 $this->tryAutoAssign($delivery);
             }
+
+            // Si la livraison est annulée et qu'un coursier était assigné, rembourser la commission
+            if ($newStatus === 'cancelled' && $delivery->courier_id !== null) {
+                $this->refundCommissionIfAny($delivery);
+            }
+        }
+    }
+
+    /**
+     * Rembourser la commission prélevée à l'assignation si la livraison est annulée.
+     */
+    protected function refundCommissionIfAny(Delivery $delivery): void
+    {
+        try {
+            $courier = $delivery->courier;
+            if (!$courier) {
+                return;
+            }
+
+            $refund = app(WalletService::class)->refundCommission($courier, $delivery);
+
+            if ($refund) {
+                Log::info("DeliveryObserver: Commission remboursée pour livraison #{$delivery->id}", [
+                    'courier_id' => $courier->id,
+                    'amount' => $refund->amount,
+                    'transaction_id' => $refund->id,
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error("DeliveryObserver: Erreur lors du remboursement commission livraison #{$delivery->id}", [
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 

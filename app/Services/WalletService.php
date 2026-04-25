@@ -498,6 +498,74 @@ class WalletService
     }
 
     /**
+     * Rembourser la commission prélevée à l'assignation si la livraison est annulée.
+     * Idempotent : ne fait rien si aucune commission n'a été prélevée
+     * ou si un remboursement a déjà été enregistré.
+     */
+    public function refundCommission(Courier $courier, Delivery $delivery): ?WalletTransaction
+    {
+        $debit = WalletTransaction::where('delivery_id', $delivery->id)
+            ->where('category', 'commission')
+            ->where('type', 'debit')
+            ->where('wallet_id', $this->getOrCreateWallet($courier)->id)
+            ->latest('id')
+            ->first();
+
+        if (!$debit) {
+            return null; // Aucune commission prélevée
+        }
+
+        $alreadyRefunded = WalletTransaction::where('delivery_id', $delivery->id)
+            ->where('category', 'commission_refund')
+            ->where('type', 'credit')
+            ->where('wallet_id', $debit->wallet_id)
+            ->exists();
+
+        if ($alreadyRefunded) {
+            return null;
+        }
+
+        $wallet = $this->getOrCreateWallet($courier);
+        $platformWallet = $this->getPlatformWallet();
+        $reference = 'COMR-' . strtoupper(Str::random(8));
+        $amount = (float) $debit->amount;
+
+        return DB::transaction(function () use ($wallet, $platformWallet, $delivery, $debit, $reference, $amount) {
+            // 1. Recréditer le coursier
+            $courierRefund = $wallet->credit(
+                $amount,
+                $reference,
+                "Remboursement commission livraison #{$delivery->id} (annulée)",
+                ['delivery_id' => $delivery->id, 'source_transaction_id' => $debit->id]
+            );
+            $courierRefund->update([
+                'category' => 'commission_refund',
+                'delivery_id' => $delivery->id,
+                'status' => 'completed',
+            ]);
+
+            // 2. Débiter le wallet plateforme
+            $platformRefund = $platformWallet->debit(
+                $amount,
+                $reference . '-PLT',
+                "Remboursement commission livraison #{$delivery->id} (annulée)",
+                [
+                    'delivery_id' => $delivery->id,
+                    'courier_id' => $wallet->walletable_id,
+                    'source_transaction_id' => $debit->id,
+                ]
+            );
+            $platformRefund->update([
+                'category' => 'commission_refund',
+                'delivery_id' => $delivery->id,
+                'status' => 'completed',
+            ]);
+
+            return $courierRefund->fresh();
+        });
+    }
+
+    /**
      * Demander un retrait vers Mobile Money
      * Crée une WithdrawalRequest + WalletTransaction
      * 
