@@ -731,9 +731,10 @@ class SmsService
         }
 
         try {
+            $twilioBase = config('services.twilio.base_url', 'https://api.twilio.com/2010-04-01');
             $response = Http::withBasicAuth($accountSid, $authToken)
                 ->asForm()
-                ->post("https://api.twilio.com/2010-04-01/Accounts/{$accountSid}/Messages.json", [
+                ->post("{$twilioBase}/Accounts/{$accountSid}/Messages.json", [
                     'To' => $phone, 'From' => $fromNumber, 'Body' => $message,
                 ]);
 
@@ -760,11 +761,12 @@ class SmsService
         }
 
         try {
+            $atBase = config('services.africas_talking.base_url', 'https://api.africastalking.com/version1');
             $response = Http::withHeaders([
                 'apiKey' => $apiKey,
                 'Content-Type' => 'application/x-www-form-urlencoded',
                 'Accept' => 'application/json',
-            ])->asForm()->post('https://api.africastalking.com/version1/messaging', [
+            ])->asForm()->post("{$atBase}/messaging", [
                 'username' => $username, 'to' => $phone, 'message' => $message, 'from' => $senderId,
             ]);
 
@@ -791,8 +793,9 @@ class SmsService
         if (!$apiKey || !$username) return null;
 
         try {
+            $atBase = config('services.africas_talking.base_url', 'https://api.africastalking.com/version1');
             $response = Http::withHeaders(['apiKey' => $apiKey, 'Accept' => 'application/json'])
-                ->get("https://api.africastalking.com/version1/user?username={$username}");
+                ->get("{$atBase}/user?username={$username}");
             return $response->successful() ? $response->json('UserData') : null;
         } catch (\Exception $e) {
             return null;

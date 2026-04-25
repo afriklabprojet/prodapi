@@ -16,8 +16,9 @@ class MapController extends Controller
         ]);
 
         $apiKey = config('services.google_maps.key');
-        
-        $response = Http::get('https://maps.googleapis.com/maps/api/directions/json', [
+        $baseUrl = config('services.google_maps.base_url', 'https://maps.googleapis.com/maps/api');
+
+        $response = Http::get("{$baseUrl}/directions/json", [
             'origin' => $request->origin,
             'destination' => $request->destination,
             'mode' => 'driving',

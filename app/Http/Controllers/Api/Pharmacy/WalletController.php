@@ -11,6 +11,7 @@ use App\Models\WithdrawalRequest;
 use App\Services\JekoPaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -175,7 +176,22 @@ class WalletController extends Controller
         
         $user = $this->getAuthenticatedUser();
         $pharmacy = $user->pharmacies()->firstOrFail();
-        
+
+        // SECURITY: verrou atomique pour empêcher les retraits concurrents (double-clic, retry).
+        $lock = Cache::lock("pharmacy_withdraw_{$pharmacy->id}", 60);
+        if (!$lock->get()) {
+            Log::warning('Pharmacy withdrawal: concurrent request blocked', [
+                'pharmacy_id' => $pharmacy->id,
+                'amount' => $request->amount,
+            ]);
+            return response()->json([
+                'success' => false,
+                'status' => 'error',
+                'message' => 'Un retrait est déjà en cours. Veuillez patienter.',
+            ], 429);
+        }
+
+        try {
         // Vérifier si un PIN est configuré
         if (!$pharmacy->hasPinConfigured()) {
             return response()->json([
@@ -329,6 +345,9 @@ class WalletController extends Controller
                 'message' => $userMessage,
                 'code' => 'PAYOUT_ERROR',
             ], 500);
+        }
+        } finally {
+            $lock->release();
         }
     }
 

@@ -42,6 +42,16 @@ class OrderController extends Controller
             $query->where('status', $status);
         }
 
+        // Masquer les commandes abandonnées/annulées jamais payées.
+        // Règle: si status ∈ (cancelled, pending) ET non payée (payment_status != 'paid' ET paid_at IS NULL)
+        // → exclure de la liste pharmacie.
+        // On conserve les annulations post-paiement (visibles pour remboursement/traçabilité).
+        $query->where(function ($q) {
+            $q->whereNotIn('status', ['cancelled', 'pending'])
+                ->orWhere('payment_status', 'paid')
+                ->orWhereNotNull('paid_at');
+        });
+
         $orders = $query->latest()->paginate($perPage);
 
         $formattedOrders = $orders->getCollection()->map(function ($order) {

@@ -308,6 +308,7 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
             ->middleware(['verified.phone', 'throttle:10,1', 'idempotent']);
         Route::get('/payments', [\App\Http\Controllers\Api\JekoPaymentController::class, 'index']);
         Route::get('/payments/methods', [\App\Http\Controllers\Api\JekoPaymentController::class, 'methods']);
+        Route::post('/payments/topup-quote', [\App\Http\Controllers\Api\JekoPaymentController::class, 'topupQuote']);
         Route::get('/payments/{reference}/status', [\App\Http\Controllers\Api\JekoPaymentController::class, 'status']);
     });
     

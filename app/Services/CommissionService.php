@@ -22,76 +22,46 @@ class CommissionService
         try {
             DB::transaction(function () use ($order) {
                 $pharmacy = $order->pharmacy;
-                $delivery = $order->delivery;
-                $courier = $delivery?->courier;
 
-                // Rates from pharmacy, fallback to global Settings
-                $ratePlatform = $this->normalizeRate(
-                    $pharmacy->commission_rate_platform
-                    ?? Setting::get('default_commission_rate_platform', 10)
-                );
-                $ratePharmacy = $this->normalizeRate(
-                    $pharmacy->commission_rate_pharmacy
-                    ?? Setting::get('default_commission_rate_pharmacy', 85)
-                );
-                $rateCourier = $this->normalizeRate(
-                    $pharmacy->commission_rate_courier
-                    ?? Setting::get('default_commission_rate_courier', 5)
-                );
+                // Pharmacie reçoit 100% du montant des médicaments (subtotal)
+                $amountPharmacy = (float) $order->subtotal;
 
-                $total = $order->total_amount;
-                
-                // Adjust rates if no courier (Pickup)
-                if (!$courier) {
-                    $ratePharmacy += $rateCourier;
-                    $rateCourier = 0;
-                }
+                // Plateforme reçoit les frais de service fixes (100 FCFA par commande)
+                $amountPlatform = (float) ($order->service_fee ?? Setting::get('service_fee_fixed', 100));
 
-                $amountPlatform = $total * $ratePlatform;
-                $amountPharmacy = $total * $ratePharmacy;
-                $amountCourier = $total * $rateCourier;
+                // Le livreur est rémunéré séparément via WalletService (delivery_fee × 85%)
+                // Aucune commission livreur ici
 
                 // Create Commission Record
                 $commission = Commission::create([
                     'order_id' => $order->id,
-                    'total_amount' => $total,
+                    'total_amount' => $order->total_amount,
                     'calculated_at' => now(),
                 ]);
 
-                // Lines
+                // Ligne plateforme : frais de service
                 $commission->lines()->create([
                     'actor_type' => 'platform',
-                    'actor_id' => 0, // 0 for platform
-                    'rate' => $ratePlatform,
+                    'actor_id' => 0,
+                    'rate' => 0,
                     'amount' => $amountPlatform,
                 ]);
 
+                // Ligne pharmacie : 100% des médicaments
                 $commission->lines()->create([
                     'actor_type' => \App\Models\Pharmacy::class,
                     'actor_id' => $pharmacy->id,
-                    'rate' => $ratePharmacy,
+                    'rate' => 1,
                     'amount' => $amountPharmacy,
                 ]);
 
-                if ($courier && $amountCourier > 0) {
-                    $commission->lines()->create([
-                        'actor_type' => \App\Models\Courier::class,
-                        'actor_id' => $courier->id,
-                        'rate' => $rateCourier,
-                        'amount' => $amountCourier,
-                    ]);
+                // Crédit wallets
+                if ($amountPlatform > 0) {
+                    $this->creditWallet(Wallet::platform(), $amountPlatform, $order, 'Frais de service');
                 }
 
-                // Update Wallets
-                $this->creditWallet(Wallet::platform(), $amountPlatform, $order, 'Commission Plateforme');
-                
                 $pharmacyWallet = $pharmacy->wallet()->firstOrCreate([], ['currency' => 'XOF', 'balance' => 0]);
-                $this->creditWallet($pharmacyWallet, $amountPharmacy, $order, 'Vente');
-
-                if ($courier && $amountCourier > 0) {
-                    $courierWallet = $courier->wallet()->firstOrCreate([], ['currency' => 'XOF', 'balance' => 0]);
-                    $this->creditWallet($courierWallet, $amountCourier, $order, 'Livraison');
-                }
+                $this->creditWallet($pharmacyWallet, $amountPharmacy, $order, 'Vente médicaments');
             });
 
             Log::info("Commissions distributed for order {$order->reference}");

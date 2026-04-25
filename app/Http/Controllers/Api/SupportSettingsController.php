@@ -19,7 +19,7 @@ class SupportSettingsController extends Controller
                 'support_phone' => Setting::get('support_phone', '+225 07 01 159 572'),
                 'support_email' => Setting::get('support_email', 'support@drlpharma.com'),
                 'support_whatsapp' => Setting::get('support_whatsapp', '+225 07 01 159 572'),
-                'website_url' => Setting::get('website_url', 'https://drlpharma.pro'),
+                'website_url' => Setting::get('website_url', config('drpharma.brand.website')),
                 'tutorials_url' => Setting::get('tutorials_url', url('/tutoriels')),
                 'guide_url' => Setting::get('guide_url', url('/guide')),
                 'faq_url' => Setting::get('faq_url', url('/faq')),

@@ -16,9 +16,9 @@ class StatsOverview extends BaseWidget
 
     protected function getStats(): array
     {
-        // Commandes du jour
-        $todayOrders = Order::whereDate('created_at', today())->count();
-        $yesterdayOrders = Order::whereDate('created_at', today()->subDay())->count();
+        // Commandes du jour — exclut pending (non validées) et cancelled
+        $todayOrders = Order::forStats()->whereDate('created_at', today())->count();
+        $yesterdayOrders = Order::forStats()->whereDate('created_at', today()->subDay())->count();
         $ordersChange = $yesterdayOrders > 0 
             ? round((($todayOrders - $yesterdayOrders) / $yesterdayOrders) * 100, 1) 
             : 0;

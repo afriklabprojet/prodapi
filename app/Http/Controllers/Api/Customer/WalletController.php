@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Customer;
 use App\Http\Controllers\Controller;
 use App\Services\CustomerWalletService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class WalletController extends Controller
@@ -84,15 +85,32 @@ class WalletController extends Controller
             'phone_number' => 'required|string|max:20',
         ]);
 
+        $user = $request->user();
+
+        // SECURITY: verrou atomique pour empêcher les retraits concurrents (double-clic, retry).
+        // TTL court (60s) couvrant largement la latence Jeko. Lock distribué via cache store.
+        $lock = Cache::lock("customer_withdraw_user_{$user->id}", 60);
+
+        if (!$lock->get()) {
+            Log::warning('Customer withdrawal: concurrent request blocked', [
+                'user_id' => $user->id,
+                'amount' => $request->amount,
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Un retrait est déjà en cours. Veuillez patienter.',
+            ], 429);
+        }
+
         try {
             $transaction = $this->walletService->requestWithdrawal(
-                $request->user(),
+                $user,
                 $request->amount,
                 $request->payment_method,
                 $request->phone_number
             );
 
-            $balance = $this->walletService->getBalance($request->user());
+            $balance = $this->walletService->getBalance($user);
 
             return response()->json([
                 'success' => true,
@@ -107,6 +125,8 @@ class WalletController extends Controller
                 'success' => false,
                 'message' => $e->getMessage(),
             ], 400);
+        } finally {
+            $lock->release();
         }
     }
 

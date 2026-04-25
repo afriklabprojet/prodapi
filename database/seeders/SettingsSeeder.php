@@ -75,10 +75,10 @@ class SettingsSeeder extends Seeder
             // ──────────────────────────────────────
             ['key' => 'app_name', 'value' => 'DR-PHARMA', 'type' => 'string'],
             ['key' => 'app_version', 'value' => '1.0.0', 'type' => 'string'],
-            ['key' => 'support_email', 'value' => 'support@drlpharma.com', 'type' => 'string'],
+            ['key' => 'support_email', 'value' => config('drpharma.brand.support_email'), 'type' => 'string'],
             ['key' => 'support_phone', 'value' => '+2250701159572', 'type' => 'string'],
             ['key' => 'support_whatsapp', 'value' => '+2250701159572', 'type' => 'string'],
-            ['key' => 'website_url', 'value' => 'https://drlpharma.pro', 'type' => 'string'],
+            ['key' => 'website_url', 'value' => config('drpharma.brand.website'), 'type' => 'string'],
             ['key' => 'tutorials_url', 'value' => '/tutoriels', 'type' => 'string'],
             ['key' => 'guide_url', 'value' => '/guide', 'type' => 'string'],
             ['key' => 'faq_url', 'value' => '/faq', 'type' => 'string'],

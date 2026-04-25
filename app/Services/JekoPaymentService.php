@@ -669,10 +669,16 @@ class JekoPaymentService
         }
 
         $walletService = app(\App\Services\WalletService::class);
-        
+
+        // FEES: créditer uniquement le montant demandé (net), pas le total chargé.
+        $metadata = $payment->metadata ?? [];
+        $netAmount = isset($metadata['requested_amount'])
+            ? (float) $metadata['requested_amount']
+            : (float) $payment->amount / 100;
+
         $walletService->topUp(
             $wallet->walletable,
-            (float) $payment->amount / 100,
+            $netAmount,
             $payment->payment_method->value,
             $payment->reference
         );
@@ -884,16 +890,25 @@ class JekoPaymentService
             ]);
 
             // Étape 2: Effectuer le transfert
-            $response = Http::withHeaders([
-                'X-API-KEY' => $this->apiKey,
-                'X-API-KEY-ID' => $this->apiKeyId,
-                'Content-Type' => 'application/json',
-            ])->post("{$this->apiUrl}/partner_api/transfers", [
+            $transferPayload = [
                 'storeId' => $this->storeId,
                 'contactId' => $contactId,
                 'amountCents' => $amountCents,
                 'currency' => 'XOF',
+            ];
+
+            Log::info('JEKO Transfer Request', [
+                'reference' => $payment->reference,
+                'payload' => $transferPayload,
+                'method' => $method->value,
+                'phone' => $recipientPhone,
             ]);
+
+            $response = Http::withHeaders([
+                'X-API-KEY' => $this->apiKey,
+                'X-API-KEY-ID' => $this->apiKeyId,
+                'Content-Type' => 'application/json',
+            ])->post("{$this->apiUrl}/partner_api/transfers", $transferPayload);
 
             if (!$response->successful()) {
                 $errorBody = $response->json();
@@ -1132,22 +1147,28 @@ class JekoPaymentService
 
     /**
      * Normaliser un numéro de téléphone pour JEKO
+     *
+     * Format attendu par Jeko pour la Côte d'Ivoire: +225 suivi des 10 chiffres
+     * du numéro local (en gardant le 0 initial). Ex: 0544550467 -> +2250544550467
      */
     private function normalizePhoneNumber(string $phone): string
     {
         // Supprimer les espaces et caractères spéciaux
         $phone = preg_replace('/[^0-9+]/', '', $phone);
-        
-        // Si le numéro commence par 0, ajouter l'indicatif Bénin
+
+        $defaultCode = config('services.jeko.default_country_code', '+225');
+
+        // Si le numéro commence par 0, préfixer l'indicatif SANS retirer le 0
+        // (format CI: +225 + 10 chiffres avec le 0 initial)
         if (str_starts_with($phone, '0')) {
-            $phone = '+229' . substr($phone, 1);
+            $phone = $defaultCode . $phone;
         }
-        
+
         // S'assurer qu'il commence par +
         if (!str_starts_with($phone, '+')) {
             $phone = '+' . $phone;
         }
-        
+
         return $phone;
     }
 }

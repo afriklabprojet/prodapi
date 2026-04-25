@@ -184,15 +184,15 @@ class WeeklyBusinessReportJob implements ShouldQueue
         // Clients avec ≥ 2 commandes livrées sur la période (fidélisation)
         $loyalCount = Order::whereBetween('created_at', [$from, $to])
             ->where('status', 'delivered')
-            ->select('user_id')
-            ->groupBy('user_id')
+            ->select('customer_id')
+            ->groupBy('customer_id')
             ->havingRaw('COUNT(*) >= 2')
             ->get()
             ->count();
 
         $totalActiveClients = Order::whereBetween('created_at', [$from, $to])
-            ->distinct('user_id')
-            ->count('user_id');
+            ->distinct('customer_id')
+            ->count('customer_id');
 
         return [
             'new_this_week'     => $newClients,

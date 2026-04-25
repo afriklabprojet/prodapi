@@ -137,6 +137,9 @@ class ProcessPaymentResultJob implements ShouldQueue
                 )->onQueue('notifications');
             }
         }
+
+        // Dispatcher le livreur après confirmation du paiement (modes non-cash)
+        \App\Jobs\DispatchDeliveryJob::dispatch($order)->delay(now()->addSeconds(5));
     }
 
     private function processWalletTopup(Wallet $wallet, JekoPayment $payment): void
@@ -155,12 +158,19 @@ class ProcessPaymentResultJob implements ShouldQueue
 
         $walletableClass = get_class($wallet->walletable);
 
+        // FEES: si les frais ont été ajoutés au montant chargé via Jeko (frais à la charge du client),
+        // on crédite uniquement le montant demandé (net) au wallet.
+        $metadata = $payment->metadata ?? [];
+        $netAmount = isset($metadata['requested_amount'])
+            ? (float) $metadata['requested_amount']
+            : (float) $payment->amount / 100;
+
         // Utiliser le bon service selon le type de wallet
         if ($walletableClass === \App\Models\Customer::class) {
             $service = app(\App\Services\CustomerWalletService::class);
             $service->topUp(
                 $wallet->walletable->user,
-                (float) $payment->amount / 100,
+                $netAmount,
                 $payment->payment_method->value,
                 $payment->reference
             );
@@ -168,7 +178,7 @@ class ProcessPaymentResultJob implements ShouldQueue
             $walletService = app(\App\Services\WalletService::class);
             $walletService->topUp(
                 $wallet->walletable,
-                (float) $payment->amount / 100,
+                $netAmount,
                 $payment->payment_method->value,
                 $payment->reference
             );

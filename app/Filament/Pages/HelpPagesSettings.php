@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\Setting;
+use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Repeater;
@@ -16,6 +17,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\Auth;
 
 class HelpPagesSettings extends Page implements HasForms
 {
@@ -39,12 +41,17 @@ class HelpPagesSettings extends Page implements HasForms
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        /** @var User|null $user */
+        $user = Auth::user();
+
+        return $user?->isAdmin() ?? false;
     }
 
     public function mount(): void
     {
-        abort_unless(auth()->user()?->isAdmin(), 403, 'Accès réservé à l\'administrateur');
+        /** @var User|null $user */
+        $user = Auth::user();
+        abort_unless($user?->isAdmin(), 403, 'Accès réservé à l\'administrateur');
 
         $this->form->fill([
             // === GUIDE ===
@@ -62,7 +69,7 @@ class HelpPagesSettings extends Page implements HasForms
             'tutorials_hero_title' => Setting::get('tutorials_hero_title', 'Tutoriels vidéo'),
             'tutorials_hero_subtitle' => Setting::get('tutorials_hero_subtitle', 'Apprenez à utiliser DR-PHARMA grâce à nos vidéos explicatives.'),
             'tutorials_intro' => Setting::get('tutorials_intro', 'Nos tutoriels vous guident pas à pas pour maîtriser toutes les fonctionnalités de l\'application DR-PHARMA, que vous soyez patient, pharmacien ou coursier.'),
-            'tutorials_youtube_url' => Setting::get('tutorials_youtube_url', 'https://www.youtube.com/@drlpharma'),
+            'tutorials_youtube_url' => Setting::get('tutorials_youtube_url', config('drpharma.brand.youtube')),
             'tutorials_videos' => Setting::get('tutorials_videos', $this->defaultTutorialVideos()),
         ]);
     }
@@ -479,13 +486,14 @@ class HelpPagesSettings extends Page implements HasForms
 
     private function defaultTutorialVideos(): array
     {
+        $yt = config('drpharma.brand.youtube');
         return [
-            ['title' => 'Passer sa première commande', 'description' => 'Créer un compte, rechercher un médicament et commander en quelques minutes.', 'badge' => 'Patient', 'url' => 'https://www.youtube.com/@drlpharma'],
-            ['title' => 'Envoyer une ordonnance', 'description' => 'Comment photographier et envoyer votre ordonnance à une pharmacie.', 'badge' => 'Patient', 'url' => 'https://www.youtube.com/@drlpharma'],
-            ['title' => 'Gérer les commandes', 'description' => 'Recevoir, confirmer et préparer les commandes des patients.', 'badge' => 'Pharmacien', 'url' => 'https://www.youtube.com/@drlpharma'],
-            ['title' => 'Gérer votre stock', 'description' => 'Ajouter des produits, mettre à jour les prix et gérer les ruptures.', 'badge' => 'Pharmacien', 'url' => 'https://www.youtube.com/@drlpharma'],
-            ['title' => 'Première livraison', 'description' => 'Accepter, naviguer et confirmer votre première livraison.', 'badge' => 'Coursier', 'url' => 'https://www.youtube.com/@drlpharma'],
-            ['title' => 'Recharger son portefeuille', 'description' => 'Comment recharger via Mobile Money ou carte bancaire.', 'badge' => 'Coursier', 'url' => 'https://www.youtube.com/@drlpharma'],
+            ['title' => 'Passer sa première commande', 'description' => 'Créer un compte, rechercher un médicament et commander en quelques minutes.', 'badge' => 'Patient', 'url' => $yt],
+            ['title' => 'Envoyer une ordonnance', 'description' => 'Comment photographier et envoyer votre ordonnance à une pharmacie.', 'badge' => 'Patient', 'url' => $yt],
+            ['title' => 'Gérer les commandes', 'description' => 'Recevoir, confirmer et préparer les commandes des patients.', 'badge' => 'Pharmacien', 'url' => $yt],
+            ['title' => 'Gérer votre stock', 'description' => 'Ajouter des produits, mettre à jour les prix et gérer les ruptures.', 'badge' => 'Pharmacien', 'url' => $yt],
+            ['title' => 'Première livraison', 'description' => 'Accepter, naviguer et confirmer votre première livraison.', 'badge' => 'Coursier', 'url' => $yt],
+            ['title' => 'Recharger son portefeuille', 'description' => 'Comment recharger via Mobile Money ou carte bancaire.', 'badge' => 'Coursier', 'url' => $yt],
         ];
     }
 }

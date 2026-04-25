@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Pharmacy;
+use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\NewOrderReceivedNotification;
 use Illuminate\Support\Facades\DB;
@@ -89,11 +90,13 @@ class OrderService
     {
         $subtotal = $this->calculateSubtotal($items);
         $deliveryFee = WalletService::getDeliveryFeeBase();
-        $totalAmount = $subtotal + $deliveryFee;
+        $serviceFee = (int) Setting::get('service_fee_fixed', 100);
+        $totalAmount = $subtotal + $deliveryFee + $serviceFee;
 
         return [
             'subtotal' => $subtotal,
             'delivery_fee' => $deliveryFee,
+            'service_fee' => $serviceFee,
             'total_amount' => $totalAmount,
         ];
     }
@@ -117,6 +120,7 @@ class OrderService
             'payment_mode' => $data['payment_mode'],
             'subtotal' => $totals['subtotal'],
             'delivery_fee' => $totals['delivery_fee'],
+            'service_fee' => $totals['service_fee'],
             'total_amount' => $totals['total_amount'],
             'currency' => 'XOF',
             'customer_notes' => $data['customer_notes'] ?? null,

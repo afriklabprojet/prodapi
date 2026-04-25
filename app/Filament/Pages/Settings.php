@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\Setting;
+use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -13,6 +14,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\Auth;
 
 class Settings extends Page implements HasForms
 {
@@ -35,28 +37,34 @@ class Settings extends Page implements HasForms
      */
     public static function canAccess(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        /** @var User|null $user */
+        $user = Auth::user();
+
+        return $user?->isAdmin() ?? false;
     }
 
     public function mount(): void
     {
         // Double vérification de l'accès admin
-        abort_unless(auth()->user()?->isAdmin(), 403, 'Accès réservé à l\'administrateur');
+        /** @var User|null $user */
+        $user = Auth::user();
+        abort_unless($user?->isAdmin(), 403, 'Accès réservé à l\'administrateur');
         
         $this->form->fill([
             'search_radius_km' => Setting::get('search_radius_km', 20),
             // Commissions
-            'default_commission_rate' => Setting::get('default_commission_rate', 2),
             'default_commission_rate_platform' => Setting::get('default_commission_rate_platform', 10),
             'default_commission_rate_pharmacy' => Setting::get('default_commission_rate_pharmacy', 85),
             'default_commission_rate_courier' => Setting::get('default_commission_rate_courier', 5),
             'courier_commission_amount' => Setting::get('courier_commission_amount', 200),
+            'courier_commission_percentage' => Setting::get('courier_commission_percentage', 15),
             'minimum_wallet_balance' => Setting::get('minimum_wallet_balance', 200),
             'delivery_fee_base' => Setting::get('delivery_fee_base', 200),
             'delivery_fee_per_km' => Setting::get('delivery_fee_per_km', 100),
             'delivery_fee_min' => Setting::get('delivery_fee_min', 300),
             'delivery_fee_max' => Setting::get('delivery_fee_max', 5000),
             // Frais de service et paiement (ajoutés au prix pour que la pharmacie reçoive le prix exact)
+            'service_fee_fixed' => Setting::get('service_fee_fixed', 100),
             'service_fee_percentage' => Setting::get('service_fee_percentage', 2),
             'service_fee_min' => Setting::get('service_fee_min', 100),
             'service_fee_max' => Setting::get('service_fee_max', 2000),
@@ -69,12 +77,12 @@ class Settings extends Page implements HasForms
             'support_phone' => Setting::get('support_phone', '+225 07 01 159 572'),
             'support_email' => Setting::get('support_email', 'support@drlpharma.com'),
             'support_whatsapp' => Setting::get('support_whatsapp', '+225 07 01 159 572'),
-            'website_url' => Setting::get('website_url', 'https://drlpharma.pro'),
-            'tutorials_url' => Setting::get('tutorials_url', 'https://www.youtube.com/@drlpharma'),
-            'guide_url' => Setting::get('guide_url', 'https://drlpharma.pro/guide'),
-            'faq_url' => Setting::get('faq_url', 'https://drlpharma.pro/faq'),
-            'terms_url' => Setting::get('terms_url', 'https://drlpharma.pro/terms'),
-            'privacy_url' => Setting::get('privacy_url', 'https://drlpharma.pro/privacy'),
+            'website_url' => Setting::get('website_url', config('drpharma.brand.website')),
+            'tutorials_url' => Setting::get('tutorials_url', config('drpharma.brand.youtube')),
+            'guide_url' => Setting::get('guide_url', config('drpharma.urls.guide')),
+            'faq_url' => Setting::get('faq_url', config('drpharma.urls.faq')),
+            'terms_url' => Setting::get('terms_url', config('drpharma.urls.terms')),
+            'privacy_url' => Setting::get('privacy_url', config('drpharma.urls.privacy')),
             // Modes de paiement
             'payment_mode_platform_enabled' => Setting::get('payment_mode_platform_enabled', true),
             'payment_mode_cash_enabled' => Setting::get('payment_mode_cash_enabled', false),
@@ -119,14 +127,6 @@ class Settings extends Page implements HasForms
                     ->description('Répartition des commissions sur chaque commande. Ces taux s\'appliquent aux nouvelles pharmacies. Vous pouvez personnaliser les taux par pharmacie depuis la fiche de chaque pharmacie.')
                     ->icon('heroicon-o-calculator')
                     ->schema([
-                        TextInput::make('default_commission_rate')
-                            ->label('🏛️ Commission plateforme (%)')
-                            ->numeric()
-                            ->suffix('%')
-                            ->minValue(0)
-                            ->maxValue(50)
-                            ->required()
-                            ->helperText('Pourcentage ajouté au prix des médicaments (payé par le client). La pharmacie reçoit 100% de son prix.'),
                         TextInput::make('default_commission_rate_platform')
                             ->label('🏛️ Taux plateforme par défaut (%)')
                             ->numeric()
@@ -157,12 +157,20 @@ class Settings extends Page implements HasForms
                     ->description('Paramètres financiers pour les livreurs')
                     ->icon('heroicon-o-truck')
                     ->schema([
+                        TextInput::make('courier_commission_percentage')
+                            ->label('Commission plateforme par livraison (%)')
+                            ->numeric()
+                            ->suffix('%')
+                            ->required()
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->helperText('Pourcentage prélevé sur les frais de livraison à chaque livraison terminée. Ex: 15 = 15%.'),
                         TextInput::make('courier_commission_amount')
-                            ->label('Commission prélevée par livraison (FCFA)')
+                            ->label('Commission minimum par livraison (FCFA)')
                             ->numeric()
                             ->suffix('FCFA')
                             ->required()
-                            ->helperText('Montant prélevé sur le wallet du livreur à chaque livraison terminée.'),
+                            ->helperText('Utilisé si les frais de livraison sont à 0 (fallback).'),
                         TextInput::make('minimum_wallet_balance')
                             ->label('Solde minimum requis (FCFA)')
                             ->numeric()
@@ -210,6 +218,13 @@ class Settings extends Page implements HasForms
                             ->helperText('Appliquer les frais de service sur chaque commande.')
                             ->default(true)
                             ->columnSpanFull(),
+                        TextInput::make('service_fee_fixed')
+                            ->label('Frais de service fixes par commande (FCFA)')
+                            ->numeric()
+                            ->suffix('FCFA')
+                            ->minValue(0)
+                            ->required()
+                            ->helperText('Montant fixe prélevé par commande et reversé à la plateforme (ex: 100 FCFA).'),
                         TextInput::make('service_fee_percentage')
                             ->label('Frais de service (%)')
                             ->numeric()
@@ -277,33 +292,33 @@ class Settings extends Page implements HasForms
                         TextInput::make('website_url')
                             ->label('Site Web')
                             ->url()
-                            ->placeholder('https://drlpharma.pro')
+                            ->placeholder(config('drpharma.brand.website'))
                             ->required()
                             ->helperText('URL du site web principal.'),
                         TextInput::make('tutorials_url')
                             ->label('URL Tutoriels Vidéo')
                             ->url()
-                            ->placeholder('https://www.youtube.com/@drlpharma')
+                            ->placeholder(config('drpharma.brand.youtube'))
                             ->helperText('Lien vers les tutoriels vidéo (YouTube, etc.).'),
                         TextInput::make('guide_url')
                             ->label('URL Guide Utilisateur')
                             ->url()
-                            ->placeholder('https://drlpharma.pro/guide')
+                            ->placeholder(config('drpharma.urls.guide'))
                             ->helperText('Lien vers le guide utilisateur en ligne.'),
                         TextInput::make('faq_url')
                             ->label('URL FAQ')
                             ->url()
-                            ->placeholder('https://drlpharma.pro/faq')
+                            ->placeholder(config('drpharma.urls.faq'))
                             ->helperText('Lien vers la page FAQ.'),
                         TextInput::make('terms_url')
                             ->label('URL Conditions d\'utilisation')
                             ->url()
-                            ->placeholder('https://drlpharma.pro/terms')
+                            ->placeholder(config('drpharma.urls.terms'))
                             ->helperText('Lien vers les conditions générales d\'utilisation.'),
                         TextInput::make('privacy_url')
                             ->label('URL Politique de confidentialité')
                             ->url()
-                            ->placeholder('https://drlpharma.pro/privacy')
+                            ->placeholder(config('drpharma.urls.privacy'))
                             ->helperText('Lien vers la politique de confidentialité.'),
                     ])->columns(3),
 
@@ -454,10 +469,10 @@ class Settings extends Page implements HasForms
         $data = $this->form->getState();
 
         Setting::set('search_radius_km', $data['search_radius_km'], 'integer');
-        Setting::set('default_commission_rate', $data['default_commission_rate'], 'integer');
         Setting::set('default_commission_rate_platform', $data['default_commission_rate_platform'], 'float');
         Setting::set('default_commission_rate_pharmacy', $data['default_commission_rate_pharmacy'], 'float');
         Setting::set('default_commission_rate_courier', $data['default_commission_rate_courier'], 'float');
+        Setting::set('courier_commission_percentage', $data['courier_commission_percentage'], 'float');
         Setting::set('courier_commission_amount', $data['courier_commission_amount'], 'integer');
         Setting::set('minimum_wallet_balance', $data['minimum_wallet_balance'], 'integer');
         Setting::set('delivery_fee_base', $data['delivery_fee_base'], 'integer');
@@ -465,6 +480,7 @@ class Settings extends Page implements HasForms
         Setting::set('delivery_fee_min', $data['delivery_fee_min'], 'integer');
         Setting::set('delivery_fee_max', $data['delivery_fee_max'], 'integer');
         // Frais de service et paiement
+        Setting::set('service_fee_fixed', $data['service_fee_fixed'], 'integer');
         Setting::set('service_fee_percentage', $data['service_fee_percentage'], 'float');
         Setting::set('service_fee_min', $data['service_fee_min'], 'integer');
         Setting::set('service_fee_max', $data['service_fee_max'], 'integer');

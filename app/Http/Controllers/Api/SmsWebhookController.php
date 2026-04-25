@@ -394,13 +394,16 @@ class SmsWebhookController extends Controller
 
         // Envoyer un SMS d'aide avec les contacts support
         try {
+            $supportPhone = config('drpharma.brand.support_phone');
+            $supportEmail = config('drpharma.brand.support_email');
+            $helpUrl = config('drpharma.urls.help');
             app(SmsService::class)->send(
                 $phone,
                 'DR-PHARMA: Besoin d\'aide ?\n'
-                . '📞 Appelez: +225 07 00 00 00 00\n'
-                . '💬 WhatsApp: +225 07 00 00 00 00\n'
-                . '📧 Email: support@drlpharma.com\n'
-                . '🌐 Site: https://drlpharma.pro/aide'
+                . "📞 Appelez: {$supportPhone}\n"
+                . "💬 WhatsApp: {$supportPhone}\n"
+                . "📧 Email: {$supportEmail}\n"
+                . "🌐 Site: {$helpUrl}"
             );
         } catch (\Exception $e) {
             Log::warning('Failed to send help SMS', ['phone' => $phone, 'error' => $e->getMessage()]);

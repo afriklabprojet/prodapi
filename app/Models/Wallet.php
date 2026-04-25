@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Facades\DB;
 
 class Wallet extends Model
 {
@@ -69,7 +70,7 @@ class Wallet extends Model
             throw new \InvalidArgumentException('Le montant du crédit doit être positif');
         }
 
-        return \DB::transaction(function () use ($amount, $reference, $description, $metadata) {
+        return DB::transaction(function () use ($amount, $reference, $description, $metadata) {
             $wallet = self::where('id', $this->id)->lockForUpdate()->first();
 
             if (!$wallet) {
@@ -111,7 +112,7 @@ class Wallet extends Model
             throw new \InvalidArgumentException('Le montant du débit doit être positif');
         }
 
-        return \DB::transaction(function () use ($amount, $reference, $description, $metadata) {
+        return DB::transaction(function () use ($amount, $reference, $description, $metadata) {
             $wallet = self::where('id', $this->id)->lockForUpdate()->first();
 
             if (!$wallet) {

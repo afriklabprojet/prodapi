@@ -85,6 +85,14 @@ class RefundController extends Controller
             ], 404);
         }
 
+        // Bloquer les remboursements pour les commandes déjà livrées
+        if ($order->status === 'delivered') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Le remboursement n\'est pas disponible pour une commande déjà livrée.',
+            ], 422);
+        }
+
         // Vérifier qu'il n'y a pas déjà une demande en cours
         $existingRefund = DB::table('refunds')
             ->where('order_id', $orderId)

@@ -37,7 +37,9 @@ class ReconcileWalletBalancesJob implements ShouldQueue
         $discrepancies = [];
         $checked = 0;
 
-        Wallet::with('walletable')->chunk(100, function ($wallets) use (&$discrepancies, &$checked) {
+        // Note: pas d'eager-load walletable car le wallet "platform" n'a pas de classe morph
+        // (walletable_type='platform', walletable_id=0 est un singleton système).
+        Wallet::chunk(100, function ($wallets) use (&$discrepancies, &$checked) {
             foreach ($wallets as $wallet) {
                 $checked++;
 
@@ -56,11 +58,23 @@ class ReconcileWalletBalancesJob implements ShouldQueue
                 $diff = round($actualBalance - $expectedBalance, 2);
 
                 if (abs($diff) > 0.01) {
+                    // Résolution sûre du nom (évite MorphTo sur "platform")
+                    $ownerName = 'N/A';
+                    if ($wallet->walletable_type === 'platform') {
+                        $ownerName = 'Plateforme';
+                    } else {
+                        try {
+                            $ownerName = $wallet->walletable?->name ?? 'N/A';
+                        } catch (\Throwable $e) {
+                            $ownerName = 'N/A';
+                        }
+                    }
+
                     $discrepancies[] = [
                         'wallet_id' => $wallet->id,
                         'owner_type' => $wallet->walletable_type,
                         'owner_id' => $wallet->walletable_id,
-                        'owner_name' => $wallet->walletable?->name ?? 'N/A',
+                        'owner_name' => $ownerName,
                         'stored_balance' => $actualBalance,
                         'computed_balance' => $expectedBalance,
                         'difference' => $diff,

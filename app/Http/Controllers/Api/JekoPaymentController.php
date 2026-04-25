@@ -11,6 +11,7 @@ use App\Models\Order;
 use App\Models\Wallet;
 use App\Services\BusinessEventService;
 use App\Services\JekoPaymentService;
+use App\Services\WalletService;
 use App\Traits\ApiResponder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -75,6 +76,29 @@ class JekoPaymentController extends Controller
     }
 
     /**
+     * Calculer le devis (montant + frais) pour un topup wallet.
+     * POST /api/payments/topup-quote { amount: number }
+     */
+    public function topupQuote(Request $request): JsonResponse
+    {
+        $request->validate([
+            'amount' => 'required|numeric|min:100|max:1000000',
+        ]);
+
+        $requested = (int) $request->input('amount');
+        $fee = (int) WalletService::calculatePaymentFee($requested, 'mobile_money');
+        $total = $requested + $fee;
+
+        return $this->success([
+            'requested_amount' => $requested,
+            'payment_fee' => $fee,
+            'total_charged' => $total,
+            'currency' => 'XOF',
+            'fees_borne_by' => 'customer',
+        ], 'Devis de rechargement calculé');
+    }
+
+    /**
      * Initier le paiement d'une commande
      * 
      * SECURITY V-009: Vérification qu'aucun paiement n'est déjà en cours
@@ -132,6 +156,14 @@ class JekoPaymentController extends Controller
 
         // Montant en centimes
         $amountCents = (int) ($order->total_amount * 100);
+
+        Log::info('[Payment] Amount check', [
+            'order_id'     => $order->id,
+            'total_amount' => $order->total_amount,
+            'amount_cents' => $amountCents,
+            'payment_method' => $method->value,
+            'user_id'      => $user->id,
+        ]);
 
         $payment = $this->jekoService->createRedirectPayment(
             $order,
@@ -215,15 +247,30 @@ class JekoPaymentController extends Controller
         }
 
         // Montant en centimes
-        $amountCents = (int) ($amount * 100);
+        // FEES: les frais de paiement Jeko sont à la charge du client.
+        // Le client demande X, on lui débite X+frais via Jeko, on crédite X au wallet.
+        $requestedAmount = (float) $amount;
+        $paymentFee = (int) WalletService::calculatePaymentFee((int) $requestedAmount, 'mobile_money');
+        $totalToCharge = (int) $requestedAmount + $paymentFee;
+        $amountCents = $totalToCharge * 100;
 
         $payment = $this->jekoService->createRedirectPayment(
             $wallet,
             $amountCents,
             $method,
             $user,
-            "Rechargement wallet"
+            "Rechargement wallet (frais inclus)"
         );
+
+        // Mémoriser le montant net à créditer (hors frais) pour le webhook.
+        $payment->update([
+            'metadata' => array_merge($payment->metadata ?? [], [
+                'requested_amount' => $requestedAmount,
+                'payment_fee' => $paymentFee,
+                'total_charged' => $totalToCharge,
+                'fees_borne_by' => 'customer',
+            ]),
+        ]);
 
         // Track topup initiation
         BusinessEventService::paymentInitiated(
@@ -237,6 +284,9 @@ class JekoPaymentController extends Controller
             'reference' => $payment->reference,
             'redirect_url' => $payment->redirect_url,
             'amount' => $payment->amount,
+            'requested_amount' => $requestedAmount,
+            'payment_fee' => $paymentFee,
+            'total_charged' => $totalToCharge,
             'currency' => $payment->currency,
             'payment_method' => $payment->payment_method->value,
         ], 'Rechargement initié. Suivez le lien pour compléter.');

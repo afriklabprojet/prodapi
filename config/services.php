@@ -74,12 +74,14 @@ return [
         'username' => env('AFRICAS_TALKING_USERNAME'),
         'api_key' => env('AFRICAS_TALKING_API_KEY'),
         'sender_id' => env('AFRICAS_TALKING_SENDER_ID', 'DR-PHARMA'),
+        'base_url' => env('AFRICAS_TALKING_BASE_URL', 'https://api.africastalking.com/version1'),
     ],
 
     'twilio' => [
         'account_sid' => env('TWILIO_ACCOUNT_SID'),
         'auth_token' => env('TWILIO_AUTH_TOKEN'),
         'from_number' => env('TWILIO_FROM_NUMBER'),
+        'base_url' => env('TWILIO_BASE_URL', 'https://api.twilio.com/2010-04-01'),
     ],
 
     /*
@@ -100,6 +102,7 @@ return [
 
     'google_maps' => [
         'key' => env('GOOGLE_MAPS_API_KEY'),
+        'base_url' => env('GOOGLE_MAPS_BASE_URL', 'https://maps.googleapis.com/maps/api'),
     ],
 
     /*
@@ -112,6 +115,7 @@ return [
         'enabled' => env('GOOGLE_VISION_ENABLED', false),
         'credentials_path' => env('GOOGLE_APPLICATION_CREDENTIALS'),
         'api_key' => env('GOOGLE_VISION_API_KEY', env('GOOGLE_MAPS_API_KEY')),
+        'base_url' => env('GOOGLE_VISION_BASE_URL', 'https://vision.googleapis.com/v1'),
     ],
 
     /*
@@ -122,6 +126,18 @@ return [
 
     'openweather' => [
         'key' => env('OPENWEATHER_API_KEY'),
+        'base_url' => env('OPENWEATHER_BASE_URL', 'https://api.openweathermap.org/data/2.5'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | TomTom Traffic API
+    |--------------------------------------------------------------------------
+    */
+
+    'tomtom' => [
+        'key' => env('TOMTOM_API_KEY'),
+        'base_url' => env('TOMTOM_BASE_URL', 'https://api.tomtom.com'),
     ],
 
 ];

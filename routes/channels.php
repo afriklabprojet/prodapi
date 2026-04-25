@@ -93,3 +93,17 @@ Broadcast::channel('courier.{courierId}', function ($user, int $courierId) {
     $courier = \App\Models\Courier::where('user_id', $user->id)->first();
     return $courier && $courier->id === $courierId;
 });
+
+/**
+ * Canal privé de la commande — reçoit les mises à jour de position du coursier,
+ * les changements de statut de livraison, et les ETA.
+ * Accessible par le client propriétaire de la commande.
+ */
+Broadcast::channel('order.{orderId}', function ($user, int $orderId) {
+    if (!$user) {
+        return false;
+    }
+    return \App\Models\Order::where('id', $orderId)
+        ->where('customer_id', $user->id)
+        ->exists();
+});

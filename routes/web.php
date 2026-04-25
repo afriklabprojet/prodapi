@@ -268,20 +268,21 @@ Route::get('/faq', function () {
 })->name('faq');
 
 Route::get('/tutoriels', function () {
+    $yt = config('drpharma.brand.youtube');
     $defaultVideos = [
-        ['title' => 'Passer sa première commande', 'description' => 'Créer un compte, rechercher un médicament et commander en quelques minutes.', 'badge' => 'Patient', 'url' => 'https://www.youtube.com/@drlpharma'],
-        ['title' => 'Envoyer une ordonnance', 'description' => 'Comment photographier et envoyer votre ordonnance à une pharmacie.', 'badge' => 'Patient', 'url' => 'https://www.youtube.com/@drlpharma'],
-        ['title' => 'Gérer les commandes', 'description' => 'Recevoir, confirmer et préparer les commandes des patients.', 'badge' => 'Pharmacien', 'url' => 'https://www.youtube.com/@drlpharma'],
-        ['title' => 'Gérer votre stock', 'description' => 'Ajouter des produits, mettre à jour les prix et gérer les ruptures.', 'badge' => 'Pharmacien', 'url' => 'https://www.youtube.com/@drlpharma'],
-        ['title' => 'Première livraison', 'description' => 'Accepter, naviguer et confirmer votre première livraison.', 'badge' => 'Coursier', 'url' => 'https://www.youtube.com/@drlpharma'],
-        ['title' => 'Recharger son portefeuille', 'description' => 'Comment recharger via Mobile Money ou carte bancaire.', 'badge' => 'Coursier', 'url' => 'https://www.youtube.com/@drlpharma'],
+        ['title' => 'Passer sa première commande', 'description' => 'Créer un compte, rechercher un médicament et commander en quelques minutes.', 'badge' => 'Patient', 'url' => $yt],
+        ['title' => 'Envoyer une ordonnance', 'description' => 'Comment photographier et envoyer votre ordonnance à une pharmacie.', 'badge' => 'Patient', 'url' => $yt],
+        ['title' => 'Gérer les commandes', 'description' => 'Recevoir, confirmer et préparer les commandes des patients.', 'badge' => 'Pharmacien', 'url' => $yt],
+        ['title' => 'Gérer votre stock', 'description' => 'Ajouter des produits, mettre à jour les prix et gérer les ruptures.', 'badge' => 'Pharmacien', 'url' => $yt],
+        ['title' => 'Première livraison', 'description' => 'Accepter, naviguer et confirmer votre première livraison.', 'badge' => 'Coursier', 'url' => $yt],
+        ['title' => 'Recharger son portefeuille', 'description' => 'Comment recharger via Mobile Money ou carte bancaire.', 'badge' => 'Coursier', 'url' => $yt],
     ];
 
     return view('pages.tutoriels', [
         'heroTitle' => Setting::get('tutorials_hero_title', 'Tutoriels vidéo'),
         'heroSubtitle' => Setting::get('tutorials_hero_subtitle', 'Apprenez à utiliser DR-PHARMA grâce à nos vidéos explicatives.'),
         'intro' => Setting::get('tutorials_intro', 'Nos tutoriels vous guident pas à pas pour maîtriser toutes les fonctionnalités de l\'application DR-PHARMA, que vous soyez <strong>patient</strong>, <strong>pharmacien</strong> ou <strong>coursier</strong>.'),
-        'youtubeUrl' => Setting::get('tutorials_youtube_url', 'https://www.youtube.com/@drlpharma'),
+        'youtubeUrl' => Setting::get('tutorials_youtube_url', $yt),
         'videos' => Setting::get('tutorials_videos', $defaultVideos),
     ]);
 })->name('tutoriels');

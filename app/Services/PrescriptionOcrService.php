@@ -139,9 +139,10 @@ class PrescriptionOcrService
      */
     protected function callVisionApiWithToken(string $imageContent, string $accessToken): array
     {
+        $visionBase = config('services.google_vision.base_url', 'https://vision.googleapis.com/v1');
         $response = Http::withToken($accessToken)
             ->timeout(60)
-            ->post('https://vision.googleapis.com/v1/images:annotate', [
+            ->post("{$visionBase}/images:annotate", [
                 'requests' => [
                     [
                         'image' => [
@@ -183,8 +184,9 @@ class PrescriptionOcrService
      */
     protected function callVisionApiWithKey(string $imageContent, string $apiKey): array
     {
+        $visionBase = config('services.google_vision.base_url', 'https://vision.googleapis.com/v1');
         $response = Http::timeout(60)
-            ->post('https://vision.googleapis.com/v1/images:annotate?key=' . $apiKey, [
+            ->post("{$visionBase}/images:annotate?key=" . $apiKey, [
             'requests' => [
                 [
                     'image' => [

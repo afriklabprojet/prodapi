@@ -15,11 +15,12 @@ use Illuminate\Support\Facades\Cache;
 class GoogleMapsService
 {
     protected string $apiKey;
-    protected string $baseUrl = 'https://maps.googleapis.com/maps/api';
+    protected string $baseUrl;
 
     public function __construct()
     {
         $this->apiKey = config('services.google_maps.key', '');
+        $this->baseUrl = config('services.google_maps.base_url', 'https://maps.googleapis.com/maps/api');
     }
 
     /**

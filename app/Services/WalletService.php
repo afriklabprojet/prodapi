@@ -23,11 +23,33 @@ class WalletService
     public const DEFAULT_COMMISSION_AMOUNT = 200; // FCFA
 
     /**
-     * Récupérer le montant de la commission depuis les paramètres
+     * Pourcentage de commission par défaut sur les frais de livraison
+     */
+    public const DEFAULT_COMMISSION_PERCENTAGE = 15; // %
+
+    /**
+     * Récupérer le montant de la commission depuis les paramètres (montant fixe legacy)
      */
     public static function getCommissionAmount(): int
     {
         return (int) Setting::get('courier_commission_amount', self::DEFAULT_COMMISSION_AMOUNT);
+    }
+
+    /**
+     * Calculer la commission à prélever sur une livraison
+     * = X% des frais de livraison (courier_commission_percentage, défaut 15%)
+     * Minimum garanti : courier_commission_amount (200 FCFA) si delivery_fee = 0
+     */
+    public static function getCommissionForDelivery(Delivery $delivery): int
+    {
+        $percentage = (float) Setting::get('courier_commission_percentage', self::DEFAULT_COMMISSION_PERCENTAGE);
+        $deliveryFee = (float) ($delivery->delivery_fee ?? 0);
+
+        if ($deliveryFee <= 0) {
+            return self::getCommissionAmount();
+        }
+
+        return (int) round($deliveryFee * $percentage / 100);
     }
 
     /**
@@ -180,6 +202,12 @@ class WalletService
     {
         if (!self::isServiceFeeEnabled()) {
             return 0;
+        }
+
+        // Utiliser le montant fixe si défini (priorité sur le pourcentage)
+        $fixedFee = (int) Setting::get('service_fee_fixed', 0);
+        if ($fixedFee > 0) {
+            return $fixedFee;
         }
 
         $percentage = self::getServiceFeePercentage();
@@ -422,20 +450,21 @@ class WalletService
     public function deductCommission(Courier $courier, Delivery $delivery): WalletTransaction
     {
         $wallet = $this->getOrCreateWallet($courier);
-        $commissionAmount = self::getCommissionAmount();
-        
+        $commissionAmount = self::getCommissionForDelivery($delivery);
+
         if (!$wallet->hasSufficientBalance($commissionAmount)) {
             throw new InsufficientBalanceException('Solde insuffisant. Veuillez recharger.');
         }
 
+        $percentage = (float) Setting::get('courier_commission_percentage', self::DEFAULT_COMMISSION_PERCENTAGE);
         $reference = 'COM-' . strtoupper(Str::random(8));
 
-        return DB::transaction(function () use ($wallet, $delivery, $reference, $commissionAmount) {
+        return DB::transaction(function () use ($wallet, $delivery, $reference, $commissionAmount, $percentage) {
             // 1. Débiter le wallet du coursier
             $courierTransaction = $wallet->debit(
                 $commissionAmount,
                 $reference,
-                "Commission livraison #{$delivery->id}",
+                "Commission {$percentage}% livraison #{$delivery->id} ({$commissionAmount} FCFA)",
                 ['delivery_id' => $delivery->id]
             );
 
@@ -450,7 +479,7 @@ class WalletService
             $platformTransaction = $platformWallet->credit(
                 $commissionAmount,
                 $reference . '-PLT',
-                "Commission livraison #{$delivery->id} (Coursier: {$wallet->walletable->user->name})",
+                "Commission {$percentage}% livraison #{$delivery->id} (Coursier: {$wallet->walletable->user->name})",
                 [
                     'delivery_id' => $delivery->id,
                     'courier_id' => $wallet->walletable_id,

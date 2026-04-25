@@ -114,7 +114,49 @@ class PharmacyDashboardController extends Controller
             ->where('expiry_date', '<', $now)
             ->count();
 
+        // ====== Breakdown revenu journalier (Lun→Dim) pour le widget RevenueChart ======
+        // Revenu = SUM(total_amount) sur orders payées ou livrées (status delivered/completed
+        // OU payment_status=paid), dans la semaine courante.
+        $revenueStatuses = ['delivered', 'completed', 'paid'];
+        $dayLabels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+        $dailyData = [];
+        $thisWeekTotal = 0.0;
+        for ($i = 0; $i < 7; $i++) {
+            $dayStart = $startOfThisWeek->copy()->addDays($i)->startOfDay();
+            $dayEnd   = $dayStart->copy()->endOfDay();
+            $amount = (float) Order::where('pharmacy_id', $pharmacyId)
+                ->whereBetween('created_at', [$dayStart, $dayEnd])
+                ->where(function ($q) use ($revenueStatuses) {
+                    $q->whereIn('status', $revenueStatuses)
+                      ->orWhere('payment_status', 'paid');
+                })
+                ->sum('total_amount');
+            $thisWeekTotal += $amount;
+            $dailyData[] = [
+                'day_label' => $dayLabels[$i],
+                'amount'    => $amount,
+                'date'      => $dayStart->toDateString(),
+            ];
+        }
+
+        $lastWeekTotal = (float) Order::where('pharmacy_id', $pharmacyId)
+            ->whereBetween('created_at', [$startOfLastWeek, $endOfLastWeek])
+            ->where(function ($q) use ($revenueStatuses) {
+                $q->whereIn('status', $revenueStatuses)
+                  ->orWhere('payment_status', 'paid');
+            })
+            ->sum('total_amount');
+
+        $percentChange = 0.0;
+        if ($lastWeekTotal > 0) {
+            $percentChange = round((($thisWeekTotal - $lastWeekTotal) / $lastWeekTotal) * 100, 1);
+        } elseif ($thisWeekTotal > 0) {
+            $percentChange = 100.0;
+        }
+
         return response()->json([
+            // Champs intelligence (compatibilité existante)
             'this_week_orders'        => $thisWeekOrders,
             'last_week_orders'        => $lastWeekOrders,
             'trend_percent'           => $trendPercent,
@@ -122,6 +164,11 @@ class PharmacyDashboardController extends Controller
             'critical_products_count' => $criticalProductsCount,
             'expiring_products_count' => $expiringProductsCount,
             'expired_products_count'  => $expiredProductsCount,
+            // Champs revenu pour RevenueChartWidget
+            'daily_data'              => $dailyData,
+            'this_week_total'         => $thisWeekTotal,
+            'last_week_total'         => $lastWeekTotal,
+            'percent_change'          => $percentChange,
         ]);
     }
 

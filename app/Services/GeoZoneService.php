@@ -227,7 +227,8 @@ class GeoZoneService
 
         if ($apiKey) {
             try {
-                $response = Http::timeout(5)->get('https://api.openweathermap.org/data/2.5/weather', [
+                $baseUrl = config('services.openweather.base_url', 'https://api.openweathermap.org/data/2.5');
+                $response = Http::timeout(5)->get("{$baseUrl}/weather", [
                     'lat' => $zone['center_lat'],
                     'lon' => $zone['center_lng'],
                     'appid' => $apiKey,
@@ -327,7 +328,8 @@ class GeoZoneService
 
         if ($tomtomKey) {
             try {
-                $response = Http::timeout(5)->get("https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json", [
+                $tomtomBase = config('services.tomtom.base_url', 'https://api.tomtom.com');
+                $response = Http::timeout(5)->get("{$tomtomBase}/traffic/services/4/flowSegmentData/absolute/10/json", [
                     'point' => "{$latitude},{$longitude}",
                     'key' => $tomtomKey,
                 ]);
