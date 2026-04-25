@@ -188,6 +188,10 @@ class CourierAssignmentService
                     'delivery_fee' => $order->delivery_fee,
                 ]);
 
+                // Prélever la commission plateforme (15% du delivery_fee) à l'assignation.
+                // Si solde insuffisant, l'exception rollback la transaction.
+                app(\App\Services\WalletService::class)->deductCommission($courier, $delivery);
+
                 Log::info("Delivery {$delivery->id} manually assigned to courier {$courier->id}");
 
                 // Broadcast Pusher
@@ -381,6 +385,11 @@ class CourierAssignmentService
             'surge_multiplier' => $offer->bonus_fee > 0 ? round(($offer->base_fee + $offer->bonus_fee) / max($offer->base_fee, 1), 2) : 1.0,
             'surge_fee' => $offer->bonus_fee,
         ]);
+
+        // Prélever la commission plateforme (15% du delivery_fee) immédiatement
+        // à l'assignation. Si solde insuffisant, l'exception bubble et la
+        // transaction d'acceptation de l'offre est rollback.
+        app(\App\Services\WalletService::class)->deductCommission($courier, $delivery);
 
         Log::info("Delivery {$delivery->id} created from offer {$offer->id} for order {$order->reference}", [
             'courier_id' => $courier->id,

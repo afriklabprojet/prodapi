@@ -10,6 +10,7 @@ use App\Services\WaitingFeeService;
 use App\Services\FirestoreService;
 use App\Services\GoogleMapsService;
 use App\Actions\CalculateCommissionAction;
+use App\Events\CourierLocationUpdated;
 use App\Notifications\CourierArrivedNotification;
 use App\Notifications\OrderDeliveredToPharmacyNotification;
 use Illuminate\Http\Request;
@@ -620,7 +621,13 @@ class DeliveryController extends Controller
                     $earningTransaction = $this->walletService->creditDeliveryEarning($courier, $delivery, $deliveryFee);
                 }
 
-                $commissionTransaction = $this->walletService->deductCommission($courier, $delivery);
+                // Commission déjà prélevée à l'assignation (CourierAssignmentService).
+                // Récupérée ici pour le payload de réponse.
+                $commissionTransaction = \App\Models\WalletTransaction::where('delivery_id', $delivery->id)
+                    ->where('category', 'commission')
+                    ->where('type', 'debit')
+                    ->latest('id')
+                    ->first();
 
                 // 6. Notifier la pharmacie que la livraison est terminée (async)
                 $pharmacy = $delivery->order->pharmacy;
@@ -753,6 +760,13 @@ class DeliveryController extends Controller
                 $history = array_slice($history, -500);
             }
             $activeDelivery->update(['location_history' => $history]);
+
+            // Broadcaster la position en temps réel vers le canal de la commande
+            event(new CourierLocationUpdated(
+                $activeDelivery,
+                $validated['latitude'],
+                $validated['longitude'],
+            ));
         }
 
         return response()->json([

@@ -341,7 +341,13 @@ class DeliveryFlowController extends Controller
                     $earningTransaction = $this->walletService->creditDeliveryEarning($courier, $delivery, $deliveryFee);
                 }
 
-                $commissionTransaction = $this->walletService->deductCommission($courier, $delivery);
+                // Commission déjà prélevée à l'assignation (CourierAssignmentService).
+                // Récupérée ici pour le payload de réponse.
+                $commissionTransaction = \App\Models\WalletTransaction::where('delivery_id', $delivery->id)
+                    ->where('category', 'commission')
+                    ->where('type', 'debit')
+                    ->latest('id')
+                    ->first();
 
                 // Notify pharmacy
                 $pharmacy = $delivery->order->pharmacy;
