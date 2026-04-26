@@ -166,7 +166,7 @@ class UserResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            \App\Filament\Resources\UserResource\RelationManagers\BadgesRelationManager::class,
         ];
     }
 
