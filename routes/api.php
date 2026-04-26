@@ -225,7 +225,10 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         
         // Product Reviews (authenticated - must have purchased)
         Route::post('/products/{id}/reviews', [\App\Http\Controllers\Api\ProductReviewController::class, 'store'])->where('id', '[0-9]+');
-        
+
+        // Badges
+        Route::get('/badges', [\App\Http\Controllers\Api\Customer\BadgeController::class, 'index']);
+
         // Loyalty Program
         Route::prefix('loyalty')->group(function () {
             Route::get('/', [\App\Http\Controllers\Api\Customer\LoyaltyController::class, 'index']);

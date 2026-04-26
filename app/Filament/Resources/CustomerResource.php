@@ -55,6 +55,11 @@ class CustomerResource extends Resource
                             ->tel()
                             ->required()
                             ->maxLength(20),
+                        Forms\Components\FileUpload::make('avatar')
+                            ->label('Photo de profil')
+                            ->image()
+                            ->directory('avatars')
+                            ->visibility('public'),
                     ])->columns(3),
 
                 Forms\Components\Section::make('Compte')
@@ -90,6 +95,9 @@ class CustomerResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\ImageColumn::make('avatar')
+                    ->label('Avatar')
+                    ->circular(),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nom')
                     ->searchable()

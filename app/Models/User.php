@@ -82,6 +82,14 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /**
+     * Badges débloqués par ce client
+     */
+    public function badges(): HasMany
+    {
+        return $this->hasMany(\App\Models\CustomerBadge::class, 'user_id');
+    }
+
+    /**
      * Ordonnances envoyées par ce client
      */
     public function prescriptions(): HasMany

@@ -85,6 +85,11 @@ class CourierResource extends Resource
                             ->tel()
                             ->required()
                             ->maxLength(20),
+                        Forms\Components\FileUpload::make('avatar')
+                            ->label('Photo de profil')
+                            ->image()
+                            ->directory('avatars')
+                            ->visibility('public'),
                         Forms\Components\TextInput::make('password')
                             ->password()
                             ->dehydrateStateUsing(fn ($state) => Hash::make($state))
@@ -217,6 +222,9 @@ class CourierResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\ImageColumn::make('user.avatar')
+                    ->label('Avatar')
+                    ->circular(),
                 Tables\Columns\TextColumn::make('user.name')
                     ->numeric()
                     ->sortable(),

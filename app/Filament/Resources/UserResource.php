@@ -126,6 +126,13 @@ class UserResource extends Resource
                     ->trueIcon('heroicon-o-check-badge')
                     ->falseIcon('heroicon-o-x-circle')
                     ->getStateUsing(fn ($record) => $record->email_verified_at !== null),
+                Tables\Columns\TextColumn::make('badges_count')
+                    ->label('Badges')
+                    ->counts('badges')
+                    ->badge()
+                    ->color('warning')
+                    ->icon('heroicon-m-trophy')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Inscrit le')
                     ->dateTime('d/m/Y H:i')
@@ -140,6 +147,10 @@ class UserResource extends Resource
                         'pharmacy' => 'Pharmacien',
                         'courier' => 'Coursier',
                     ]),
+                Tables\Filters\Filter::make('vip')
+                    ->label('Clients VIP (10+ commandes)')
+                    ->query(fn ($query) => $query->whereHas('badges', fn ($q) => $q->where('badge_id', 'vip')))
+                    ->toggle(),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

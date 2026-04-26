@@ -11,6 +11,7 @@ use App\Notifications\OrderStatusNotification;
 use App\Services\CourierAssignmentService;
 use App\Services\CommissionService;
 use App\Services\CacheService;
+use App\Services\CustomerBadgeService;
 use App\Services\FirestoreService;
 use App\Services\LoyaltyService;
 use Illuminate\Support\Facades\Log;
@@ -22,17 +23,20 @@ class OrderObserver
     protected CommissionService $commissionService;
     protected FirestoreService $firestoreService;
     protected LoyaltyService $loyaltyService;
+    protected CustomerBadgeService $badgeService;
 
     public function __construct(
         CourierAssignmentService $assignmentService,
         CommissionService $commissionService,
         FirestoreService $firestoreService,
         LoyaltyService $loyaltyService,
+        CustomerBadgeService $badgeService,
     ) {
         $this->assignmentService = $assignmentService;
         $this->commissionService = $commissionService;
         $this->firestoreService = $firestoreService;
         $this->loyaltyService = $loyaltyService;
+        $this->badgeService = $badgeService;
     }
 
     /**
@@ -208,6 +212,22 @@ class OrderObserver
             ]);
         } catch (\Exception $e) {
             Log::error("Error awarding loyalty points for order {$order->id}: " . $e->getMessage());
+        }
+
+        // Vérifier les badges client (1 / 5 / 10 commandes livrées)
+        try {
+            if ($order->customer) {
+                $unlocked = $this->badgeService->checkOrderMilestones($order->customer);
+                if (!empty($unlocked)) {
+                    Log::info('Badges débloqués après livraison', [
+                        'order_id' => $order->id,
+                        'customer_id' => $order->customer_id,
+                        'badges' => array_map(fn ($b) => $b->badge_id, $unlocked),
+                    ]);
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error("Erreur badges pour order {$order->id}: " . $e->getMessage());
         }
     }
 

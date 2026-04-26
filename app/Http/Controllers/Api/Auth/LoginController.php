@@ -292,6 +292,7 @@ class LoginController extends Controller
             $data['total_orders'] = $orders->count();
             $data['completed_orders'] = (clone $orders)->where('status', 'delivered')->count();
             $data['total_spent'] = (clone $orders)->where('payment_status', 'paid')->sum('total_amount');
+            $data['badges_count'] = app(\App\Services\CustomerBadgeService::class)->countFor($user);
         } elseif ($user->role === 'pharmacy') {
             $data['pharmacies'] = $user->pharmacies;
             // Wallet est sur le modèle Pharmacy, pas User
@@ -374,6 +375,7 @@ class LoginController extends Controller
             $responseData['total_orders'] = $user->orders()->count();
             $responseData['completed_orders'] = $user->orders()->where('status', 'delivered')->count();
             $responseData['total_spent'] = $user->orders()->where('status', 'delivered')->sum('total_amount');
+            $responseData['badges_count'] = app(\App\Services\CustomerBadgeService::class)->countFor($user);
         }
 
         return response()->json([
