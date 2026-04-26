@@ -313,13 +313,16 @@ class LoginController extends Controller
      */
     public function updateProfile(Request $request)
     {
+        $userId = $request->user()->id;
+
         $request->validate([
             'name' => 'nullable|string|max:255',
-            'phone' => 'nullable|string|max:20|unique:users,phone,' . $request->user()->id,
+            'email' => 'nullable|email|max:255|unique:users,email,' . $userId,
+            'phone' => 'nullable|string|max:20|unique:users,phone,' . $userId,
         ]);
 
         $user = $request->user();
-        
+
         $data = [];
         if ($request->has('name') && $request->name) {
             $data['name'] = $request->name;
@@ -331,28 +334,52 @@ class LoginController extends Controller
                 $data['phone_verified_at'] = null;
             }
         }
-        
+        if ($request->has('email') && $request->email) {
+            // Si l'email change, invalider la vérification
+            if ($user->email !== $request->email) {
+                $data['email'] = $request->email;
+                $data['email_verified_at'] = null;
+            }
+        }
+
         if (empty($data)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Aucune donnée à mettre à jour',
             ], 400);
         }
-        
+
         $user->update($data);
+        $user->refresh();
+
+        // Reconstruire la réponse avec les mêmes champs que me() pour éviter
+        // que le client ne perde les stats (total_orders, completed_orders, total_spent, etc.)
+        $responseData = [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'role' => $user->role,
+            'avatar' => $user->avatar,
+            'phone_verified_at' => $user->phone_verified_at,
+            'email_verified_at' => $user->email_verified_at,
+            'created_at' => $user->created_at,
+        ];
+
+        if ($user->role === 'customer') {
+            $defaultAddress = $user->addresses()->where('is_default', true)->first();
+            $responseData['default_address'] = $defaultAddress?->full_address;
+            $responseData['default_address_id'] = $defaultAddress?->id;
+            $responseData['addresses_count'] = $user->addresses()->count();
+            $responseData['total_orders'] = $user->orders()->count();
+            $responseData['completed_orders'] = $user->orders()->where('status', 'delivered')->count();
+            $responseData['total_spent'] = $user->orders()->where('status', 'delivered')->sum('total_amount');
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Profil mis à jour avec succès',
-            'data' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'phone' => $user->phone,
-                'role' => $user->role,
-                'avatar' => $user->avatar,
-                'phone_verified_at' => $user->phone_verified_at,
-            ],
+            'data' => $responseData,
         ]);
     }
 
