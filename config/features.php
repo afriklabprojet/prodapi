@@ -50,4 +50,8 @@ return [
         'maintenance_mode' => env('FEATURE_DELIVERY_MAINTENANCE', false),
         'maintenance_message' => env('FEATURE_DELIVERY_MAINTENANCE_MSG', 'L\'application est en maintenance.'),
     ],
+
+    // 2FA obligatoire pour tout accès au panel admin Filament.
+    // Désactivable temporairement (ex: rollout) via FEATURE_ADMIN_2FA_REQUIRED=false.
+    'admin_2fa_required' => env('FEATURE_ADMIN_2FA_REQUIRED', true),
 ];

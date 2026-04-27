@@ -84,6 +84,7 @@ class AdminPanelProvider extends PanelProvider
                 Authenticate::class,
                 \App\Http\Middleware\EnsureUserIsAdmin::class,
                 \App\Http\Middleware\ForcePasswordChange::class,
+                \App\Http\Middleware\EnsureTwoFactorChallenge::class,
             ])
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s');
