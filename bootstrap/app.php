@@ -77,7 +77,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->reportable(function (AuthenticationException $e) {
             $request = request();
             if ($request->is('api/*') || $request->expectsJson()) {
-                Log::channel('security')->info('[ACCESS_DENIED] unauthenticated', [
+                Log::channel('security')->warning('[ACCESS_DENIED] unauthenticated', [
                     'ip' => $request->ip(),
                     'method' => $request->method(),
                     'path' => $request->path(),
