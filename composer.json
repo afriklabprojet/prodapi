@@ -16,6 +16,7 @@
         "infobip/infobip-api-php-client": "^6.2",
         "kreait/laravel-firebase": "^6.2",
         "laravel/framework": "^12.0",
+        "laravel/horizon": "^5.46",
         "laravel/sanctum": "^4.2",
         "laravel/tinker": "^2.10.1",
         "nesbot/carbon": "^3.8",

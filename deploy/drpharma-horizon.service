@@ -1,0 +1,36 @@
+[Unit]
+Description=DR-PHARMA Laravel Horizon (queue master + auto-scaling workers)
+After=network.target redis.service mariadb.service
+Requires=redis.service
+
+[Service]
+Type=simple
+User=drpharma
+Group=drpharma
+WorkingDirectory=/var/www/drpharma
+
+# Horizon est un master qui spawn ses propres workers selon config/horizon.php
+ExecStart=/usr/bin/php8.3 /var/www/drpharma/artisan horizon
+# SIGTERM = arret gracieux (Horizon attend que les jobs en cours finissent)
+ExecStop=/usr/bin/php8.3 /var/www/drpharma/artisan horizon:terminate
+KillSignal=SIGTERM
+TimeoutStopSec=120
+
+Restart=always
+RestartSec=5
+
+# Securite
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+# Logs
+StandardOutput=append:/var/log/drpharma/horizon.log
+StandardError=append:/var/log/drpharma/horizon.error.log
+
+# Limites generales (chaque worker enfant a sa propre limite memoire dans config/horizon.php)
+LimitNOFILE=10000
+
+[Install]
+WantedBy=multi-user.target

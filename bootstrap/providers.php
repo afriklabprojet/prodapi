@@ -6,5 +6,6 @@ return [
     App\Providers\Filament\FinancePanelProvider::class,
     App\Providers\Filament\PharmacyPanelProvider::class,
     App\Providers\Filament\SupportPanelProvider::class,
+    App\Providers\HorizonServiceProvider::class,
     App\Providers\SmsServiceProvider::class,
 ];

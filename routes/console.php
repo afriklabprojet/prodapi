@@ -15,6 +15,11 @@ Schedule::job(new \App\Jobs\CheckPendingPaymentsJob)->everyTwoMinutes()
     ->withoutOverlapping()
     ->onOneServer();
 
+// Horizon : snapshot des metriques toutes les 5 minutes (dashboard waiting time, throughput)
+Schedule::command('horizon:snapshot')->everyFiveMinutes()
+    ->withoutOverlapping()
+    ->onOneServer();
+
 // Expirer les paiements wallet abandonnés après 10 minutes (toutes les 2 min)
 // Wave/JEKO peuvent mettre 1-3 min pour que l'utilisateur confirme + 10-60s de webhook
 Schedule::call(function () {
