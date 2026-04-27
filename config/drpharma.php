@@ -3,6 +3,15 @@
 return [
     /*
     |--------------------------------------------------------------------------
+    | Observability
+    |--------------------------------------------------------------------------
+    | Token requis pour accéder à GET /api/metrics (header X-Metrics-Token).
+    | Définir METRICS_TOKEN dans .env (vide = endpoint désactivé).
+    */
+    'metrics_token' => env('METRICS_TOKEN', ''),
+
+    /*
+    |--------------------------------------------------------------------------
     | DR-PHARMA Brand Configuration
     |--------------------------------------------------------------------------
     |
