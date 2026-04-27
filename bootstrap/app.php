@@ -73,21 +73,10 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         // SECURITY LOGGING — accès refusés (auth/authz/rate-limit)
-        // Aide à détecter brute-force, scan d'autorisation, scrapers.
-        $exceptions->reportable(function (AuthenticationException $e) {
-            $request = request();
-            if ($request->is('api/*') || $request->expectsJson()) {
-                Log::channel('security')->warning('[ACCESS_DENIED] unauthenticated', [
-                    'ip' => $request->ip(),
-                    'method' => $request->method(),
-                    'path' => $request->path(),
-                    'ua' => substr((string) $request->userAgent(), 0, 200),
-                ]);
-            }
-        });
-
-        $exceptions->reportable(function (AuthorizationException $e) {
-            $request = request();
+        // Aide à détecter brute-force, scan IDOR/RBAC, scrapers.
+        // NOTE: utiliser render() (et non reportable) car Laravel ignore le report
+        // pour AuthenticationException / AuthorizationException / ThrottleRequestsException.
+        $exceptions->render(function (AuthorizationException $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
                 Log::channel('security')->warning('[ACCESS_DENIED] forbidden', [
                     'ip' => $request->ip(),
@@ -96,11 +85,15 @@ return Application::configure(basePath: dirname(__DIR__))
                     'path' => $request->path(),
                     'reason' => $e->getMessage(),
                 ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès refusé',
+                    'error_code' => 'FORBIDDEN',
+                ], 403);
             }
         });
 
-        $exceptions->reportable(function (ThrottleRequestsException $e) {
-            $request = request();
+        $exceptions->render(function (ThrottleRequestsException $e, Request $request) {
             Log::channel('security')->warning('[RATE_LIMIT] throttled', [
                 'ip' => $request->ip(),
                 'user_id' => optional($request->user())->id,
@@ -108,6 +101,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 'path' => $request->path(),
                 'ua' => substr((string) $request->userAgent(), 0, 200),
             ]);
+            // Laisse Laravel rendre la 429 par défaut (avec Retry-After header).
         });
 
         // Retourner JSON pour les modèles non trouvés (404) sur les requêtes API
@@ -127,6 +121,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // au lieu de rediriger vers une route login
         $exceptions->render(function (AuthenticationException $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
+                Log::channel('security')->warning('[ACCESS_DENIED] unauthenticated', [
+                    'ip' => $request->ip(),
+                    'method' => $request->method(),
+                    'path' => $request->path(),
+                    'ua' => substr((string) $request->userAgent(), 0, 200),
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Non authentifié',
