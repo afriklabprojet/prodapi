@@ -4,8 +4,11 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -67,6 +70,44 @@ return Application::configure(basePath: dirname(__DIR__))
             if (app()->bound('sentry')) {
                 \Sentry\Laravel\Integration::captureUnhandledException($e);
             }
+        });
+
+        // SECURITY LOGGING — accès refusés (auth/authz/rate-limit)
+        // Aide à détecter brute-force, scan d'autorisation, scrapers.
+        $exceptions->reportable(function (AuthenticationException $e) {
+            $request = request();
+            if ($request->is('api/*') || $request->expectsJson()) {
+                Log::channel('security')->info('[ACCESS_DENIED] unauthenticated', [
+                    'ip' => $request->ip(),
+                    'method' => $request->method(),
+                    'path' => $request->path(),
+                    'ua' => substr((string) $request->userAgent(), 0, 200),
+                ]);
+            }
+        });
+
+        $exceptions->reportable(function (AuthorizationException $e) {
+            $request = request();
+            if ($request->is('api/*') || $request->expectsJson()) {
+                Log::channel('security')->warning('[ACCESS_DENIED] forbidden', [
+                    'ip' => $request->ip(),
+                    'user_id' => optional($request->user())->id,
+                    'method' => $request->method(),
+                    'path' => $request->path(),
+                    'reason' => $e->getMessage(),
+                ]);
+            }
+        });
+
+        $exceptions->reportable(function (ThrottleRequestsException $e) {
+            $request = request();
+            Log::channel('security')->warning('[RATE_LIMIT] throttled', [
+                'ip' => $request->ip(),
+                'user_id' => optional($request->user())->id,
+                'method' => $request->method(),
+                'path' => $request->path(),
+                'ua' => substr((string) $request->userAgent(), 0, 200),
+            ]);
         });
 
         // Retourner JSON pour les modèles non trouvés (404) sur les requêtes API
