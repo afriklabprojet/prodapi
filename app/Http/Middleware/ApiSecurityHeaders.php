@@ -34,6 +34,14 @@ class ApiSecurityHeaders
         $response->headers->set('Cross-Origin-Opener-Policy', 'same-origin');
         $response->headers->set('Cross-Origin-Resource-Policy', 'same-site');
 
+        // CSP API JSON — verrouillé : aucune ressource exécutable.
+        // Une réponse JSON ne charge ni script, ni image, ni style ; tout interdire.
+        // Audit P-Moy #5.
+        $response->headers->set(
+            'Content-Security-Policy',
+            "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+        );
+
         // Desactiver toutes les API navigateur sensibles par defaut (API JSON n'en a pas besoin)
         $response->headers->set(
             'Permissions-Policy',
