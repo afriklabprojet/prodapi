@@ -27,8 +27,18 @@ class TwoFactorChallenge extends Page implements Forms\Contracts\HasForms
 
     public function mount(): void
     {
+        if (! config('features.admin_2fa_required', true)) {
+            $this->redirect('/admin');
+            return;
+        }
+
         /** @var \App\Models\User $user */
         $user = Auth::user();
+        if (! $user) {
+            $this->redirect('/admin/login');
+            return;
+        }
+
         if (! $user->hasTwoFactorEnabled()) {
             $this->redirect('/admin/two-factor/setup');
             return;

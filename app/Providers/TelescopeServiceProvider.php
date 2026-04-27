@@ -64,11 +64,13 @@ class TelescopeServiceProvider extends ServiceProvider
     }
 
     /**
-     * Check if Telescope is installed.
+     * Check if Telescope is installed AND enabled via env.
+     * Set TELESCOPE_ENABLED=false in production to disable.
      */
     private function telescopeInstalled(): bool
     {
-        return class_exists(\Laravel\Telescope\Telescope::class);
+        return class_exists(\Laravel\Telescope\Telescope::class)
+            && (bool) env('TELESCOPE_ENABLED', false);
     }
 
     /**
