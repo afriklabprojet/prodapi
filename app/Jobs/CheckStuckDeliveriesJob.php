@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Jobs\DispatchDeliveryJob;
 use App\Models\Delivery;
 use App\Notifications\OrderStatusNotification;
 use Illuminate\Bus\Queueable;
@@ -14,13 +15,15 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Détecte et traite les livraisons bloquées.
+ * Détecte et traite les livraisons bloquées (style Uber/Yango).
  *
- * - Livraisons en "assigned/accepted" depuis >2h sans pickup → relance livreur
- * - Livraisons en "picked_up/in_transit" depuis >24h → alerte admin
- * - Livraisons bloquées >48h → annulation automatique
+ * Paliers progressifs :
+ *  - 15 min sans pickup            → release coursier + relance dispatch (réassignation)
+ *  - 2 h sans pickup (cas extrême) → rappel notification au coursier
+ *  - 24 h en transit               → alerte admin (log warning)
+ *  - 48 h bloquée                  → annulation automatique + remboursement
  *
- * Exécuté toutes les 30 minutes.
+ * Exécuté toutes les 5 minutes (la réassignation doit être réactive).
  */
 class CheckStuckDeliveriesJob implements ShouldQueue
 {
@@ -29,6 +32,7 @@ class CheckStuckDeliveriesJob implements ShouldQueue
     public int $tries = 2;
     public int $timeout = 120;
 
+    private const REASSIGN_TIMEOUT_MINUTES = 15;
     private const PICKUP_TIMEOUT_HOURS = 2;
     private const ALERT_THRESHOLD_HOURS = 24;
     private const AUTO_CANCEL_THRESHOLD_HOURS = 48;
@@ -41,10 +45,32 @@ class CheckStuckDeliveriesJob implements ShouldQueue
     public function handle(): void
     {
         $stats = [
+            'reassigned' => 0,
             'reminded' => 0,
             'alerted' => 0,
             'cancelled' => 0,
         ];
+
+        // 0. PRIORITÉ — Livraisons assignées >15min sans pickup → réassigne au suivant
+        //    (le coursier a accepté mais ne bouge pas, on libère pour ne pas bloquer le client)
+        $toReassign = Delivery::whereIn('status', ['assigned', 'accepted'])
+            ->where('assigned_at', '<', now()->subMinutes(self::REASSIGN_TIMEOUT_MINUTES))
+            ->whereNull('picked_up_at')
+            ->with(['courier', 'order'])
+            ->limit(30)
+            ->get();
+
+        foreach ($toReassign as $delivery) {
+            try {
+                $this->reassignDelivery($delivery);
+                $stats['reassigned']++;
+            } catch (\Throwable $e) {
+                Log::warning('CheckStuckDeliveries: reassign failed', [
+                    'delivery_id' => $delivery->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
 
         // 1. Livraisons assignées/acceptées mais jamais récupérées (>2h)
         $unpickedDeliveries = Delivery::whereIn('status', ['assigned', 'accepted'])
@@ -177,6 +203,66 @@ class CheckStuckDeliveriesJob implements ShouldQueue
     {
         Log::error('CheckStuckDeliveriesJob failed', [
             'error' => $exception->getMessage(),
+        ]);
+    }
+
+    /**
+     * Libère la livraison du coursier qui ne progresse pas, remet la commande
+     * en attente et relance un dispatch broadcast (réassignation au suivant).
+     * Notifie le client + l'ancien coursier.
+     */
+    private function reassignDelivery(Delivery $delivery): void
+    {
+        $order = $delivery->order;
+        if (!$order || in_array($order->status, ['cancelled', 'delivered', 'failed'], true)) {
+            return;
+        }
+
+        $previousCourier = $delivery->courier;
+        DB::beginTransaction();
+        try {
+            $delivery->update([
+                'status' => 'reassigned',
+                'failure_reason' => 'Coursier inactif >' . self::REASSIGN_TIMEOUT_MINUTES . 'min — réassignation auto',
+                'reassigned_at' => now(),
+            ]);
+
+            // Remettre la commande en attente d'assignation
+            $order->update([
+                'status' => 'pending_assignment',
+                'courier_id' => null,
+            ]);
+
+            if ($previousCourier) {
+                $previousCourier->update(['status' => 'available']);
+            }
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
+
+        // Relance le dispatch (level 1, le service escaladera si besoin)
+        DispatchDeliveryJob::dispatch($order, 1)->afterCommit();
+
+        // Notifie l'ancien coursier (silencieux si fail)
+        try {
+            if ($previousCourier?->user) {
+                $previousCourier->user->notify(new OrderStatusNotification(
+                    $order,
+                    'reassigned',
+                    "La commande {$order->reference} vous a été retirée pour cause d'inactivité (>" . self::REASSIGN_TIMEOUT_MINUTES . " min)."
+                ));
+            }
+        } catch (\Throwable) {
+            // ignore
+        }
+
+        Log::info('CheckStuckDeliveries: delivery reassigned', [
+            'delivery_id' => $delivery->id,
+            'order_reference' => $order->reference,
+            'previous_courier_id' => $previousCourier?->id,
         ]);
     }
 }

@@ -1,0 +1,29 @@
+[Unit]
+Description=DR-PHARMA Laravel Reverb (WebSocket server, Pusher protocol)
+After=network.target mariadb.service
+Wants=mariadb.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/drpharma
+ExecStart=/usr/bin/php artisan reverb:start --host=127.0.0.1 --port=8080 --no-interaction
+Restart=always
+RestartSec=5
+
+# Sécurité
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+# Logs
+StandardOutput=append:/var/log/drpharma/reverb.log
+StandardError=append:/var/log/drpharma/reverb.error.log
+
+# Limites
+LimitNOFILE=10000
+
+[Install]
+WantedBy=multi-user.target

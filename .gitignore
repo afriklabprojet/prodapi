@@ -66,3 +66,4 @@ nohup.out
 # Fichiers locaux avec vraies clés API (ne jamais commiter)
 mobile/client/config/prod.env.local
 mobile/*/config/*.env.local
+tmp/

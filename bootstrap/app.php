@@ -62,6 +62,13 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Sentry — capture toutes les exceptions non gérées (no-op si SENTRY_LARAVEL_DSN vide)
+        $exceptions->reportable(function (\Throwable $e) {
+            if (app()->bound('sentry')) {
+                \Sentry\Laravel\Integration::captureUnhandledException($e);
+            }
+        });
+
         // Retourner JSON pour les modèles non trouvés (404) sur les requêtes API
         $exceptions->render(function (ModelNotFoundException $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {

@@ -81,8 +81,8 @@ Schedule::job(new \App\Jobs\ReconcileWalletBalancesJob)->dailyAt('02:00')
     ->withoutOverlapping()
     ->onOneServer();
 
-// Détecter les livraisons bloquées (toutes les 30 min)
-Schedule::job(new \App\Jobs\CheckStuckDeliveriesJob)->everyThirtyMinutes()
+// Détecter les livraisons bloquées + réassigner coursier inactif (toutes les 5 min)
+Schedule::job(new \App\Jobs\CheckStuckDeliveriesJob)->everyFiveMinutes()
     ->withoutOverlapping()
     ->onOneServer();
 

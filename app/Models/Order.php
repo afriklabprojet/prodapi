@@ -44,6 +44,8 @@ class Order extends Model
         'cancelled_at',
         'cancellation_reason',
         'payment_reference',
+        'pricing_snapshot',
+        'pricing_source',
     ];
 
     protected $casts = [
@@ -59,6 +61,7 @@ class Order extends Model
         'paid_at' => 'datetime',
         'delivered_at' => 'datetime',
         'cancelled_at' => 'datetime',
+        'pricing_snapshot' => 'array',
     ];
 
     protected static function boot()

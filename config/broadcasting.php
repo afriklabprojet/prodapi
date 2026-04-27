@@ -11,11 +11,11 @@ return [
     | framework when an event needs to be broadcast. You may set this to
     | any of the connections defined in the "connections" array below.
     |
-    | Supported: "pusher", "ably", "redis", "log", "null"
+    | Supported: "reverb", "pusher", "ably", "redis", "log", "null"
     |
     */
 
-    'default' => env('BROADCAST_CONNECTION', 'pusher'),
+    'default' => env('BROADCAST_CONNECTION', 'reverb'),
 
     /*
     |--------------------------------------------------------------------------
@@ -29,6 +29,34 @@ return [
     */
 
     'connections' => [
+
+        /*
+        |--------------------------------------------------------------------------
+        | Laravel Reverb (self-hosted, protocole Pusher)
+        |--------------------------------------------------------------------------
+        |
+        | Reverb est compatible Pusher : les SDKs mobiles existants fonctionnent
+        | sans changement, il suffit de pointer sur l'hôte Reverb.
+        | Économie ~120 €/mois vs. Pusher Cloud sur le volume DR-PHARMA.
+        |
+        | Démarrage prod : `php artisan reverb:start --host=0.0.0.0 --port=8080`
+        | (voir deploy/drpharma-reverb.service)
+        */
+        'reverb' => [
+            'driver' => 'reverb',
+            'key' => env('REVERB_APP_KEY'),
+            'secret' => env('REVERB_APP_SECRET'),
+            'app_id' => env('REVERB_APP_ID'),
+            'options' => [
+                'host' => env('REVERB_HOST', '0.0.0.0'),
+                'port' => env('REVERB_PORT', 8080),
+                'scheme' => env('REVERB_SCHEME', 'https'),
+                'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
+            ],
+            'client_options' => [
+                // Guzzle client options
+            ],
+        ],
 
         'pusher' => [
             'driver' => 'pusher',

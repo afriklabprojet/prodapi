@@ -88,9 +88,9 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // Authentication endpoints - Rate limiting (anti brute-force)
-        // Beta: 20/min — Production recommandé: 5/min
+        // Prod par défaut: 5/min — surchargeable via RATE_LIMIT_AUTH
         RateLimiter::for('auth', function (Request $request) {
-            return Limit::perMinute(20)->by($request->ip())
+            return Limit::perMinute((int) env('RATE_LIMIT_AUTH', 5))->by($request->ip())
                 ->response(function () {
                     return response()->json([
                         'success' => false,
@@ -100,9 +100,9 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // OTP verification - Rate limiting (anti brute-force OTP)
-        // Beta: 15/min — Production recommandé: 3/min
+        // Prod par défaut: 3/min — surchargeable via RATE_LIMIT_OTP
         RateLimiter::for('otp', function (Request $request) {
-            return Limit::perMinute(15)->by($request->ip())
+            return Limit::perMinute((int) env('RATE_LIMIT_OTP', 3))->by($request->ip())
                 ->response(function () {
                     return response()->json([
                         'success' => false,
@@ -112,9 +112,9 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // OTP sending - Limité pour éviter le spam SMS
-        // Beta: 10/min — Production recommandé: 2/min
+        // Prod par défaut: 2/min — surchargeable via RATE_LIMIT_OTP_SEND
         RateLimiter::for('otp-send', function (Request $request) {
-            return Limit::perMinute(10)->by($request->ip())
+            return Limit::perMinute((int) env('RATE_LIMIT_OTP_SEND', 2))->by($request->ip())
                 ->response(function () {
                     return response()->json([
                         'success' => false,
@@ -124,9 +124,9 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // Password reset
-        // Beta: 10/min — Production recommandé: 3/min
+        // Prod par défaut: 3/min — surchargeable via RATE_LIMIT_PASSWORD_RESET
         RateLimiter::for('password-reset', function (Request $request) {
-            return Limit::perMinute(10)->by($request->ip())
+            return Limit::perMinute((int) env('RATE_LIMIT_PASSWORD_RESET', 3))->by($request->ip())
                 ->response(function () {
                     return response()->json([
                         'success' => false,

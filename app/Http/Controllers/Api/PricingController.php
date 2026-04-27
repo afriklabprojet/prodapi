@@ -83,8 +83,10 @@ class PricingController extends Controller
         // Garantit : total checkout Flutter == total DB == total JEKO.
         $items = $request->input('items', []);
 
+        $pharmacyId = $request->input('pharmacy_id') !== null ? (int) $request->input('pharmacy_id') : null;
+
         $pricing = app(\App\Services\PricingService::class)->calculateFullPricing(
-            $request->input('pharmacy_id') !== null ? (int) $request->input('pharmacy_id') : null,
+            $pharmacyId,
             $items,
             $request->input('delivery_latitude')  !== null ? (float) $request->input('delivery_latitude')  : null,
             $request->input('delivery_longitude') !== null ? (float) $request->input('delivery_longitude') : null,
@@ -94,16 +96,28 @@ class PricingController extends Controller
             empty($items) ? (int) $request->input('subtotal', 0) : null
         );
 
+        // Émettre un quote_token signé (TTL 5 min) si on a tous les éléments nécessaires.
+        // Le client devra le renvoyer dans POST /customer/orders pour figer le prix.
+        $quoteToken = null;
+        $quoteExpiresAt = null;
+        if ($pharmacyId !== null && !empty($items)) {
+            $quoteService = app(\App\Services\PricingQuoteService::class);
+            $quoteToken = $quoteService->issue($pricing, $items, $pharmacyId, $paymentMode);
+            $quoteExpiresAt = now()->addSeconds(\App\Services\PricingQuoteService::TTL_SECONDS)->toIso8601String();
+        }
+
         return response()->json([
             'success' => true,
             'data' => [
-                'subtotal'     => $pricing['subtotal'],
-                'delivery_fee' => $pricing['delivery_fee'],
-                'service_fee'  => $pricing['service_fee'],
-                'payment_fee'  => $pricing['payment_fee'],
-                'total_amount' => $pricing['total_amount'],
-                'distance_km'  => $pricing['distance_km'],
-                'currency'     => 'XOF',
+                'subtotal'         => $pricing['subtotal'],
+                'delivery_fee'     => $pricing['delivery_fee'],
+                'service_fee'      => $pricing['service_fee'],
+                'payment_fee'      => $pricing['payment_fee'],
+                'total_amount'     => $pricing['total_amount'],
+                'distance_km'      => $pricing['distance_km'],
+                'currency'         => 'XOF',
+                'quote_token'      => $quoteToken,
+                'quote_expires_at' => $quoteExpiresAt,
             ],
         ]);
     }

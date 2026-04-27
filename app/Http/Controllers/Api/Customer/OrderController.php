@@ -107,6 +107,9 @@ class OrderController extends Controller
             'customer_phone' => 'required|string',
             'payment_mode' => 'required|in:mobile_money,card,platform,cash,on_delivery',
             'promo_code' => 'nullable|string|max:50',
+            // Quote signé émis par /pricing/calculate (TTL 5 min). Si fourni et valide,
+            // on utilise EXACTEMENT les montants du quote — le client paie ce qu'il a vu.
+            'quote_token' => 'nullable|string|max:2048',
         ]);
 
         // Vérifier que le mode de paiement est activé dans les paramètres
@@ -159,14 +162,52 @@ class OrderController extends Controller
             $validated['delivery_address'] ?? null
         );
 
-        Log::info('[OrderController::store] 📍 Pricing result', [
-            'delivery_fee' => $pricing['delivery_fee'] ?? null,
-            'total_amount' => $pricing['total_amount'] ?? null,
-            'distance_km'  => $pricing['distance_km'] ?? null,
+        // ── Pricing Quote signé ────────────────────────────────────────────
+        // Si le client a renvoyé le quote_token émis par /pricing/calculate ET qu'il
+        // est valide (signature OK, non expiré, items inchangés) alors on FIGE les
+        // montants sur ceux du quote. Sinon, on utilise le recompute (current behavior).
+        $quoteService = app(\App\Services\PricingQuoteService::class);
+        $quoteResult = $quoteService->verify(
+            $validated['quote_token'] ?? null,
+            (int) $validated['pharmacy_id'],
+            $validated['payment_mode'],
+            $items
+        );
+
+        $pricingSource = 'recompute';
+        if ($quoteResult['valid']) {
+            // Quote valide : on écrase les montants par ceux du token signé.
+            $signed = $quoteResult['payload'];
+            $pricing['subtotal']     = (int) $signed['subtotal'];
+            $pricing['delivery_fee'] = (int) $signed['delivery_fee'];
+            $pricing['service_fee']  = (int) $signed['service_fee'];
+            $pricing['payment_fee']  = (int) $signed['payment_fee'];
+            $pricing['total_amount'] = (int) $signed['total_amount'];
+            $pricingSource = 'quote';
+            Log::info('[OrderController::store]  Quote signé utilisé (prix figuré)', [
+                'pharmacy_id'  => $validated['pharmacy_id'],
+                'total_amount' => $pricing['total_amount'],
+                'issued_at'    => $signed['issued_at'] ?? null,
+            ]);
+        } elseif (!empty($validated['quote_token'])) {
+            // Quote fourni mais invalide → log mismatch pour audit/alertes.
+            $pricingSource = 'recompute_quote_invalid';
+            Log::warning('[OrderController::store] ⚠️ Quote token invalide → recompute', [
+                'pharmacy_id'  => $validated['pharmacy_id'],
+                'reason'       => $quoteResult['reason'],
+                'recompute_total' => $pricing['total_amount'],
+            ]);
+        }
+
+        Log::info('[OrderController::store]  Pricing result', [
+            'delivery_fee'    => $pricing['delivery_fee'] ?? null,
+            'total_amount'    => $pricing['total_amount'] ?? null,
+            'distance_km'     => $pricing['distance_km'] ?? null,
+            'pricing_source'  => $pricingSource,
         ]);
 
         try {
-            $order = DB::transaction(function () use ($request, $validated, $items, $pricing) {
+            $order = DB::transaction(function () use ($request, $validated, $items, $pricing, $pricingSource) {
                 // Preload all products at once with lock to prevent race condition
                 $productIds = collect($items)->pluck('id')->filter()->unique()->values()->toArray();
                 $products = !empty($productIds) 
@@ -257,6 +298,20 @@ class OrderController extends Controller
                     'customer_phone' => $validated['customer_phone'],
                     'promo_code_id' => $promoCodeId,
                     'promo_discount' => $promoDiscount,
+                    // Audit immuable : on stocke EXACTEMENT ce qui a été utilisé pour le total.
+                    'pricing_snapshot' => [
+                        'subtotal'        => $subtotal,
+                        'delivery_fee'    => $deliveryFee,
+                        'service_fee'     => $serviceFee,
+                        'payment_fee'     => $paymentFee,
+                        'total_amount'    => $totalAmount,
+                        'promo_discount'  => $promoDiscount,
+                        'distance_km'     => $pricing['distance_km'] ?? null,
+                        'delivery_source' => $pricing['delivery_source'] ?? null,
+                        'currency'        => 'XOF',
+                        'computed_at'     => now()->toIso8601String(),
+                    ],
+                    'pricing_source' => $pricingSource,
                 ]);
 
                 // Create order items using preloaded products + decrement stock
