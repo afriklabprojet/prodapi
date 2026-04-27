@@ -605,6 +605,9 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
 // Public health check (no auth required)
 Route::get('/health', \App\Http\Controllers\Api\HealthController::class);
 
+// Metrics Prometheus (token-gated via X-Metrics-Token header / METRICS_TOKEN env)
+Route::get('/metrics', \App\Http\Controllers\Api\MetricsController::class);
+
 // DEBUG: Diagnostic pharmacies — protégé par auth admin
 Route::middleware(['auth:sanctum'])->get('/debug/pharmacies-audit', function () {
     // Restreindre aux admins uniquement

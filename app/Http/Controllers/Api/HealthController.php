@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Traits\ApiResponder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Redis;
+use Laravel\Horizon\Contracts\MasterSupervisorRepository;
 
 /**
  * Health check public (pour monitoring + mobile startup)
@@ -65,13 +67,40 @@ class HealthController extends Controller
             $healthy = false;
         }
 
-        // Queue check (table exists)
+        // Queue check (Redis + Horizon)
         try {
-            $queueSize = DB::table('jobs')->count();
+            // Ping Redis (queue connection)
+            Redis::connection('default')->ping();
+            $checks['redis'] = 'ok';
+
+            // Compte des jobs en attente sur la queue par défaut (Redis list)
+            $queueSize = (int) Redis::connection('default')->llen('queues:default');
             $checks['queue'] = 'ok';
             $checks['queue_size'] = $queueSize;
         } catch (\Throwable $e) {
-            $checks['queue'] = 'unavailable';
+            $checks['redis'] = 'error';
+            $checks['queue'] = 'error';
+            $healthy = false;
+        }
+
+        // Horizon supervisors
+        try {
+            /** @var MasterSupervisorRepository $masters */
+            $masters = app(MasterSupervisorRepository::class);
+            $supervisors = $masters->all();
+            $activeCount = 0;
+            foreach ($supervisors as $s) {
+                if (($s->status ?? null) === 'running') {
+                    $activeCount++;
+                }
+            }
+            $checks['horizon'] = $activeCount > 0 ? 'ok' : 'down';
+            $checks['horizon_supervisors'] = $activeCount;
+            if ($activeCount === 0) {
+                $healthy = false;
+            }
+        } catch (\Throwable $e) {
+            $checks['horizon'] = 'unavailable';
         }
 
         $status = $healthy ? 200 : 503;
