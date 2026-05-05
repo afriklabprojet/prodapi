@@ -18,7 +18,7 @@ return [
         'stack' => [
             'driver' => 'stack',
             'channels' => explode(',', env('LOG_STACK', 'single')),
-            'ignore_exceptions' => false,
+            'ignore_exceptions' => true, // évite les 500 si storage/logs n'est pas accessible
         ],
 
         'single' => [

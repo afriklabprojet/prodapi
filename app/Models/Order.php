@@ -120,6 +120,14 @@ class Order extends Model
     }
 
     /**
+     * Offres de livraison
+     */
+    public function deliveryOffers(): HasMany
+    {
+        return $this->hasMany(DeliveryOffer::class);
+    }
+
+    /**
      * Livraison
      */
     public function delivery(): HasOne
@@ -162,7 +170,7 @@ class Order extends Model
     /**
      * Scope: commandes payées (via paiement réel)
      */
-    public function scopePaid($query)
+    public function scopePaid(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
         return $query->whereIn('status', [
             'confirmed',
@@ -180,7 +188,7 @@ class Order extends Model
      *  - 'cancelled' → annulée (manuellement ou par le sweeper automatique)
      * Seules les commandes réellement acceptées par la pharmacie sont comptées.
      */
-    public function scopeForStats($query)
+    public function scopeForStats(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
         return $query->whereNotIn('status', ['pending', 'cancelled']);
     }
@@ -188,7 +196,7 @@ class Order extends Model
     /**
      * Scope: commandes d'une pharmacie
      */
-    public function scopeForPharmacy($query, int $pharmacyId)
+    public function scopeForPharmacy(\Illuminate\Database\Eloquent\Builder $query, int $pharmacyId): \Illuminate\Database\Eloquent\Builder
     {
         return $query->where('pharmacy_id', $pharmacyId);
     }
